@@ -1,1 +1,44 @@
-/* You can add global styles to this file, and also import other style files */
+/* Global Styles for Vanguard App */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Montserrat', 'Inter', sans-serif;
+  
+  --color-bg-dark: #000000;
+  --color-bg-panel: #6d6f73;
+  --color-header-blue: #091d3e;
+  --color-header-blue-light: #164082;
+  --color-primary-blue: #275df5;
+  --color-text-white: #ffffff;
+  --color-text-muted: #d0d4dc;
+  --color-input-bg: #ffffff;
+  --color-icon-grey: #8a8f98;
+}
+
+html, body {
+  min-height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-main);
+  background-color: #717479;
+  color: var(--color-text-white);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
