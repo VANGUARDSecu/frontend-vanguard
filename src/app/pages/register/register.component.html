@@ -1,0 +1,398 @@
+﻿<div class="register-wrapper">
+  
+  <!-- Cyber Grid Background Overlay -->
+  <div class="cyber-grid-overlay" aria-hidden="true"></div>
+
+  <div class="register-page-content">
+    
+    <!-- Centered Brand Header -->
+    <header class="brand-header">
+      <div class="brand-logo-badge">
+        <img
+          src="vanguardlogotransparent.png"
+          alt="Vanguard Logo"
+          class="brand-logo"
+        />
+      </div>
+      <h1 class="brand-title">
+        VANGUARD <span class="brand-sub">Security</span>
+      </h1>
+    </header>
+
+    <!-- Center Register Card -->
+    <main class="register-card">
+      
+      <!-- Lock Emblem & Card Header -->
+      <div class="card-header">
+        <div class="lock-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lock-icon">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <h2 class="card-title">Create Account</h2>
+        <p class="card-subtitle">Set up your organization's secure directory & vault</p>
+      </div>
+
+      <div class="header-divider"></div>
+
+      <!-- Single Timed Feedback Alert with Auto-Dismiss & Close Button -->
+      @if (notification(); as alert) {
+        <div class="alert" [ngClass]="alert.type === 'success' ? 'alert-success' : 'alert-error'" role="alert">
+          <span class="alert-content">
+            @if (alert.type === 'success') {
+              <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+            } @else {
+              <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+              </svg>
+            }
+            <span class="alert-text">{{ alert.message }}</span>
+          </span>
+          <button type="button" class="alert-close-btn" (click)="dismissNotification()" aria-label="Close notification">
+            &times;
+          </button>
+        </div>
+      }
+
+      <!-- Registration Form -->
+      <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="register-form" novalidate>
+        
+        <!-- Name Row: First Name & Last Name (2-Column) -->
+        <div class="form-row-two-col">
+          
+          <!-- First Name -->
+          <div class="form-group">
+            <label for="firstName" class="form-label">FIRST NAME</label>
+            <div class="input-wrapper" [class.input-error]="submitted() && registerForm.get('firstName')?.invalid">
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </span>
+              <input
+                id="firstName"
+                type="text"
+                formControlName="firstName"
+                placeholder="First Name"
+                autocomplete="given-name"
+                class="form-input"
+              />
+            </div>
+            @if (submitted() && registerForm.get('firstName')?.errors) {
+              <span class="field-error">First name is required</span>
+            }
+          </div>
+
+          <!-- Last Name -->
+          <div class="form-group">
+            <label for="lastName" class="form-label">LAST NAME</label>
+            <div class="input-wrapper" [class.input-error]="submitted() && registerForm.get('lastName')?.invalid">
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </span>
+              <input
+                id="lastName"
+                type="text"
+                formControlName="lastName"
+                placeholder="Last Name"
+                autocomplete="family-name"
+                class="form-input"
+              />
+            </div>
+            @if (submitted() && registerForm.get('lastName')?.errors) {
+              <span class="field-error">Last name is required</span>
+            }
+          </div>
+
+        </div>
+
+        <!-- Company / Organization -->
+        <div class="form-group">
+          <label for="companyName" class="form-label">COMPANY / ORGANIZATION</label>
+          <div class="input-wrapper" [class.input-error]="submitted() && registerForm.get('companyName')?.invalid">
+            <span class="input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+              </svg>
+            </span>
+            <input
+              id="companyName"
+              type="text"
+              formControlName="companyName"
+              placeholder="e.g. Acme Corporation"
+              autocomplete="organization"
+              class="form-input"
+            />
+          </div>
+          @if (submitted() && registerForm.get('companyName')?.errors) {
+            <span class="field-error">Company name is required</span>
+          }
+        </div>
+
+        <!-- Work Email Address -->
+        <div class="form-group">
+          <label for="email" class="form-label">WORK EMAIL ADDRESS</label>
+          <div class="input-wrapper" [class.input-error]="submitted() && registerForm.get('email')?.invalid">
+            <span class="input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+              </svg>
+            </span>
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              placeholder="you@company.com"
+              autocomplete="email"
+              class="form-input"
+            />
+          </div>
+          @if (submitted() && registerForm.get('email')?.errors) {
+            <span class="field-error">
+              @if (registerForm.get('email')?.hasError('required')) { Work email is required }
+              @else if (registerForm.get('email')?.hasError('email')) { Please enter a valid email address }
+            </span>
+          }
+        </div>
+
+        <!-- Phone Number (Required for MFA & Mobile app) -->
+        <div class="form-group">
+          <label for="phone" class="form-label">PHONE NUMBER (FOR MFA & MOBILE APP)</label>
+          <div class="input-wrapper" [class.input-error]="submitted() && registerForm.get('phone')?.invalid">
+            <span class="input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+              </svg>
+            </span>
+            <input
+              id="phone"
+              type="tel"
+              formControlName="phone"
+              placeholder="+1 (555) 019-2834"
+              autocomplete="tel"
+              class="form-input"
+            />
+          </div>
+          @if (submitted() && registerForm.get('phone')?.errors) {
+            <span class="field-error">Please enter a valid phone number (e.g. +1 555-019-2834)</span>
+          }
+        </div>
+
+        <!-- Password -->
+        <div class="form-group">
+          <label for="password" class="form-label">PASSWORD</label>
+          <div class="input-wrapper" [class.input-error]="submitted() && registerForm.get('password')?.invalid">
+            <span class="input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+              </svg>
+            </span>
+            <input
+              id="password"
+              [type]="showPassword() ? 'text' : 'password'"
+              formControlName="password"
+              placeholder="Enter strong password (min 6 characters)"
+              autocomplete="new-password"
+              class="form-input"
+            />
+            <button
+              type="button"
+              class="password-toggle-btn"
+              (click)="togglePassword()"
+              [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+              tabindex="-1"
+            >
+              @if (showPassword()) {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              } @else {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              }
+            </button>
+          </div>
+          @if (submitted() && registerForm.get('password')?.errors) {
+            <span class="field-error">
+              @if (registerForm.get('password')?.hasError('required')) { Password is required }
+              @else if (registerForm.get('password')?.hasError('minlength')) { Password must be at least 6 characters }
+            </span>
+          }
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="form-group">
+          <label for="confirmPassword" class="form-label">CONFIRM PASSWORD</label>
+          <div class="input-wrapper" [class.input-error]="submitted() && (registerForm.get('confirmPassword')?.invalid || registerForm.errors?.['passwordMismatch'])">
+            <span class="input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+              </svg>
+            </span>
+            <input
+              id="confirmPassword"
+              [type]="showConfirmPassword() ? 'text' : 'password'"
+              formControlName="confirmPassword"
+              placeholder="Confirm your password"
+              autocomplete="new-password"
+              class="form-input"
+            />
+            <button
+              type="button"
+              class="password-toggle-btn"
+              (click)="toggleConfirmPassword()"
+              [attr.aria-label]="showConfirmPassword() ? 'Hide password' : 'Show password'"
+              tabindex="-1"
+            >
+              @if (showConfirmPassword()) {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              } @else {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              }
+            </button>
+          </div>
+          @if (submitted() && (registerForm.get('confirmPassword')?.hasError('required') || registerForm.errors?.['passwordMismatch'])) {
+            <span class="field-error">
+              @if (registerForm.get('confirmPassword')?.hasError('required')) { Please confirm your password }
+              @else if (registerForm.errors?.['passwordMismatch']) { Passwords do not match }
+            </span>
+          }
+        </div>
+
+        <!-- Terms Agreement Checkbox -->
+        <div class="terms-row">
+          <label class="terms-label">
+            <input
+              type="checkbox"
+              formControlName="agreeTerms"
+              class="checkbox-input"
+            />
+            <span class="custom-checkbox" [class.checked]="registerForm.get('agreeTerms')?.value">
+              @if (registerForm.get('agreeTerms')?.value) {
+                <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              }
+            </span>
+            <span class="terms-text">
+              I agree to Vanguard's 
+              <button type="button" class="legal-btn" (click)="openLegalModal('terms', $event)">Terms of Service</button>
+              and 
+              <button type="button" class="legal-btn" (click)="openLegalModal('privacy', $event)">Privacy Policy</button>
+            </span>
+          </label>
+          @if (submitted() && registerForm.get('agreeTerms')?.invalid) {
+            <span class="field-error">You must accept the terms and privacy policy to register</span>
+          }
+        </div>
+
+        <!-- Register Submit Button -->
+        <button type="submit" class="register-btn" [disabled]="isLoading()">
+          @if (isLoading()) {
+            <span class="spinner"></span>
+            <span>Creating account...</span>
+          } @else {
+            <span>Register</span>
+          }
+        </button>
+
+        <!-- Back to Sign In Link -->
+        <div class="signin-prompt-row">
+          <span class="signin-prompt-text">Already have an account?</span>
+          <a routerLink="/login" class="signin-link">Sign In</a>
+        </div>
+
+      </form>
+    </main>
+
+  </div>
+
+  <!-- Security Legal Document Modal (Terms of Service & Privacy Policy) -->
+  @if (legalModal(); as modalType) {
+    <div class="modal-backdrop" (click)="closeLegalModal()" aria-modal="true" role="dialog">
+      <div class="modal-card legal-modal-card" (click)="$event.stopPropagation()">
+        
+        <div class="modal-header">
+          <div class="modal-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <h3 class="modal-title">
+            {{ modalType === 'terms' ? 'Vanguard Security Terms of Service' : 'Vanguard Security Privacy Policy' }}
+          </h3>
+          <p class="modal-subtitle">Enterprise Zero-Trust & Identity Vault Protection Standards</p>
+        </div>
+
+        <div class="legal-modal-body">
+          @if (modalType === 'terms') {
+            <div class="legal-section">
+              <h4>1. Zero-Trust Access & Acceptable Use</h4>
+              <p>Vanguard Security provides enterprise directory and identity vault protection. Users agree to access systems solely through authorized single sign-on (SSO), multi-factor authentication (MFA), and encrypted protocols. Any unauthorized penetration testing or misuse is strictly prohibited.</p>
+            </div>
+
+            <div class="legal-section">
+              <h4>2. Multi-Factor & Credential Responsibility</h4>
+              <p>Account holders must maintain strong master passwords and protect secondary authentication factors (TOTP Authenticator apps, SMS OTP, Biometrics). You are responsible for all activities occurring under your directory credentials.</p>
+            </div>
+
+            <div class="legal-section">
+              <h4>3. Security Incident Reporting & Audit Compliance</h4>
+              <p>Users must report suspected credential compromises or security anomalies immediately to their organization's Security Administrator. Vanguard logs all access attempts for SOC 2 Type II audit compliance.</p>
+            </div>
+
+            <div class="legal-section">
+              <h4>4. Account Deprovisioning & Termination</h4>
+              <p>Organizational administrators maintain the right to revoke directory tokens, terminate access, or purge vaults upon departure or security breach identification.</p>
+            </div>
+          } @else {
+            <div class="legal-section">
+              <h4>1. End-to-End Encryption & Zero-Knowledge Architecture</h4>
+              <p>All sensitive authentication credentials, tokens, and directory vaults are encrypted with AES-256-GCM at rest and TLS 1.3 in transit. Vanguard maintains zero-knowledge principles over organizational master secrets.</p>
+            </div>
+
+            <div class="legal-section">
+              <h4>2. Information Collected</h4>
+              <p>We collect only required directory metadata: display name, verified work email, organization tenant domain, and phone number for multi-factor authentication and mobile app binding.</p>
+            </div>
+
+            <div class="legal-section">
+              <h4>3. Telemetry & Security Audit Logs</h4>
+              <p>To defend against credential stuffing and brute-force attacks, we log timestamps, IP hashes, and device user-agents strictly for security alerting and anomaly detection.</p>
+            </div>
+
+            <div class="legal-section">
+              <h4>4. Data Sovereignty & Zero Commercial Sharing</h4>
+              <p>Your organizational data will never be monetized, tracked across third parties, or sold. All data processing complies with GDPR, SOC 2, and CCPA standards.</p>
+            </div>
+          }
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" (click)="closeLegalModal()">
+            Close
+          </button>
+          <button type="button" class="btn-confirm" (click)="acceptTermsFromModal()">
+            Accept & Agree
+          </button>
+        </div>
+
+      </div>
+    </div>
+  }
+
+</div>

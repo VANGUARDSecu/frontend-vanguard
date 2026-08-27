@@ -1,109 +1,100 @@
-<div class="login-wrapper">
-  <!-- Top Cyber Header -->
-  <header class="login-header">
-      <!-- Matrix Binary Grid Overlay -->
-      <div class="header-cyber-pattern" aria-hidden="true">
-        <div class="binary-lines">
-          <span>01001101 01010011 01000011 01010101 01010010 01001001 01010100 01011001</span>
-          <span>10101001 10001011 01001010 11010010 00101101 10100101 01001101 01010011</span>
-          <span>00001100 10100000 01101010 00001001 00100100 11000001 11000000 01001011</span>
-          <span>00111101 00010000 00000111 00011111 01100000 01101001 00000000 00000110</span>
-          <span>01000001 01101000 01100101 01111000 01100001 01100111 01101111 01101110</span>
-        </div>
-        <div class="cyber-glow-left"></div>
-        <div class="cyber-glow-right"></div>
-      </div>
+﻿<div class="login-wrapper">
+  
+  <!-- Cyber Grid Background Overlay -->
+  <div class="cyber-grid-overlay" aria-hidden="true"></div>
 
-      <!-- Vanguard Shield Logo -->
-      <div class="logo-container">
+  <div class="login-page-content">
+    
+    <!-- Top Branding Header -->
+    <header class="brand-header">
+      <div class="brand-logo-badge">
         <img
           src="vanguardlogotransparent.png"
           alt="Vanguard Logo"
-          class="vanguard-logo"
+          class="brand-logo"
         />
       </div>
-
-      <!-- Center Title -->
-      <h1 class="header-title">LOGIN</h1>
-      
-      <!-- Balance spacer for flex alignment -->
-      <div class="header-spacer" aria-hidden="true"></div>
+      <h1 class="brand-title">
+        VANGUARD <span class="brand-sub">Security</span>
+      </h1>
     </header>
 
-    <!-- Main Login Form Area -->
-    <main class="login-body">
+    <!-- Center Login Card -->
+    <main class="login-card">
       
-      <!-- Notification Feedback for Mock Interaction -->
-      @if (loginSuccessMessage()) {
-        <div class="alert alert-success" role="alert">
-          <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-          </svg>
-          <span>{{ loginSuccessMessage() }}</span>
+      <!-- Card Title & Subtitle -->
+      <div class="card-header">
+        <h2 class="card-title">Welcome</h2>
+        <p class="card-subtitle">Sign in to access your secure vault</p>
+      </div>
+
+      <!-- Single Timed Feedback Alert with Auto-Dismiss & Close Button -->
+      @if (notification(); as alert) {
+        <div class="alert" [ngClass]="alert.type === 'success' ? 'alert-success' : 'alert-error'" role="alert">
+          <span class="alert-content">
+            @if (alert.type === 'success') {
+              <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+            } @else {
+              <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+              </svg>
+            }
+            <span class="alert-text">{{ alert.message }}</span>
+          </span>
+          <button type="button" class="alert-close-btn" (click)="dismissNotification()" aria-label="Close notification">
+            &times;
+          </button>
         </div>
       }
 
-      @if (loginErrorMessage()) {
-        <div class="alert alert-error" role="alert">
-          <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-          </svg>
-          <span>{{ loginErrorMessage() }}</span>
-        </div>
-      }
-
+      <!-- Login Form -->
       <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form" novalidate>
         
-        <!-- Email Row -->
-        <div class="form-row">
-          <label for="email" class="form-label">Email Address:</label>
+        <!-- Email Field -->
+        <div class="form-group">
+          <label for="email" class="form-label">EMAIL ADDRESS</label>
           <div class="input-wrapper" [class.input-error]="submitted() && loginForm.get('email')?.invalid">
-            <!-- Mail Icon -->
             <span class="input-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2.5"></rect>
-                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
               </svg>
             </span>
             <input
               id="email"
               type="email"
               formControlName="email"
-              placeholder=""
+              placeholder="Enter email"
               autocomplete="email"
               class="form-input"
             />
           </div>
-        </div>
-        @if (submitted() && loginForm.get('email')?.errors) {
-          <div class="field-error-row">
+          @if (submitted() && loginForm.get('email')?.errors) {
             <span class="field-error">
               @if (loginForm.get('email')?.hasError('required')) { Email is required }
               @else if (loginForm.get('email')?.hasError('email')) { Please enter a valid email address }
             </span>
-          </div>
-        }
+          }
+        </div>
 
-        <!-- Password Row -->
-        <div class="form-row">
-          <label for="password" class="form-label">Password:</label>
+        <!-- Password Field -->
+        <div class="form-group">
+          <label for="password" class="form-label">PASSWORD</label>
           <div class="input-wrapper" [class.input-error]="submitted() && loginForm.get('password')?.invalid">
-            <!-- Lock Icon -->
             <span class="input-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2.5" ry="2.5"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
               </svg>
             </span>
             <input
               id="password"
               [type]="showPassword() ? 'text' : 'password'"
               formControlName="password"
-              placeholder=""
+              placeholder="Enter password"
               autocomplete="current-password"
               class="form-input"
             />
-            <!-- Password Visibility Toggle Button -->
             <button
               type="button"
               class="password-toggle-btn"
@@ -112,31 +103,29 @@
               tabindex="-1"
             >
               @if (showPassword()) {
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
                   <line x1="1" y1="1" x2="23" y2="23"></line>
                 </svg>
               } @else {
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
               }
             </button>
           </div>
-        </div>
-        @if (submitted() && loginForm.get('password')?.errors) {
-          <div class="field-error-row">
+          @if (submitted() && loginForm.get('password')?.errors) {
             <span class="field-error">
               @if (loginForm.get('password')?.hasError('required')) { Password is required }
               @else if (loginForm.get('password')?.hasError('minlength')) { Password must be at least 6 characters }
             </span>
-          </div>
-        }
+          }
+        </div>
 
-        <!-- Options Row: Remember Me & Forgot Password -->
+        <!-- Remember Me & Forgot Password Row -->
         <div class="options-row">
-          <label class="remember-me-label" (click)="toggleRememberMe()">
+          <label class="remember-me-label">
             <input
               type="checkbox"
               formControlName="rememberMe"
@@ -144,7 +133,7 @@
             />
             <span class="custom-checkbox" [class.checked]="loginForm.get('rememberMe')?.value">
               @if (loginForm.get('rememberMe')?.value) {
-                <svg viewBox="0 0 24 24" fill="none" stroke="#2b59ff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
               }
@@ -152,56 +141,54 @@
             <span class="remember-text">Remember me</span>
           </label>
 
-          <a href="#forgot" class="forgot-password-link" (click)="onForgotPassword($event)">
-            Forgot Password?
+          <a routerLink="/forgot-password" class="forgot-password-link">
+            Forgot password?
           </a>
         </div>
 
-        <!-- Submit Button -->
-        <div class="submit-row">
-          <button type="submit" class="login-btn" [disabled]="isLoading()">
-            @if (isLoading()) {
-              <span class="spinner"></span>
-              <span>Logging in...</span>
-            } @else {
-              <span>Log in</span>
-            }
-          </button>
-        </div>
+        <!-- Sign In Submit Button -->
+        <button type="submit" class="signin-btn" [disabled]="isLoading()">
+          @if (isLoading()) {
+            <span class="spinner"></span>
+            <span>Signing in...</span>
+          } @else {
+            <span>Sign In</span>
+          }
+        </button>
 
         <!-- Sign Up Row -->
-        <div class="signup-row">
-          <span class="signup-prompt">
-            Dont have account? <a href="#signup" class="signup-link" (click)="onSignUp($event)">Sign Up</a>
-          </span>
+        <div class="signup-prompt-row">
+          <span class="signup-text">Don't have an account?</span>
+          <a routerLink="/register" class="signup-link">Sign Up</a>
         </div>
 
         <!-- Divider Line -->
         <div class="divider-row">
           <div class="divider-line"></div>
-          <span class="divider-text">Or Register with:</span>
+          <span class="divider-text">or continue with</span>
           <div class="divider-line"></div>
         </div>
 
-        <!-- Social Login Buttons -->
-        <div class="social-login-group">
-          <!-- Google Button -->
+        <!-- Google Login Button -->
+        <div class="social-login-row">
           <button
             type="button"
-            class="social-btn google-btn"
-            (click)="onSocialLogin('google')"
+            class="google-btn"
+            (click)="onGoogleLogin()"
             aria-label="Sign in with Google"
           >
-            <svg class="social-icon" viewBox="0 0 48 48">
+            <svg class="google-icon" viewBox="0 0 48 48">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
               <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
               <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
               <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
             </svg>
-            <span class="google-text">Log in With Google</span>
+            <span class="google-btn-text">Google</span>
           </button>
-                </div>
+        </div>
 
       </form>
     </main>
+
+  </div>
 </div>
