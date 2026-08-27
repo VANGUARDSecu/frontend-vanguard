@@ -1,0 +1,105 @@
+﻿<div class="dashboard-wrapper">
+  
+  <!-- Top Cyber Header -->
+  <header class="dashboard-header">
+    <div class="header-cyber-pattern" aria-hidden="true">
+      <div class="binary-lines">
+        <span>01000100 01000001 01010011 01001000 01000010 01001111 01000001 01010010 01000100</span>
+        <span>10101001 10001011 01001010 11010010 00101101 10100101 01001101 01010011 11000001</span>
+      </div>
+      <div class="cyber-glow-left"></div>
+      <div class="cyber-glow-right"></div>
+    </div>
+
+    <!-- Vanguard Shield Logo -->
+    <div class="logo-container">
+      <img
+        src="vanguardlogotransparent.png"
+        alt="Vanguard Logo"
+        class="vanguard-logo"
+      />
+    </div>
+
+    <!-- Center Title -->
+    <h1 class="header-title">DASHBOARD</h1>
+
+    <!-- User Profile & Sign Out Top Right -->
+    <div class="header-actions">
+      <span class="user-badge" *ngIf="user()">
+        <svg class="user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span class="user-email">{{ user()?.email }}</span>
+      </span>
+      <button type="button" class="logout-btn-header" (click)="onLogout()" aria-label="Sign Out">
+        Log Out
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Dashboard Content -->
+  <main class="dashboard-body">
+    <div class="dashboard-container">
+
+      <!-- Welcome Banner Card -->
+      <section class="welcome-card">
+        <div class="welcome-icon-box">
+          <svg class="shield-check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <polyline points="9 12 11 14 15 10"></polyline>
+          </svg>
+        </div>
+        <div class="welcome-text-box">
+          <h2>Welcome to Vanguard Dashboard</h2>
+          <p class="welcome-subtitle">
+            You are logged in as <strong class="highlight-email">{{ user()?.email }}</strong>
+          </p>
+          <span class="auth-pill">
+            <span class="pulse-dot"></span> Authenticated with Supabase
+          </span>
+        </div>
+      </section>
+
+      <!-- Grid Cards -->
+      <div class="cards-grid">
+        <div class="dash-card">
+          <div class="card-header">
+            <h3>System Status</h3>
+            <span class="badge badge-success">Online</span>
+          </div>
+          <p class="card-desc">All Vanguard frontend and backend services are operational.</p>
+        </div>
+
+        <div class="dash-card">
+          <div class="card-header">
+            <h3>Authentication</h3>
+            <span class="badge badge-info">Supabase Auth</span>
+          </div>
+          <p class="card-desc">Session token is active. Secure JWT authentication enabled.</p>
+        </div>
+
+        <div class="dash-card">
+          <div class="card-header">
+            <h3>User ID</h3>
+          </div>
+          <code class="user-id-code">{{ user()?.id || 'N/A' }}</code>
+        </div>
+      </div>
+
+      <!-- Actions Section -->
+      <div class="actions-section">
+        <button type="button" class="logout-btn-main" (click)="onLogout()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Sign Out / Log Out</span>
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+</div>
