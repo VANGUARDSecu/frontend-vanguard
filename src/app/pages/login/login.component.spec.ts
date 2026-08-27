@@ -63,4 +63,14 @@ describe('LoginComponent', () => {
     component.toggleRememberMe();
     expect(component.loginForm.get('rememberMe')?.value).toBe(true);
   });
+
+  it('should manage timed notifications and dismiss properly', () => {
+    expect(component.notification()).toBeNull();
+
+    component.showNotification('error', 'Test error message', 5000);
+    expect(component.notification()).toEqual({ type: 'error', message: 'Test error message' });
+
+    component.dismissNotification();
+    expect(component.notification()).toBeNull();
+  });
 });

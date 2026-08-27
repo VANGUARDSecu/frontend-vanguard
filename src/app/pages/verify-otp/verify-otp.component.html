@@ -1,0 +1,191 @@
+<div class="verify-wrapper">
+  
+  <!-- Cyber Grid Background Overlay -->
+  <div class="cyber-grid-overlay" aria-hidden="true"></div>
+
+  <div class="verify-page-content">
+    
+    <!-- Top Branding Header -->
+    <header class="brand-header">
+      <div class="brand-logo-badge">
+        <img
+          src="vanguardlogotransparent.png"
+          alt="Vanguard Logo"
+          class="brand-logo"
+        />
+      </div>
+      <h1 class="brand-title">
+        VANGUARD <span class="brand-sub">Security</span>
+      </h1>
+    </header>
+
+    <!-- Center Verification Card -->
+    <main class="verify-card">
+      
+      <!-- Shield / Lock Badge -->
+      <div class="badge-icon-wrapper" aria-hidden="true">
+        @if (method() === 'totp') {
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="badge-icon">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+        } @else {
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="badge-icon">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <polyline points="9 12 11 14 15 10"></polyline>
+          </svg>
+        }
+      </div>
+
+      <!-- Card Title & Subtitle -->
+      <div class="card-header">
+        <h2 class="card-title">
+          @if (method() === 'totp') {
+            Authenticator 2-Step Verification
+          } @else if (mode() === 'signup') {
+            Verify Your Email
+          } @else {
+            2-Step Verification
+          }
+        </h2>
+
+        <p class="card-subtitle">
+          @if (method() === 'totp') {
+            Enter the 6-digit dynamic code from Google Authenticator, JumpCloud Protect, or Microsoft Authenticator.
+          } @else {
+            Enter the 6-digit verification code sent to <strong class="highlight-email">{{ email() }}</strong>
+          }
+        </p>
+      </div>
+
+      <div class="header-divider"></div>
+
+      <!-- Single Timed Feedback Alert with Auto-Dismiss & Close Button -->
+      @if (notification(); as alert) {
+        <div class="alert" [ngClass]="alert.type === 'success' ? 'alert-success' : 'alert-error'" role="alert">
+          <span class="alert-content">
+            @if (alert.type === 'success') {
+              <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+            } @else {
+              <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+              </svg>
+            }
+            <span class="alert-text">{{ alert.message }}</span>
+          </span>
+          <button type="button" class="alert-close-btn" (click)="dismissNotification()" aria-label="Close notification">
+            &times;
+          </button>
+        </div>
+      }
+
+      <!-- 6-Digit OTP Input Form -->
+      <form (submit)="$event.preventDefault(); onSubmit()" class="otp-form" novalidate>
+        
+        <div class="otp-inputs-row" (paste)="onPaste($event)">
+          @for (digit of digits(); track $index) {
+            <input
+              #otpInput
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              pattern="[0-9]*"
+              [value]="digit"
+              (input)="onDigitInput($event, $index)"
+              (keydown)="onKeyDown($event, $index)"
+              autocomplete="one-time-code"
+              class="otp-digit-box"
+              [class.filled]="digit.length > 0"
+              [attr.aria-label]="'Verification digit ' + ($index + 1)"
+            />
+            @if ($index === 2) {
+              <span class="otp-separator" aria-hidden="true">&ndash;</span>
+            }
+          }
+        </div>
+
+        <!-- Resend OTP Code Row (For Email OTP mode) -->
+        @if (method() === 'email_otp') {
+          <div class="resend-row">
+            @if (resendCountdown() > 0) {
+              <span class="resend-timer-text">
+                Resend code in <strong class="timer-seconds">{{ resendCountdown() }}s</strong>
+              </span>
+            } @else {
+              <button
+                type="button"
+                class="resend-btn"
+                (click)="onResendOtp()"
+                [disabled]="isLoading()"
+              >
+                Resend verification code
+              </button>
+            }
+          </div>
+        }
+
+        <!-- Submit Button -->
+        <button type="submit" class="verify-btn" [disabled]="isLoading() || digits().join('').length < 6">
+          @if (isLoading()) {
+            <span class="spinner"></span>
+            <span>Verifying...</span>
+          } @else {
+            <span>Verify & Continue</span>
+          }
+        </button>
+
+        <!-- Dynamic Alternative Authentication (Only shown if user has enrolled Authenticator App) -->
+        @if (mode() === 'signin' && hasTotp()) {
+          <div class="divider-row">
+            <div class="divider-line"></div>
+            <span class="divider-text">alternative authentication</span>
+            <div class="divider-line"></div>
+          </div>
+
+          <div class="method-switch-row">
+            @if (method() === 'email_otp') {
+              <button
+                type="button"
+                class="method-toggle-btn"
+                (click)="setMethod('totp')"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="method-icon">
+                  <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                  <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+                <span>Use Authenticator App instead</span>
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="method-toggle-btn"
+                (click)="setMethod('email_otp')"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="method-icon">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                <span>Send code to email instead</span>
+              </button>
+            }
+          </div>
+        }
+
+        <!-- Back Link -->
+        <div class="back-row">
+          <a [routerLink]="mode() === 'signup' ? '/register' : '/login'" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="back-icon">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Back to {{ mode() === 'signup' ? 'Registration' : 'Sign In' }}</span>
+          </a>
+        </div>
+
+      </form>
+    </main>
+
+  </div>
+</div>
