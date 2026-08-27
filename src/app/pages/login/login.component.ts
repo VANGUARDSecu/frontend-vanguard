@@ -1,6 +1,8 @@
-﻿import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -10,6 +12,10 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
   styleUrl: './login.component.css',
 })
 export class LoginComponent {
+  private readonly fb = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+
   loginForm: FormGroup;
   showPassword = signal(false);
   isLoading = signal(false);
@@ -17,7 +23,7 @@ export class LoginComponent {
   loginErrorMessage = signal<string | null>(null);
   submitted = signal(false);
 
-  constructor(private fb: FormBuilder) {
+  constructor() {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
@@ -45,14 +51,21 @@ export class LoginComponent {
     }
 
     this.isLoading.set(true);
+    const { email, password } = this.loginForm.value;
 
-    // Mock authentication request (Backend will be connected later)
-    setTimeout(() => {
-      this.isLoading.set(false);
-      const email = this.loginForm.value.email;
-      this.loginSuccessMessage.set(`Welcome back, ${email}! (Mock Login Successful)`);
-      console.log('Login attempt with payload:', this.loginForm.value);
-    }, 1200);
+    this.authService.login({ email, password }).subscribe({
+      next: (response) => {
+        this.isLoading.set(false);
+        this.loginSuccessMessage.set('Login successful! Redirecting to dashboard...');
+        setTimeout(() => {
+          this.router.navigate(['/dashboard']);
+        }, 500);
+      },
+      error: (err: Error) => {
+        this.isLoading.set(false);
+        this.loginErrorMessage.set(err.message || 'Invalid email or password.');
+      },
+    });
   }
 
   onSocialLogin(provider: 'google' | 'facebook' | 'apple'): void {
