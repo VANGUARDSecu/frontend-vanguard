@@ -1,4 +1,4 @@
-﻿/* Modern Vanguard Security OTP Verification Styles */
+/* Modern Vanguard Security OTP Verification Styles */
 
 .verify-wrapper {
   min-height: 100vh;
@@ -242,25 +242,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: clamp(4px, 1.2vw, 8px);
   width: 100%;
   margin-bottom: 20px;
 }
 
 .otp-digit-box {
-  width: clamp(42px, 10vw, 52px);
-  height: clamp(50px, 12vw, 60px);
+  width: clamp(34px, 7.5vw, 48px);
+  height: clamp(46px, 10vw, 58px);
   background-color: #d1d5db;
   border: 2px solid transparent;
-  border-radius: 12px;
+  border-radius: 10px;
   text-align: center;
-  font-size: clamp(20px, 4vw, 26px);
+  font-size: clamp(17px, 3.5vw, 24px);
   font-weight: 800;
   color: #0f172a;
   outline: none;
   transition: all 0.18s ease;
   box-sizing: border-box;
   caret-color: #2563eb;
+  padding: 0;
 }
 
 .otp-digit-box:focus {
@@ -277,9 +278,10 @@
 
 .otp-separator {
   color: #64748b;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   user-select: none;
+  margin: 0 2px;
 }
 
 /* Resend Row */

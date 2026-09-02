@@ -1,4 +1,4 @@
-﻿import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -64,15 +64,20 @@ export class ForgotPasswordComponent {
         this.isLoading.set(false);
         this.showNotification(
           'success',
-          response.message || 'Password reset link sent! Please check your email.',
-          6000
+          response.message || 'Recovery code dispatched! Redirecting to verification...',
+          4000
         );
         this.resetForm.reset();
         this.submitted.set(false);
+        setTimeout(() => {
+          this.router.navigate(['/verify-otp'], {
+            queryParams: { email, mode: 'recovery' },
+          });
+        }, 1200);
       },
       error: (err: Error) => {
         this.isLoading.set(false);
-        this.showNotification('error', err.message || 'Failed to send reset link.');
+        this.showNotification('error', err.message || 'Failed to dispatch recovery code.');
       },
     });
   }

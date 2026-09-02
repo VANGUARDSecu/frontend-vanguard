@@ -42,6 +42,8 @@
         <h2 class="card-title">
           @if (method() === 'totp') {
             Authenticator 2-Step Verification
+          } @else if (mode() === 'recovery') {
+            Password Reset Verification
           } @else if (mode() === 'signup') {
             Verify Your Email
           } @else {
@@ -52,8 +54,10 @@
         <p class="card-subtitle">
           @if (method() === 'totp') {
             Enter the 6-digit dynamic code from Google Authenticator, JumpCloud Protect, or Microsoft Authenticator.
+          } @else if (mode() === 'recovery') {
+            Enter the 8-digit recovery code sent to <strong class="highlight-email">{{ email() }}</strong> to verify and authorize password reset.
           } @else {
-            Enter the 6-digit verification code sent to <strong class="highlight-email">{{ email() }}</strong>
+            Enter the 8-digit verification code sent to <strong class="highlight-email">{{ email() }}</strong>
           }
         </p>
       </div>
@@ -81,7 +85,7 @@
         </div>
       }
 
-      <!-- 6-Digit OTP Input Form -->
+      <!-- OTP Input Form -->
       <form (submit)="$event.preventDefault(); onSubmit()" class="otp-form" novalidate>
         
         <div class="otp-inputs-row" (paste)="onPaste($event)">
@@ -100,7 +104,7 @@
               [class.filled]="digit.length > 0"
               [attr.aria-label]="'Verification digit ' + ($index + 1)"
             />
-            @if ($index === 2) {
+            @if ($index === separatorIndex()) {
               <span class="otp-separator" aria-hidden="true">&ndash;</span>
             }
           }
@@ -127,7 +131,7 @@
         }
 
         <!-- Submit Button -->
-        <button type="submit" class="verify-btn" [disabled]="isLoading() || digits().join('').length < 6">
+        <button type="submit" class="verify-btn" [disabled]="isLoading() || digits().join('').length < codeLength()">
           @if (isLoading()) {
             <span class="spinner"></span>
             <span>Verifying...</span>
@@ -175,12 +179,12 @@
 
         <!-- Back Link -->
         <div class="back-row">
-          <a [routerLink]="mode() === 'signup' ? '/register' : '/login'" class="back-link">
+          <a [routerLink]="mode() === 'signup' ? '/register' : (mode() === 'recovery' ? '/forgot-password' : '/login')" class="back-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="back-icon">
               <line x1="19" y1="12" x2="5" y2="12"></line>
               <polyline points="12 19 5 12 12 5"></polyline>
             </svg>
-            <span>Back to {{ mode() === 'signup' ? 'Registration' : 'Sign In' }}</span>
+            <span>Back to {{ mode() === 'signup' ? 'Registration' : (mode() === 'recovery' ? 'Forgot Password' : 'Sign In') }}</span>
           </a>
         </div>
 
