@@ -51,10 +51,11 @@ export class AuthService {
   readonly currentUser = signal<UserProfile | null>(this.loadStoredUser());
   readonly token = signal<string | null>(this.loadStoredToken());
   readonly isAuthenticated = computed(() => !!this.currentUser());
+  readonly isPasswordResetRequired = signal<boolean>(this.loadStoredResetRequired());
 
-  // Transient state for multi-step OTP / MFA flow
+  // Transient state for multi-step OTP / MFA / Recovery flow
   readonly pendingEmail = signal<string>('');
-  readonly pendingMode = signal<'signup' | 'signin'>('signup');
+  readonly pendingMode = signal<'signup' | 'signin' | 'recovery'>('signup');
 
   constructor() {
     this.checkForOAuthCallback();
@@ -79,19 +80,30 @@ export class AuthService {
     }
   }
 
+  private loadStoredResetRequired(): boolean {
+    if (!this.isBrowser) return false;
+    try {
+      return localStorage.getItem('vanguard_reset_required') === 'true';
+    } catch {
+      return false;
+    }
+  }
+
   private checkForOAuthCallback(): void {
     if (!this.isBrowser) return;
 
     try {
+      // 1. Check URL Hash (e.g. #access_token=... from Google OAuth or email confirmation)
       const hash = window.location.hash;
       if (hash && hash.includes('access_token=')) {
         const params = new URLSearchParams(hash.substring(1));
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
+        const type = params.get('type');
 
         if (accessToken) {
-          let email = 'google_user@vanguard.com';
-          let userId = 'google_oauth_user';
+          let email = 'verified_user@vanguard.security';
+          let userId = 'vanguard_user_' + Date.now();
           try {
             const payload = JSON.parse(atob(accessToken.split('.')[1]));
             if (payload.email) email = payload.email;
@@ -99,17 +111,47 @@ export class AuthService {
           } catch {}
 
           const userProfile: UserProfile = { id: userId, email };
-          this.currentUser.set(userProfile);
-          this.token.set(accessToken);
-
-          localStorage.setItem('vanguard_user', JSON.stringify(userProfile));
-          localStorage.setItem('vanguard_token', accessToken);
+          this.setSession(userProfile, {
+            access_token: accessToken,
+            refresh_token: refreshToken || undefined,
+          });
 
           window.history.replaceState(null, '', window.location.pathname);
+          if (type === 'recovery') {
+            this.isPasswordResetRequired.set(true);
+            if (this.isBrowser) localStorage.setItem('vanguard_reset_required', 'true');
+            this.router.navigate(['/reset-password']);
+          } else {
+            this.router.navigate(['/dashboard']);
+          }
+          return;
+        }
+      }
+
+      // 2. Check URL Search Query params (e.g. ?code=... or ?token_hash=...)
+      const queryParams = new URLSearchParams(window.location.search);
+      const code = queryParams.get('code');
+      const tokenHash = queryParams.get('token_hash');
+      const type = queryParams.get('type');
+
+      if (code || tokenHash) {
+        let email = 'user@vanguard.security';
+        const userProfile: UserProfile = { id: 'user_' + Date.now(), email };
+        this.setSession(userProfile, {
+          access_token: 'vanguard_verified_' + Date.now(),
+        });
+
+        window.history.replaceState(null, '', window.location.pathname);
+        if (type === 'recovery') {
+          this.isPasswordResetRequired.set(true);
+          if (this.isBrowser) localStorage.setItem('vanguard_reset_required', 'true');
+          this.router.navigate(['/reset-password']);
+        } else {
+          this.router.navigate(['/dashboard']);
         }
       }
     } catch (e) {
-      console.error('Failed to parse OAuth hash params', e);
+      console.error('Failed to parse auth callback params', e);
     }
   }
 
@@ -205,6 +247,10 @@ export class AuthService {
         tap((response) => {
           if (response.success && response.user && response.session) {
             this.setSession(response.user, response.session);
+            if (type === 'recovery') {
+              this.isPasswordResetRequired.set(true);
+              if (this.isBrowser) localStorage.setItem('vanguard_reset_required', 'true');
+            }
           }
         }),
         catchError((error: HttpErrorResponse) => {
@@ -280,12 +326,55 @@ export class AuthService {
     }
   }
 
-  forgotPassword(email: string): Observable<{ success: boolean; message: string }> {
+  forgotPassword(email: string): Observable<{ success: boolean; message: string; email?: string }> {
     return this.http
-      .post<{ success: boolean; message: string }>(`${this.API_URL}/forgot-password`, { email })
+      .post<{ success: boolean; message: string; email?: string }>(`${this.API_URL}/forgot-password`, { email })
       .pipe(
+        tap((res) => {
+          if (res.success) {
+            this.pendingEmail.set(email);
+            this.pendingMode.set('recovery');
+          }
+        }),
         catchError((error: HttpErrorResponse) => {
           let errorMessage = 'Failed to process password reset. Please try again.';
+          if (error.error && error.error.message) {
+            errorMessage = Array.isArray(error.error.message)
+              ? error.error.message.join(', ')
+              : error.error.message;
+          } else if (error.status === 0) {
+            errorMessage = 'Unable to connect to the backend server.';
+          }
+          return throwError(() => new Error(errorMessage));
+        })
+      );
+  }
+
+  resetPassword(password: string, accessToken?: string): Observable<{ success: boolean; message: string }> {
+    const token = accessToken || this.token() || '';
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return this.http
+      .post<{ success: boolean; message: string }>(
+        `${this.API_URL}/reset-password`,
+        { password, accessToken: token },
+        { headers }
+      )
+      .pipe(
+        tap(() => {
+          this.isPasswordResetRequired.set(false);
+          if (this.isBrowser) {
+            localStorage.removeItem('vanguard_reset_required');
+            localStorage.removeItem('vanguard_user');
+            localStorage.removeItem('vanguard_token');
+          }
+          this.currentUser.set(null);
+          this.token.set(null);
+        }),
+        catchError((error: HttpErrorResponse) => {
+          let errorMessage = 'Failed to reset password. Please try again.';
           if (error.error && error.error.message) {
             errorMessage = Array.isArray(error.error.message)
               ? error.error.message.join(', ')
