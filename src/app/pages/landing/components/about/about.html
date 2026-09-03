@@ -1,0 +1,23 @@
+<section id="about">
+  <div class="about-container">
+    <div class="about-content">
+      <div class="section-label">ARCHITECTURE</div>
+      <h2 class="section-title">Built for scale. Secured by design.</h2>
+      <p class="section-desc">
+        VANGUARDSecurity relies on a modern stack to deliver lightning-fast authentication
+        while strictly enforcing zero-trust policies at the database layer.
+      </p>
+
+      <div class="tags-container">
+        <span class="tech-tag" *ngFor="let tag of tags">{{ tag }}</span>
+      </div>
+    </div>
+    
+    <div class="stats-grid">
+      <div class="stat-card" *ngFor="let stat of stats">
+        <div class="stat-val">{{ stat.val }}</div>
+        <div class="stat-key">{{ stat.key }}</div>
+      </div>
+    </div>
+  </div>
+</section>

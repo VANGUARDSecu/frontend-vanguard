@@ -7,8 +7,10 @@ import { VerifyOtpComponent } from './pages/verify-otp/verify-otp.component';
 import { ResetPasswordComponent } from './pages/reset-password/reset-password.component';
 import { authGuard } from './guards/auth.guard';
 
+import { Landing } from './pages/landing';
+
 export const routes: Routes = [
-  { path: '', component: LoginComponent },
+  { path: '', component: Landing },
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'verify-otp', component: VerifyOtpComponent },

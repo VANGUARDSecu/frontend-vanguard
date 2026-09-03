@@ -1,0 +1,57 @@
+<footer>
+  <div class="footer-container">
+    <div class="footer-brand">
+      <div class="footer-logo">
+        <div class="shield-icon-small">
+          <svg viewBox="0 0 36 40" fill="none">
+            <path d="M18 1L33 7.5V18C33 27 25.5 34.5 18 38C10.5 34.5 3 27 3 18V7.5L18 1Z"
+                  fill="rgba(59,130,246,0.15)" stroke="#60A5FA" stroke-width="1.5"/>
+            <circle cx="18" cy="18" r="5" fill="rgba(96,165,250,0.3)" stroke="#60A5FA" stroke-width="1.2"/>
+            <path d="M18 13v5M18 18l4 2" stroke="#60A5FA" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="footer-logo-text">VANGUARD <span>Security</span></span>
+      </div>
+      <p class="footer-desc">
+        Zero trust architecture for modern engineering teams. Protect your infrastructure from edge to core.
+      </p>
+      <div class="footer-social">
+        <a href="#" class="social-btn">X</a>
+        <a href="#" class="social-btn">GH</a>
+        <a href="#" class="social-btn">IN</a>
+        <a href="#" class="social-btn">YT</a>
+      </div>
+    </div>
+
+    <div class="footer-links-group">
+      <h4>Product</h4>
+      <ul>
+        <li *ngFor="let link of productLinks"><a [href]="link.href">{{ link.label }}</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-links-group">
+      <h4>Developers</h4>
+      <ul>
+        <li *ngFor="let link of devLinks"><a [href]="link.href">{{ link.label }}</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-links-group">
+      <h4>Company</h4>
+      <ul>
+        <li *ngFor="let link of companyLinks"><a [href]="link.href">{{ link.label }}</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <div class="footer-copy">
+      &copy; {{ currentYear }} VANGUARD Security Inc. All rights reserved.
+    </div>
+    <div class="footer-legal">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+    </div>
+  </div>
+</footer>

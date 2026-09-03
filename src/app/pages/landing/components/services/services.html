@@ -1,0 +1,18 @@
+<section id="services">
+  <div class="section-label">WHAT WE OFFER</div>
+  <h2 class="section-title">Security that covers every layer.</h2>
+  <p class="section-desc">
+    From browser-based SSO to Wi-Fi access points and legacy LDAP devices — one platform manages it all.
+  </p>
+
+  <div class="service-grid">
+    <div class="service-card" *ngFor="let service of services">
+      <div class="service-icon">
+        <span class="icon-placeholder">⬡</span>
+      </div>
+      <div class="service-tag">{{ service.tag }}</div>
+      <div class="service-name">{{ service.name }}</div>
+      <p class="service-desc">{{ service.description }}</p>
+    </div>
+  </div>
+</section>
