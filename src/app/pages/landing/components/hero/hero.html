@@ -1,0 +1,35 @@
+<section class="hero" id="home">
+  <div class="status-pill">
+    <span class="status-pill-dot"></span>
+    SYSTEM OPERATIONAL — v0.1.0-alpha
+  </div>
+
+  <!-- ★ MAIN TAGLINE — BOLD ★ -->
+  <h1 class="hero-tagline">
+    <span class="line-glow">One Identity.</span>
+    <span class="line-blue">Every Access Point.</span>
+    Zero Compromise.
+  </h1>
+
+  <p class="hero-sub">
+    VANGUARDSecurity is a developer-first IAM platform. Centralize authentication,
+    enforce multi-factor access, and audit every login event — across web, network, and legacy systems.
+  </p>
+
+  <div class="hero-cta">
+    <button class="btn-blue-lg" (click)="navigateTo('/register')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Get started free
+    </button>
+    <a href="#services" class="btn-outline-lg" (click)="scrollToServices($event)">
+      See what's included
+    </a>
+  </div>
+
+  <div class="proto-badges">
+    <span class="proto-badge" *ngFor="let proto of protocols">{{ proto }}</span>
+  </div>
+</section>

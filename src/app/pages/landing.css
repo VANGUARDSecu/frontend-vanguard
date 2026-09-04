@@ -1,0 +1,12 @@
+.landing-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.landing-wrapper main {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}

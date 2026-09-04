@@ -1,0 +1,44 @@
+<nav [class.scrolled]="isScrolled">
+  <a href="#home" class="nav-logo" (click)="scrollTo('home', $event)">
+    <div class="shield-icon">
+      <svg viewBox="0 0 36 40" fill="none">
+        <defs>
+          <linearGradient id="sg" x1="0" y1="0" x2="36" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#60A5FA"/>
+            <stop offset="100%" stop-color="#3B82F6"/>
+          </linearGradient>
+        </defs>
+        <path d="M18 1L33 7.5V18C33 27 25.5 34.5 18 38C10.5 34.5 3 27 3 18V7.5L18 1Z"
+              fill="rgba(59,130,246,0.15)" stroke="url(#sg)" stroke-width="1.5"/>
+        <circle cx="18" cy="18" r="5" fill="rgba(96,165,250,0.3)" stroke="#60A5FA" stroke-width="1.2"/>
+        <path d="M18 13v5M18 18l4 2" stroke="#60A5FA" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="logo-text">VANGUARD <span>Security</span></span>
+  </a>
+
+  <ul class="nav-links">
+    <li *ngFor="let link of navLinks">
+      <a
+        [href]="link.href"
+        [class.active]="activeSection === link.href.replace('#', '')"
+        (click)="scrollTo(link.href.replace('#', ''), $event)">
+        {{ link.label }}
+      </a>
+    </li>
+  </ul>
+
+  <div class="nav-right">
+    <button class="btn-ghost-sm" (click)="navigateTo('/login')">Sign in</button>
+    <button class="btn-blue-sm" (click)="navigateTo('/register')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <line x1="19" y1="8" x2="19" y2="14"/>
+        <line x1="22" y1="11" x2="16" y2="11"/>
+      </svg>
+      Register
+    </button>
+  </div>
+</nav>
