@@ -1,0 +1,264 @@
+        <div *ngIf="activeTab() === 'overview'">
+          <!-- Welcome Hero Banner -->
+          <section class="hero-banner">
+            <div class="hero-content">
+              <div class="hero-badge">
+                <span class="pulse-dot"></span>
+                <span>Administrative Governance Active</span>
+              </div>
+              <h1 class="hero-title">
+                Welcome back, <span class="highlight-name">{{ displayName() }}</span>
+              </h1>
+              <p class="hero-desc">
+                Centralized directory identity and access management for <strong>{{ organizationName() }}</strong>.
+              </p>
+            </div>
+
+            <div class="hero-pills">
+              <span class="meta-pill">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="pill-icon">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Supabase Vault Active
+              </span>
+              <span class="meta-pill">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="pill-icon">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                OWASP Hardening Active
+              </span>
+            </div>
+          </section>
+
+          <!-- Directory Identity & Organization Profile -->
+          <section class="dash-section">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <h2 class="section-title">Directory Identity & Organization Profile</h2>
+                <p class="section-subtitle">Verified directory metadata synced from central Supabase repository.</p>
+              </div>
+              <span class="badge badge-accent">{{ userRoleLabel() }}</span>
+            </div>
+
+            <div class="profile-card">
+              <div class="profile-avatar-row">
+                <div class="profile-large-avatar">
+                  <span>{{ userInitials() }}</span>
+                </div>
+                <div class="profile-primary-details">
+                  <h3 class="profile-full-name">{{ displayName() }}</h3>
+                  <p class="profile-email">{{ user()?.email }}</p>
+                  <div class="profile-tags">
+                    <span class="role-chip">{{ userRoleLabel() }}</span>
+                    <span class="org-chip">{{ organizationName() }}</span>
+                    <span class="status-chip-active">● Active Identity</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="profile-fields-grid">
+                <div class="field-box">
+                  <span class="field-label">Organization / Company</span>
+                  <span class="field-value">{{ organizationName() }}</span>
+                </div>
+
+                <div class="field-box">
+                  <span class="field-label">Verified Work Email</span>
+                  <span class="field-value">{{ user()?.email }}</span>
+                </div>
+
+                <div class="field-box">
+                  <span class="field-label">Registered Phone Number</span>
+                  <span class="field-value">{{ userPhone() }}</span>
+                </div>
+
+                <div class="field-box">
+                  <span class="field-label">Multi-Factor Status</span>
+                  <span class="field-value text-success">
+                    <span class="status-dot"></span> Email OTP + TOTP Ready
+                  </span>
+                </div>
+
+                <div class="field-box full-width">
+                  <span class="field-label">Supabase Directory User ID</span>
+                  <div class="id-copy-row">
+                    <code class="user-id-code">{{ user()?.id || 'N/A' }}</code>
+                    <button type="button" class="copy-btn" (click)="copyUserId()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="copy-icon">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      <span>{{ copiedUserId() ? 'Copied!' : 'Copy UUID' }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Zero-Trust Posture -->
+          <section class="dash-section">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <h2 class="section-title">Zero-Trust Security Posture</h2>
+                <p class="section-subtitle">Real-time health assessment benchmarked against Microsoft Entra ID standards.</p>
+              </div>
+            </div>
+
+            <div class="metrics-grid">
+              <div class="metric-card score-card">
+                <div class="score-circle">
+                  <div class="score-number">94</div>
+                  <div class="score-total">/100</div>
+                </div>
+                <div class="score-info">
+                  <h3 class="score-title">Optimal Security Score</h3>
+                  <p class="score-desc">Directory posture meets zero-trust requirements with active multi-factor enforcement.</p>
+                  <div class="posture-tags">
+                    <span class="tag-check">✓ 100% MFA Enforced</span>
+                    <span class="tag-check">✓ OWASP API Guard</span>
+                    <span class="tag-check">✓ No Stale Certs</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="metric-card">
+                <div class="metric-header">
+                  <span class="metric-icon">👥</span>
+                  <span class="metric-badge">Directory</span>
+                </div>
+                <div class="metric-value">{{ directoryUsers().length }} Active</div>
+                <div class="metric-label">Managed Identities</div>
+                <div class="metric-subtext">Active Users & Service Accounts</div>
+              </div>
+
+              <div class="metric-card">
+                <div class="metric-header">
+                  <span class="metric-icon">⚡</span>
+                  <span class="metric-badge badge-green">Operational</span>
+                </div>
+                <div class="metric-value">{{ protocols.length }} / {{ protocols.length }}</div>
+                <div class="metric-label">Active Protocol Gateways</div>
+                <div class="metric-subtext">SAML, OIDC, LDAP, RADIUS</div>
+              </div>
+
+              <div class="metric-card">
+                <div class="metric-header">
+                  <span class="metric-icon">🛡️</span>
+                  <span class="metric-badge badge-orange">Security Audit</span>
+                </div>
+                <div class="metric-value">{{ tenantAuditEvents().length }}</div>
+                <div class="metric-label">Audit Events Logged</div>
+                <div class="metric-subtext">Live Directory Security Stream</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Communication Protocol Gateways -->
+          <section class="dash-section">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <h2 class="section-title">Communication Protocol Gateways</h2>
+                <p class="section-subtitle">Federated web single sign-on, legacy cloud directories, and network access points.</p>
+              </div>
+            </div>
+
+            <div class="protocols-grid">
+              <div class="protocol-card" *ngFor="let proto of protocols">
+                <div class="proto-header">
+                  <div class="proto-type-badge">{{ proto.type }}</div>
+                  <span class="proto-status-pill">
+                    <span class="pulse-dot"></span>
+                    {{ proto.badge }}
+                  </span>
+                </div>
+                <h3 class="proto-name">{{ proto.name }}</h3>
+                <p class="proto-desc">{{ proto.description }}</p>
+                <div class="proto-footer">
+                  <span class="proto-port">Endpoint: <code>{{ proto.port }}</code></span>
+                  <span class="proto-expiry" *ngIf="proto.certExpiry">{{ proto.certExpiry }}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Active Sessions & Device Vault -->
+          <section class="dash-section">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <h2 class="section-title">Active Sessions & Device Vault</h2>
+                <p class="section-subtitle">Real-time session monitoring and emergency session revocation.</p>
+              </div>
+              <button type="button" class="btn-revoke-all" (click)="revokeAllSessions()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                  <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                  <line x1="12" y1="2" x2="12" y2="12"></line>
+                </svg>
+                <span>Sign Out of All Other Devices</span>
+              </button>
+            </div>
+
+            <div class="session-card">
+              <div class="session-device-row">
+                <div class="device-icon-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="device-icon">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                  </svg>
+                </div>
+                <div class="session-info">
+                  <div class="session-headline">
+                    <span class="device-name">{{ clientInfo().os }}</span>
+                    <span class="badge-current-device">Current Device</span>
+                  </div>
+                  <p class="session-sub">
+                    {{ clientInfo().browser }} • {{ clientInfo().ip }} • {{ clientInfo().location }}
+                  </p>
+                  <p class="session-verified">
+                    <span class="check-icon">✓</span> Verified with {{ clientInfo().verifiedMethod }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ==================================================================
+             ADMIN TAB 2: DIRECTORY USERS & GROUPS (JUMPCLOUD STYLE)
+             ================================================================== -->
+
+  <div class="modal-backdrop" *ngIf="showGlobalKillswitchModal()">
+    <div class="modal-card modal-danger">
+      <div class="modal-header">
+        <h3 class="modal-title text-danger">⚠️ Confirm Global Emergency Killswitch</h3>
+        <button type="button" class="modal-close-btn" (click)="closeGlobalKillswitchModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc text-danger">
+          <strong>WARNING: High Impact Security Action</strong><br>
+          This action will immediately terminate all active sessions, invalidate JWT refresh tokens, drop active RADIUS network connections, and unbind LDAP credentials for <strong>all {{ directoryUsers().length }} users</strong> across the entire organization.
+        </p>
+        <p class="modal-desc">
+          Employees will be required to re-authenticate with their password and complete 2-Step Verification (Email OTP / Authenticator App).
+        </p>
+
+        <div class="form-success-text" *ngIf="globalKillswitchSuccess()">
+          ✓ Global Killswitch executed. All tenant tokens purged.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeGlobalKillswitchModal()">Cancel</button>
+        <button type="button" class="btn-danger-killswitch" (click)="executeGlobalKillswitch()">
+          Confirm & Terminate All Sessions
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: REQUEST APPLICATION ACCESS (USER)
+       ======================================================================== -->

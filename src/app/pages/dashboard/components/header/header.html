@@ -1,0 +1,88 @@
+  <header class="dashboard-header">
+    <div class="header-cyber-pattern" aria-hidden="true">
+      <div class="binary-lines">
+        <span>01000100 01000001 01010011 01001000 01000010 01001111 01000001 01010010 01000100</span>
+        <span>10101001 10001011 01001010 11010010 00101101 10100101 01001101 01010011 11000001</span>
+      </div>
+      <div class="cyber-glow-left"></div>
+      <div class="cyber-glow-right"></div>
+    </div>
+
+    <!-- Left: Logo & Title -->
+    <div class="header-left">
+      <div class="logo-container">
+        <img
+          src="vanguardlogotransparent.png"
+          alt="Vanguard Logo"
+          class="vanguard-logo"
+        />
+      </div>
+      <div class="branding-text">
+        <span class="brand-title">VANGUARD</span>
+        <span class="brand-subtitle">Zero-Trust Directory Vault</span>
+      </div>
+    </div>
+
+    <!-- Center: Global Directory Search -->
+    <div class="header-center">
+      <div class="search-input-wrapper">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="search"
+          [(ngModel)]="searchQuery"
+          placeholder="Search directory, apps, protocols, audit logs (Ctrl+K)..."
+          class="global-search-input"
+        />
+        <kbd class="search-shortcut">⌘K</kbd>
+      </div>
+    </div>
+
+    <!-- Right: Role Switcher & Profile Badge -->
+    <div class="header-right">
+      <!-- Admin / User Mode Toggle Switcher (Visible to Admins) -->
+      <div class="mode-toggle-pill" *ngIf="isAdmin()">
+        <button
+          type="button"
+          class="mode-btn"
+          [class.active]="viewMode() === 'admin'"
+          (click)="toggleViewMode('admin')"
+        >
+          <span class="mode-icon">👑</span>
+          <span>Admin Console</span>
+        </button>
+        <button
+          type="button"
+          class="mode-btn"
+          [class.active]="viewMode() === 'user'"
+          (click)="toggleViewMode('user')"
+        >
+          <span class="mode-icon">👤</span>
+          <span>User Portal</span>
+        </button>
+      </div>
+
+      <!-- User Profile Pill -->
+      <div class="user-profile-pill">
+        <div class="avatar-circle">
+          <span>{{ userInitials() }}</span>
+        </div>
+        <div class="user-meta-text">
+          <span class="user-name">{{ displayName() }}</span>
+          <span class="user-role-tag" [class.admin-tag]="isAdmin()">{{ userRoleLabel() }}</span>
+        </div>
+      </div>
+
+      <!-- Sign Out Button -->
+      <button type="button" class="logout-btn-header" (click)="onLogout()" aria-label="Sign Out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="logout-icon">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+        <span class="logout-text">Sign Out</span>
+      </button>
+    </div>
+  </header>

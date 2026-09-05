@@ -1,0 +1,121 @@
+        <section class="dash-section" *ngIf="activeTab() === 'audit-logs'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">Tenant-Wide Security Audit Stream</h2>
+              <p class="section-subtitle">Real-time cryptographic audit trail of all authentication events across SAML, OIDC, LDAP, and RADIUS.</p>
+            </div>
+            <button type="button" class="btn-primary-action" (click)="exportAuditLogs()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Export System Log (CSV)</span>
+            </button>
+          </div>
+
+          <!-- Audit Filter Toolbar -->
+          <div class="directory-toolbar">
+            <div class="toolbar-search">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="text"
+                [ngModel]="auditSearchQuery()"
+                (ngModelChange)="auditSearchQuery.set($event)"
+                placeholder="Search by user email, target service, or IP address..."
+                class="filter-search-input"
+              />
+            </div>
+
+            <div class="category-filter-bar mb-0">
+              <button
+                type="button"
+                class="cat-pill"
+                [class.active]="auditStatusFilter() === 'all'"
+                (click)="setAuditStatus('all')"
+              >
+                All Events
+              </button>
+              <button
+                type="button"
+                class="cat-pill"
+                [class.active]="auditStatusFilter() === 'success'"
+                (click)="setAuditStatus('success')"
+              >
+                Success Only
+              </button>
+              <button
+                type="button"
+                class="cat-pill"
+                [class.active]="auditStatusFilter() === 'challenge'"
+                (click)="setAuditStatus('challenge')"
+              >
+                MFA Challenges
+              </button>
+              <button
+                type="button"
+                class="cat-pill"
+                [class.active]="auditStatusFilter() === 'blocked'"
+                (click)="setAuditStatus('blocked')"
+              >
+                Threats Throttled
+              </button>
+            </div>
+          </div>
+
+          <!-- System Log Event Table -->
+          <div class="activity-table-card">
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Actor (Identity / Source)</th>
+                    <th>Target Service</th>
+                    <th>Protocol</th>
+                    <th>Client IP & Location</th>
+                    <th>Device</th>
+                    <th>Event Status</th>
+                    <th>Risk</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let log of filteredAuditEvents()">
+                    <td class="col-time">{{ log.timestamp }}</td>
+                    <td><strong class="col-actor">{{ log.actor }}</strong></td>
+                    <td>{{ log.target }}</td>
+                    <td><span class="table-proto-badge">{{ log.protocol }}</span></td>
+                    <td class="col-ip">{{ log.clientIp }} <span class="ip-loc">({{ log.location }})</span></td>
+                    <td class="col-device">{{ log.device }}</td>
+                    <td>
+                      <span class="badge" [class.badge-success]="log.status === 'success'" [class.badge-orange]="log.status === 'challenge'" [class.badge-danger]="log.status === 'blocked'">
+                        {{ log.status === 'success' ? '● SUCCESS' : log.status === 'challenge' ? '▲ CHALLENGED' : '✖ BLOCKED' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="risk-badge" [class.risk-low]="log.riskScore === 'Low'" [class.risk-med]="log.riskScore === 'Medium'" [class.risk-high]="log.riskScore === 'High'">
+                        {{ log.riskScore }}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr *ngIf="filteredAuditEvents().length === 0">
+                    <td colspan="8" class="empty-state-cell">
+                      <div class="empty-state-wrap">
+                        <span class="empty-icon">📋</span>
+                        <h4 class="empty-title">No security audit events recorded</h4>
+                        <p class="empty-desc">No authentication, access control, or administrative events have been logged yet or match the active filters.</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             ADMIN TAB: ENDPOINT DEVICE FLEET & MDM POSTURE
+             ================================================================== -->

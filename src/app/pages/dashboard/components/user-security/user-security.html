@@ -1,0 +1,134 @@
+        <section class="dash-section" *ngIf="activeTab() === 'user-security'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">Personal Security & Multi-Factor Vault</h2>
+              <p class="section-subtitle">Manage your Authenticator Apps, emergency recovery backup codes, and credentials.</p>
+            </div>
+          </div>
+
+          <div class="security-cards-grid">
+            <div class="security-card">
+              <div class="sec-card-header">
+                <div class="sec-icon-box">🔐</div>
+                <div class="sec-header-meta">
+                  <h3 class="sec-title">Authenticator App (TOTP)</h3>
+                  <span class="badge" [class.badge-success]="hasTotpEnrolled()" [class.badge-orange]="!hasTotpEnrolled()">
+                    {{ hasTotpEnrolled() ? 'Enrolled & Active' : 'Not Configured' }}
+                  </span>
+                </div>
+              </div>
+              <p class="sec-desc">
+                Use Google Authenticator, JumpCloud Protect, or Microsoft Authenticator to generate 6-digit verification codes for sign-in step-up.
+              </p>
+              <button type="button" class="btn-sec-action" (click)="startEnrollTotp()">
+                {{ hasTotpEnrolled() ? 'Reconfigure Authenticator' : 'Enroll Authenticator App' }}
+              </button>
+            </div>
+
+            <div class="security-card">
+              <div class="sec-card-header">
+                <div class="sec-icon-box">📧</div>
+                <div class="sec-header-meta">
+                  <h3 class="sec-title">Email OTP Verification</h3>
+                  <span class="badge badge-success">Active Primary</span>
+                </div>
+              </div>
+              <p class="sec-desc">
+                8-digit verification codes are dispatched to <strong>{{ user()?.email }}</strong> upon sign-in or password reset recovery.
+              </p>
+              <div class="sec-stat-box">
+                <span class="sec-stat-label">Delivery Channel:</span>
+                <span class="sec-stat-val">Supabase GoTrue Mailer</span>
+              </div>
+            </div>
+
+            <div class="security-card full-span">
+              <div class="sec-card-header">
+                <div class="sec-icon-box">🛡️</div>
+                <div class="sec-header-meta">
+                  <h3 class="sec-title">Emergency Single-Use Recovery Codes</h3>
+                  <span class="badge" [class.badge-accent]="recoveryCodes().length > 0" [class.badge-orange]="recoveryCodes().length === 0">
+                    {{ recoveryCodes().length }} Unused Codes
+                  </span>
+                </div>
+                <div class="recovery-actions" *ngIf="recoveryCodes().length > 0">
+                  <button type="button" class="btn-ghost-sm" (click)="copyRecoveryCodes()">
+                    {{ copiedCodes() ? 'Copied All!' : 'Copy Codes' }}
+                  </button>
+                  <button type="button" class="btn-ghost-sm" (click)="downloadRecoveryCodes()">
+                    Download .TXT
+                  </button>
+                  <button type="button" class="btn-ghost-sm" (click)="generateRecoveryCodes()">
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+              <p class="sec-desc">
+                Store these single-use emergency backup codes in a safe offline location. If you lose access to your email or authenticator device, you can use these codes to regain vault access.
+              </p>
+              <div class="recovery-codes-grid" *ngIf="recoveryCodes().length > 0">
+                <code class="rec-code" *ngFor="let code of recoveryCodes()">{{ code }}</code>
+              </div>
+              <div class="empty-codes-box" *ngIf="recoveryCodes().length === 0">
+                <h4 class="empty-title">No recovery codes generated</h4>
+                <p class="empty-desc">Generate single-use emergency backup codes to ensure you never lose access to your account if your authenticator device is unavailable.</p>
+                <button type="button" class="btn-primary-action btn-sm" (click)="generateRecoveryCodes()">
+                  Generate Recovery Codes
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- USER TAB 3: WI-FI & VPN -->
+
+  <div class="modal-backdrop" *ngIf="showEnrollTotpModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Configure Authenticator App (TOTP)</h3>
+        <button type="button" class="modal-close-btn" (click)="closeEnrollTotpModal()">✕</button>
+      </div>
+
+      <div class="modal-body qr-modal-body">
+        <p class="modal-desc">
+          Scan this QR code with <strong>Google Authenticator</strong>, <strong>JumpCloud Protect</strong>, or <strong>Microsoft Authenticator</strong>:
+        </p>
+
+        <div class="qr-container" *ngIf="totpQrUrl()">
+          <img [src]="totpQrUrl()" alt="Authenticator QR Code" class="qr-img" />
+        </div>
+
+        <div class="secret-box" *ngIf="totpSecret()">
+          <span class="secret-label">Manual Secret Key:</span>
+          <code class="secret-code">{{ totpSecret() }}</code>
+        </div>
+
+        <div class="verify-step-box">
+          <label class="form-label">Enter 6-digit code from authenticator app:</label>
+          <input
+            type="text"
+            [(ngModel)]="totpVerifyCode"
+            placeholder="e.g. 123456"
+            maxlength="6"
+            class="form-input totp-input"
+          />
+        </div>
+
+        <div class="form-error-text" *ngIf="totpEnrollError()">
+          {{ totpEnrollError() }}
+        </div>
+        <div class="form-success-text" *ngIf="totpEnrollSuccess()">
+          ✓ Authenticator App paired and verified successfully!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeEnrollTotpModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="confirmEnrollTotp()">Verify & Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: CREATE FEDERATED APP CONNECTOR (ADMIN)
+       ======================================================================== -->

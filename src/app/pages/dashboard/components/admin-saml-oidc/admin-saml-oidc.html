@@ -1,0 +1,521 @@
+        <section class="dash-section" *ngIf="activeTab() === 'saml-oidc'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">Federated Web Applications & Identity Provider (IdP)</h2>
+              <p class="section-subtitle">Manage SAML 2.0 assertions, OpenID Connect client credentials, signing certificates, and SSO testing.</p>
+            </div>
+            <div class="header-actions-group">
+              <button type="button" class="btn-ghost" (click)="downloadIdpMetadataXml()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>IdP Metadata XML</span>
+              </button>
+              <button type="button" class="btn-primary-action" (click)="openAddAppModal()">
+                <span class="btn-plus">+</span>
+                <span>Create App Connector</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Federation Sub-Navigation Pills -->
+          <div class="subnav-tabs">
+            <button
+              type="button"
+              class="subnav-btn"
+              [class.active]="samlSubTab() === 'apps'"
+              (click)="setSamlSubTab('apps')"
+            >
+              <span>🌐 Federated Apps ({{ federatedSamlConnectors().length }})</span>
+            </button>
+            <button
+              type="button"
+              class="subnav-btn"
+              [class.active]="samlSubTab() === 'idp-metadata'"
+              (click)="setSamlSubTab('idp-metadata')"
+            >
+              <span>📜 IdP Metadata & X.509 Cert</span>
+            </button>
+            <button
+              type="button"
+              class="subnav-btn"
+              [class.active]="samlSubTab() === 'oidc-clients'"
+              (click)="setSamlSubTab('oidc-clients')"
+            >
+              <span>🔑 OIDC OAuth 2.0 Clients ({{ oidcClients().length }})</span>
+            </button>
+            <button
+              type="button"
+              class="subnav-btn"
+              [class.active]="samlSubTab() === 'sso-sandbox'"
+              (click)="setSamlSubTab('sso-sandbox')"
+            >
+              <span>🧪 SSO Sandbox & Assertion Inspector</span>
+            </button>
+          </div>
+
+          <!-- SUBTAB 1: FEDERATED APPS DIRECTORY -->
+          <div *ngIf="samlSubTab() === 'apps'">
+            <div class="activity-table-card">
+              <div class="table-responsive">
+                <table class="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Service Provider</th>
+                      <th>Protocol</th>
+                      <th>Audience / Entity ID</th>
+                      <th>ACS URL / Endpoint</th>
+                      <th>Assigned Groups</th>
+                      <th>Status</th>
+                      <th>Last SSO</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let conn of federatedSamlConnectors()">
+                      <td>
+                        <div class="user-row-meta">
+                          <div class="connector-icon-box">{{ conn.icon }}</div>
+                          <div class="user-row-info">
+                            <strong class="user-row-name">{{ conn.name }}</strong>
+                            <span class="connector-badges-row">
+                              <span class="micro-badge">Sign Response: {{ conn.signResponse ? '✓' : '✗' }}</span>
+                              <span class="micro-badge">Sign Assertion: {{ conn.signAssertion ? '✓' : '✗' }}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="table-proto-badge" [class.badge-oidc]="conn.protocol === 'OIDC'">
+                          {{ conn.protocol }}
+                        </span>
+                      </td>
+                      <td><code class="param-code">{{ conn.entityId }}</code></td>
+                      <td><code class="param-code text-cyan">{{ conn.acsUrl }}</code></td>
+                      <td>
+                        <div class="groups-chips-row">
+                          <span class="dept-chip" *ngFor="let g of conn.assignedGroups">{{ g }}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="badge" [class.badge-success]="conn.status === 'Active'" [class.badge-orange]="conn.status === 'Draft'" [class.badge-danger]="conn.status === 'Inactive'">
+                          ● {{ conn.status }}
+                        </span>
+                      </td>
+                      <td class="col-time">{{ conn.lastSsoEvent || 'N/A' }}</td>
+                      <td>
+                        <div class="row-actions">
+                          <button
+                            type="button"
+                            class="action-btn"
+                            (click)="toggleAppConnectorStatus(conn)"
+                            [title]="conn.status === 'Active' ? 'Deactivate App' : 'Activate App'"
+                          >
+                            {{ conn.status === 'Active' ? 'Deactivate' : 'Activate' }}
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn text-cyan"
+                            (click)="sandboxSelectedAppId = conn.id; setSamlSubTab('sso-sandbox')"
+                            title="Inspect Simulated Assertion in Sandbox"
+                          >
+                            Test SSO
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn text-danger"
+                            (click)="deleteAppConnector(conn.id)"
+                            title="Delete Connector"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr *ngIf="federatedSamlConnectors().length === 0">
+                      <td colspan="8" class="empty-state-cell">
+                        <div class="empty-state-wrap">
+                          <span class="empty-icon">🌐</span>
+                          <h4 class="empty-title">No federated applications configured</h4>
+                          <p class="empty-desc">No SAML 2.0 or OIDC service provider connectors have been added yet.</p>
+                          <button type="button" class="btn-primary-action btn-sm" (click)="openAddAppModal()">
+                            <span class="btn-plus">+</span>
+                            <span>Create App Connector</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBTAB 2: IDP METADATA & X.509 CERTIFICATE VAULT -->
+          <div *ngIf="samlSubTab() === 'idp-metadata'">
+            <div class="security-cards-grid">
+              <!-- IdP Metadata Endpoints -->
+              <div class="security-card">
+                <div class="sec-card-header">
+                  <div class="sec-icon-box">🏛️</div>
+                  <div class="sec-header-meta">
+                    <h3 class="sec-title">Vanguard Identity Provider Endpoints</h3>
+                    <span class="badge badge-success">Production IdP Active</span>
+                  </div>
+                </div>
+                <div class="policy-item">
+                  <span class="policy-label">IdP Entity ID (Issuer):</span>
+                  <span class="policy-value"><code>urn:vanguard:security:idp</code></span>
+                </div>
+                <div class="policy-item">
+                  <span class="policy-label">SSO Redirect Binding:</span>
+                  <span class="policy-value"><code>https://auth.vanguard.security/sso/saml</code></span>
+                </div>
+                <div class="policy-item">
+                  <span class="policy-label">Single Logout (SLO) URL:</span>
+                  <span class="policy-value"><code>https://auth.vanguard.security/sso/logout</code></span>
+                </div>
+                <div class="policy-item">
+                  <span class="policy-label">Supported NameID Formats:</span>
+                  <span class="policy-value"><code>emailAddress, unspecified, persistent</code></span>
+                </div>
+                <div class="cert-download-actions">
+                  <button type="button" class="btn-primary-action" (click)="downloadIdpMetadataXml()">
+                    <span>Download Metadata XML</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- X.509 Signing Certificate -->
+              <div class="security-card">
+                <div class="sec-card-header">
+                  <div class="sec-icon-box">🔐</div>
+                  <div class="sec-header-meta">
+                    <h3 class="sec-title">X.509 SAML Signing Certificate</h3>
+                    <span class="badge badge-accent">{{ idpCert().algorithm }}</span>
+                  </div>
+                  <span class="badge badge-success">{{ idpCert().daysRemaining }} Days Left</span>
+                </div>
+
+                <div class="policy-item">
+                  <span class="policy-label">Subject:</span>
+                  <span class="policy-value truncate-text">{{ idpCert().subject }}</span>
+                </div>
+                <div class="policy-item">
+                  <span class="policy-label">Serial Number:</span>
+                  <span class="policy-value"><code>{{ idpCert().serialNumber }}</code></span>
+                </div>
+                <div class="policy-item">
+                  <span class="policy-label">Validity Window:</span>
+                  <span class="policy-value">{{ idpCert().validFrom }} — {{ idpCert().validUntil }}</span>
+                </div>
+                <div class="policy-item">
+                  <span class="policy-label">Key Specification:</span>
+                  <span class="policy-value"><code>{{ idpCert().keySize }}</code></span>
+                </div>
+
+                <div class="fingerprint-wrapper">
+                  <span class="policy-label">SHA-256 Fingerprint:</span>
+                  <div class="id-copy-row">
+                    <code class="cert-fp-code">{{ idpCert().sha256Fingerprint }}</code>
+                    <button type="button" class="copy-btn" (click)="copyCertFingerprint()">
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="cert-download-actions">
+                  <button type="button" class="btn-ghost-sm" (click)="downloadX509Cert()">
+                    Download .CRT Certificate
+                  </button>
+                  <button type="button" class="btn-ghost-sm text-orange" (click)="openRotateCertModal()">
+                    Rotate / Renew Certificate
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBTAB 3: OIDC CLIENTS -->
+          <div *ngIf="samlSubTab() === 'oidc-clients'">
+            <div class="oidc-discovery-banner">
+              <div class="discovery-item">
+                <span class="discovery-label">OIDC Discovery URL:</span>
+                <code>https://auth.vanguard.security/.well-known/openid-configuration</code>
+              </div>
+              <div class="discovery-item">
+                <span class="discovery-label">JWKS Public Key Set:</span>
+                <code>https://auth.vanguard.security/.well-known/jwks.json</code>
+              </div>
+            </div>
+
+            <div class="oidc-clients-grid">
+              <div class="oidc-card" *ngFor="let client of oidcClients()">
+                <div class="oidc-card-header">
+                  <div class="oidc-icon-box">⚡</div>
+                  <div class="oidc-header-meta">
+                    <h3 class="oidc-title">{{ client.name }}</h3>
+                    <span class="oidc-created">Created: {{ client.createdAt }}</span>
+                  </div>
+                  <span class="badge badge-success">OAuth 2.0</span>
+                </div>
+
+                <div class="oidc-field-group">
+                  <label class="param-label">Client ID:</label>
+                  <code class="oidc-code">{{ client.clientId }}</code>
+                </div>
+
+                <div class="oidc-field-group">
+                  <label class="param-label">Client Secret:</label>
+                  <div class="secret-reveal-row">
+                    <code class="oidc-code">{{ client.revealed ? client.clientSecret : '••••••••••••••••••••••••••••' }}</code>
+                    <button type="button" class="action-btn" (click)="toggleRevealClientSecret(client)">
+                      {{ client.revealed ? 'Hide' : 'Reveal' }}
+                    </button>
+                    <button type="button" class="action-btn" (click)="regenerateClientSecret(client)" title="Regenerate Client Secret">
+                      Regenerate
+                    </button>
+                  </div>
+                </div>
+
+                <div class="oidc-field-group">
+                  <label class="param-label">Authorized Redirect URIs:</label>
+                  <div class="uri-list">
+                    <code class="oidc-code-sm" *ngFor="let uri of client.redirectUris">{{ uri }}</code>
+                  </div>
+                </div>
+
+                <div class="oidc-field-group">
+                  <label class="param-label">Allowed Grant Types & Scopes:</label>
+                  <div class="grant-tags-row">
+                    <span class="grant-tag" *ngFor="let g of client.grantTypes">{{ g }}</span>
+                    <span class="scope-tag" *ngFor="let s of client.allowedScopes">{{ s }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="empty-card-wrap" *ngIf="oidcClients().length === 0">
+                <span class="empty-icon">🔑</span>
+                <h4 class="empty-title">No OIDC OAuth 2.0 clients registered</h4>
+                <p class="empty-desc">No client credentials or mobile tokens have been issued. Connect third-party tools or CLI daemons via OpenID Connect.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBTAB 4: SSO SANDBOX & ASSERTION INSPECTOR -->
+          <div *ngIf="samlSubTab() === 'sso-sandbox'">
+            <div class="sandbox-wrapper">
+              <!-- Sandbox Top Controls Bar -->
+              <div class="sandbox-controls-card">
+                <div class="sandbox-selectors-row">
+                  <div class="control-box">
+                    <label class="form-label">Test Authenticated Identity (Subject):</label>
+                    <select [(ngModel)]="sandboxSelectedUserId" class="filter-select">
+                      <option value="" *ngIf="directoryUsers().length === 0" disabled selected>No directory users available</option>
+                      <option *ngFor="let u of directoryUsers()" [value]="u.id">
+                        {{ u.name }} ({{ u.email }}) — {{ u.role }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="control-box">
+                    <label class="form-label">Target Service Provider / Client:</label>
+                    <select [(ngModel)]="sandboxSelectedAppId" class="filter-select">
+                      <option value="" *ngIf="federatedSamlConnectors().length === 0" disabled selected>No federated apps available</option>
+                      <option *ngFor="let c of federatedSamlConnectors()" [value]="c.id">
+                        {{ c.name }} ({{ c.protocol }})
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="control-box format-switch-box">
+                    <label class="form-label">Inspection Protocol Mode:</label>
+                    <div class="mode-toggle-pill">
+                      <button
+                        type="button"
+                        class="mode-btn"
+                        [class.active]="sandboxInspectorMode === 'saml'"
+                        (click)="sandboxInspectorMode = 'saml'"
+                      >
+                        SAML 2.0 XML
+                      </button>
+                      <button
+                        type="button"
+                        class="mode-btn"
+                        [class.active]="sandboxInspectorMode === 'oidc'"
+                        (click)="sandboxInspectorMode = 'oidc'"
+                      >
+                        OIDC JWT
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Simulation Checklist -->
+                <div class="sandbox-checklist-row">
+                  <span class="check-pill">✓ Cryptographic Signature: RSA-SHA256 Valid</span>
+                  <span class="check-pill">✓ Audience Restriction: Matched</span>
+                  <span class="check-pill">✓ Timestamp: Valid (300s window)</span>
+                  <span class="check-pill">✓ MFA Claims: Attested</span>
+                  <button type="button" class="btn-primary-action ml-auto" (click)="copySimulatedAssertion()">
+                    <span>{{ copiedAssertion() ? 'Copied Assertion!' : 'Copy Assertion' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- SAML 2.0 Inspector View -->
+              <div class="inspector-card" *ngIf="sandboxInspectorMode === 'saml'">
+                <div class="inspector-header">
+                  <div class="inspector-title">
+                    <span class="lang-tag">XML</span>
+                    <strong>Cryptographically Signed SAML 2.0 &lt;samlp:Response&gt;</strong>
+                  </div>
+                  <span class="badge badge-success">SAML 2.0 Core OASIS Standard</span>
+                </div>
+                <div class="code-container">
+                  <pre class="code-block"><code>{{ simulatedSamlXml() }}</code></pre>
+                </div>
+              </div>
+
+              <!-- OIDC JWT Inspector View -->
+              <div class="inspector-card" *ngIf="sandboxInspectorMode === 'oidc'">
+                <div class="inspector-header">
+                  <div class="inspector-title">
+                    <span class="lang-tag">JSON / JWT</span>
+                    <strong>Decoded OpenID Connect ID Token (RFC 7519)</strong>
+                  </div>
+                  <span class="badge badge-accent">RS256 Signed JSON Web Token</span>
+                </div>
+
+                <div class="jwt-split-grid">
+                  <div class="jwt-part-box">
+                    <div class="jwt-part-label text-pink">HEADER: Algorithm & Key ID</div>
+                    <pre class="jwt-code"><code>{{ simulatedOidcJwtHeader() }}</code></pre>
+                  </div>
+                  <div class="jwt-part-box">
+                    <div class="jwt-part-label text-cyan">PAYLOAD: Identity Claims & Permissions</div>
+                    <pre class="jwt-code"><code>{{ simulatedOidcJwtPayload() }}</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             ADMIN TAB: CLOUD LDAP DIRECTORY MANAGER (PORT 636 / 389)
+             ================================================================== -->
+
+  <div class="modal-backdrop" *ngIf="showAddAppModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Configure Federated Application Connector</h3>
+        <button type="button" class="modal-close-btn" (click)="closeAddAppModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Register an enterprise Service Provider (SP) for federated web single sign-on via SAML 2.0 or OpenID Connect.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Application Name</label>
+          <input
+            type="text"
+            [(ngModel)]="newAppName"
+            placeholder="e.g. Snowflake Enterprise, Salesforce CRM"
+            class="form-input"
+          />
+        </div>
+
+        <div class="modal-row-grid">
+          <div class="form-group">
+            <label class="form-label">Federation Protocol</label>
+            <select [(ngModel)]="newAppProtocol" class="form-input">
+              <option value="SAML 2.0">SAML 2.0 (XML Assertion)</option>
+              <option value="OIDC">OpenID Connect (OIDC JWT)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department Access</label>
+            <select [(ngModel)]="newAppDepartment" class="form-input">
+              <option value="Engineering">Engineering</option>
+              <option value="Security Ops">Security Ops</option>
+              <option value="IT Infrastructure">IT Infrastructure</option>
+              <option value="Finance">Finance</option>
+              <option value="All Employees">All Employees</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">SP Entity ID / Audience URI</label>
+          <input
+            type="text"
+            [(ngModel)]="newAppEntityId"
+            placeholder="e.g. https://snowflake.computing.com/vanguard"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Assertion Consumer Service (ACS) / Redirect URL</label>
+          <input
+            type="url"
+            [(ngModel)]="newAppAcsUrl"
+            placeholder="https://app.snowflake.com/saml/consume"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-error-text" *ngIf="addAppError()">
+          {{ addAppError() }}
+        </div>
+        <div class="form-success-text" *ngIf="addAppSuccess()">
+          ✓ Application connector registered and active!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeAddAppModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="submitAddAppConnector()">Save App Connector</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: ROTATE IDP X.509 CERTIFICATE (ADMIN)
+       ======================================================================== -->
+
+  <div class="modal-backdrop" *ngIf="showRotateCertModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title text-orange">Rotate IdP X.509 Signing Certificate</h3>
+        <button type="button" class="modal-close-btn" (click)="closeRotateCertModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Rotating the Identity Provider signing certificate will generate a new RSA 4096-bit keypair and SHA-256 fingerprint valid for 365 days.
+        </p>
+        <p class="modal-desc text-orange">
+          <strong>Note:</strong> Service Providers configured with certificate pinning must update their trust store with the new certificate to maintain Single Sign-On.
+        </p>
+
+        <div class="form-success-text" *ngIf="rotateCertSuccess()">
+          ✓ Certificate rotated successfully! 365 days validity applied.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeRotateCertModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="executeRotateCert()">Confirm & Rotate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: REGISTER LDAP HARDWARE / SERVER (ADMIN)
+       ======================================================================== -->

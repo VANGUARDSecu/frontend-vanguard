@@ -1,0 +1,254 @@
+        <section class="dash-section" *ngIf="activeTab() === 'device-fleet'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">Endpoint Device Fleet & MDM Posture</h2>
+              <p class="section-subtitle">Real-time Zero-Trust compliance, hardware biometric enrollment, and remote wipe orchestration.</p>
+            </div>
+          </div>
+
+          <!-- Telemetry Metric Cards -->
+          <div class="telemetry-grid">
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Enrolled Endpoints</span>
+                <span class="telemetry-icon">📱</span>
+              </div>
+              <div class="telemetry-value text-cyan">{{ fleetDevices().length }} <span class="telemetry-unit">devices</span></div>
+              <div class="telemetry-sub"><span class="text-green">↑ 100%</span> active sync</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Biometrics Adoption</span>
+                <span class="telemetry-icon">👁️</span>
+              </div>
+              <div class="telemetry-value text-green">100%</div>
+              <div class="telemetry-sub">Face ID / Touch ID / Hello</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Zero-Trust Posture</span>
+                <span class="telemetry-icon">🛡️</span>
+              </div>
+              <div class="telemetry-value text-accent">100%</div>
+              <div class="telemetry-sub">Zero jailbroken / rooted</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Push Number Matching</span>
+                <span class="telemetry-icon">🔢</span>
+              </div>
+              <div class="telemetry-value text-orange" style="font-size: 1.15rem; line-height: 1.8;">ENFORCED</div>
+              <div class="telemetry-sub">MFA Fatigue Defended</div>
+            </div>
+          </div>
+
+          <!-- Fleet Devices Table -->
+          <div class="activity-table-card mb-4">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <h3 class="card-inner-title">Managed Endpoints & Mobile Authenticator Instances ({{ fleetDevices().length }})</h3>
+                <span class="badge badge-success">Attestation Verified</span>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Device & Hardware Model</th>
+                    <th>Assigned Owner</th>
+                    <th>Operating System</th>
+                    <th>Biometric Factor</th>
+                    <th>Security Posture</th>
+                    <th>Status</th>
+                    <th>Last Sync</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let dev of fleetDevices()">
+                    <td>
+                      <div class="user-row-meta">
+                        <div class="connector-icon-box">{{ dev.type.includes('Mobile') ? '📱' : '💻' }}</div>
+                        <div class="user-row-info">
+                          <span class="user-name-cell">{{ dev.name }}</span>
+                          <span class="user-email-cell">{{ dev.model }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div>
+                        <strong>{{ dev.ownerName }}</strong>
+                        <div class="text-sm text-muted">{{ dev.department }}</div>
+                      </div>
+                    </td>
+                    <td><code>{{ dev.osVersion }}</code></td>
+                    <td><span class="badge badge-accent">{{ dev.biometricType }}</span></td>
+                    <td>
+                      <div class="posture-tags">
+                        <span class="tag-pill" [class.tag-pass]="dev.diskEncrypted" title="Disk Encryption">
+                          {{ dev.diskEncrypted ? '🔒 Encrypted' : '⚠️ Unencrypted' }}
+                        </span>
+                        <span class="tag-pill" [class.tag-pass]="dev.edrActive" title="EDR Agent Active">
+                          {{ dev.edrActive ? '🛡️ EDR' : '○ No EDR' }}
+                        </span>
+                        <span class="tag-pill" [class.tag-pass]="!dev.jailbroken" title="Tamper / Root Status">
+                          {{ dev.jailbroken ? '🚨 Compromised' : '✓ Clean' }}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        class="status-badge"
+                        [class.status-success]="dev.complianceStatus === 'Compliant'"
+                        [class.status-warning]="dev.complianceStatus === 'Warning'"
+                        [class.status-blocked]="dev.complianceStatus === 'Revoked'"
+                      >
+                        {{ dev.complianceStatus }}
+                      </span>
+                    </td>
+                    <td class="text-sm text-muted">{{ dev.lastSync }}</td>
+                    <td>
+                      <div class="action-btn-group">
+                        <button
+                          type="button"
+                          class="btn-action-icon"
+                          [title]="dev.complianceStatus === 'Compliant' ? 'Flag Compliance Warning' : 'Re-verify Compliance'"
+                          (click)="toggleFleetDeviceCompliance(dev)"
+                        >
+                          {{ dev.complianceStatus === 'Compliant' ? '⚠️' : '✅' }}
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-action-icon text-red"
+                          title="Remote Wipe Corporate Keys"
+                          (click)="openWipeDeviceModal(dev)"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="fleetDevices().length === 0">
+                    <td colspan="8" class="empty-state-cell">
+                      <div class="empty-state-wrap">
+                        <span class="empty-icon">📱</span>
+                        <h4 class="empty-title">No endpoint devices enrolled in fleet</h4>
+                        <p class="empty-desc">No corporate smartphones, biometric authenticators, or employee workstations have been enrolled yet.</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Mobile Push Security Policy Matrix -->
+          <div class="activity-table-card">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <h3 class="card-inner-title">Mobile Push & Device Trust Security Policies</h3>
+                <span class="badge badge-cyan">Zero-Trust Baseline</span>
+              </div>
+              <p class="text-muted text-sm">Automated policies enforced on all Vanguard Mobile Authenticator instances (iOS & Android).</p>
+            </div>
+
+            <div class="security-cards-grid">
+              <div class="security-card">
+                <div class="sec-card-header">
+                  <div class="sec-icon-box">🔢</div>
+                  <div class="sec-header-meta">
+                    <h3 class="sec-title">Number Matching on Push</h3>
+                    <span class="badge" [class.badge-success]="mobilePolicy().enforceNumberMatching" [class.badge-orange]="!mobilePolicy().enforceNumberMatching">
+                      {{ mobilePolicy().enforceNumberMatching ? 'Active Enforcement' : 'Disabled' }}
+                    </span>
+                  </div>
+                </div>
+                <p class="card-desc">Requires users to match a 2-digit challenge number presented on the login screen to mitigate MFA fatigue attacks.</p>
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm mt-2"
+                  (click)="updateMobilePolicy('enforceNumberMatching', !mobilePolicy().enforceNumberMatching)"
+                >
+                  {{ mobilePolicy().enforceNumberMatching ? 'Disable Policy' : 'Enable Number Matching' }}
+                </button>
+              </div>
+
+              <div class="security-card">
+                <div class="sec-card-header">
+                  <div class="sec-icon-box">👁️</div>
+                  <div class="sec-header-meta">
+                    <h3 class="sec-title">Mandatory Hardware Biometrics</h3>
+                    <span class="badge" [class.badge-success]="mobilePolicy().enforceBiometrics" [class.badge-orange]="!mobilePolicy().enforceBiometrics">
+                      {{ mobilePolicy().enforceBiometrics ? 'Active Enforcement' : 'Disabled' }}
+                    </span>
+                  </div>
+                </div>
+                <p class="card-desc">Enforces Face ID, Touch ID, or Android BiometricPrompt via hardware Secure Enclave before approving any push authentication.</p>
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm mt-2"
+                  (click)="updateMobilePolicy('enforceBiometrics', !mobilePolicy().enforceBiometrics)"
+                >
+                  {{ mobilePolicy().enforceBiometrics ? 'Disable Policy' : 'Enforce Biometrics' }}
+                </button>
+              </div>
+
+              <div class="security-card">
+                <div class="sec-card-header">
+                  <div class="sec-icon-box">🚫</div>
+                  <div class="sec-header-meta">
+                    <h3 class="sec-title">Auto-Quarantine Rooted / Jailbroken</h3>
+                    <span class="badge" [class.badge-success]="mobilePolicy().blockJailbroken" [class.badge-orange]="!mobilePolicy().blockJailbroken">
+                      {{ mobilePolicy().blockJailbroken ? 'Active Enforcement' : 'Disabled' }}
+                    </span>
+                  </div>
+                </div>
+                <p class="card-desc">Automatically blocks push tokens and network access on mobile devices with compromised OS kernels or debuggers.</p>
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm mt-2"
+                  (click)="updateMobilePolicy('blockJailbroken', !mobilePolicy().blockJailbroken)"
+                >
+                  {{ mobilePolicy().blockJailbroken ? 'Disable Policy' : 'Enforce Quarantine' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             ADMIN TAB 4: VAULT SETTINGS & KILLSWITCH
+             ================================================================== -->
+
+  <div class="modal-backdrop" *ngIf="showWipeDeviceModal()">
+    <div class="modal-card modal-danger">
+      <div class="modal-header">
+        <h3 class="modal-title text-danger">⚠️ Confirm Remote Device Wipe</h3>
+        <button type="button" class="modal-close-btn" (click)="closeWipeDeviceModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc text-danger">
+          Are you sure you want to remotely wipe and revoke <strong>{{ selectedDeviceForWipe()?.name }}</strong>?
+        </p>
+        <p class="modal-desc">
+          This will revoke all device X.509 certificates, purge Vanguard Authenticator push keys, and block further 802.1X network access from this hardware.
+        </p>
+
+        <div class="form-success-text" *ngIf="wipeDeviceSuccess()">
+          ✓ Device revoked and corporate keys wiped!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeWipeDeviceModal()">Cancel</button>
+        <button type="button" class="btn-danger-killswitch" (click)="executeWipeDevice()">
+          Confirm Remote Wipe
+        </button>
+      </div>
+    </div>
+  </div>
+

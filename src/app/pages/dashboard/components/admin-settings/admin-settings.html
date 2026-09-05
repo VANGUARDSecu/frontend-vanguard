@@ -1,0 +1,81 @@
+        <section class="dash-section" *ngIf="activeTab() === 'settings'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">Zero-Trust Vault Governance & Policies</h2>
+              <p class="section-subtitle">Tenant-wide security configurations, session timeouts, and emergency termination.</p>
+            </div>
+          </div>
+
+          <div class="security-cards-grid">
+            <!-- Organization Vault Profile -->
+            <div class="security-card">
+              <div class="sec-card-header">
+                <div class="sec-icon-box">🏛️</div>
+                <div class="sec-header-meta">
+                  <h3 class="sec-title">Tenant Organization Profile</h3>
+                  <span class="badge badge-success">Production Tenant</span>
+                </div>
+              </div>
+              <div class="policy-item">
+                <span class="policy-label">Organization Name:</span>
+                <span class="policy-value">{{ organizationName() }}</span>
+              </div>
+              <div class="policy-item">
+                <span class="policy-label">Directory Vault Domain:</span>
+                <span class="policy-value"><code>vanguard.security</code></span>
+              </div>
+              <div class="policy-item">
+                <span class="policy-label">SAML 2.0 Entity ID:</span>
+                <span class="policy-value"><code>urn:vanguard:security:idp</code></span>
+              </div>
+            </div>
+
+            <!-- Global Security Policies -->
+            <div class="security-card">
+              <div class="sec-card-header">
+                <div class="sec-icon-box">🛡️</div>
+                <div class="sec-header-meta">
+                  <h3 class="sec-title">Security & Access Rules</h3>
+                  <span class="badge badge-accent">OWASP Hardened</span>
+                </div>
+              </div>
+              
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <strong>Mandatory MFA Enforcement</strong>
+                  <p>Require 2-Step Verification for all employee logins across Web, LDAP, and RADIUS.</p>
+                </div>
+                <button type="button" class="btn-toggle" [class.active]="enforceMfaAll()" (click)="toggleEnforceMfa()">
+                  {{ enforceMfaAll() ? 'ON' : 'OFF' }}
+                </button>
+              </div>
+
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <strong>Automated Tor & High-Risk IP Blocking</strong>
+                  <p>Instantly throttle and challenge connections originating from known malicious subnets.</p>
+                </div>
+                <button type="button" class="btn-toggle" [class.active]="blockHighRiskIps()" (click)="toggleBlockHighRiskIps()">
+                  {{ blockHighRiskIps() ? 'ON' : 'OFF' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Emergency Killswitch Card -->
+            <div class="security-card full-span danger-card">
+              <div class="sec-card-header">
+                <div class="sec-icon-box danger-icon-box">⚠️</div>
+                <div class="sec-header-meta">
+                  <h3 class="sec-title text-danger">Global Emergency Session Killswitch</h3>
+                  <span class="badge badge-danger">High Impact Danger Zone</span>
+                </div>
+              </div>
+              <p class="sec-desc">
+                In the event of an active security incident or compromised corporate credentials, executing the Global Killswitch will <strong>immediately terminate all active sessions, invalidate JWTs, revoke SAML assertions, and disconnect active RADIUS/LDAP binds</strong> across the entire directory.
+              </p>
+              <button type="button" class="btn-danger-killswitch" (click)="openGlobalKillswitchModal()">
+                <span>Execute Global Emergency Killswitch</span>
+              </button>
+            </div>
+          </div>
+        </section>
