@@ -1,0 +1,48 @@
+        <section class="dash-section" *ngIf="activeTab() === 'user-activity'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">My Sign-in Activity</h2>
+              <p class="section-subtitle">Chronological record of your recent authentication events across web, network, and SSO apps.</p>
+            </div>
+          </div>
+
+          <div class="activity-table-card">
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Application / Gateway</th>
+                    <th>Protocol</th>
+                    <th>Device & Browser</th>
+                    <th>IP Address & Location</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let evt of signInHistory()">
+                    <td class="col-time">{{ evt.timestamp }}</td>
+                    <td class="col-app"><strong>{{ evt.application }}</strong></td>
+                    <td class="col-proto"><span class="table-proto-badge">{{ evt.protocol }}</span></td>
+                    <td class="col-device">{{ evt.device }}</td>
+                    <td class="col-ip">{{ evt.ip }} <span class="ip-loc">({{ evt.location }})</span></td>
+                    <td class="col-status">
+                      <span class="badge badge-success">● SUCCESS</span>
+                    </td>
+                  </tr>
+                  <tr *ngIf="signInHistory().length === 0">
+                    <td colspan="6" class="empty-state-cell">
+                      <div class="empty-state-wrap">
+                        <span class="empty-icon">🕒</span>
+                        <h4 class="empty-title">No sign-in activity recorded</h4>
+                        <p class="empty-desc">Your authentication events and session activity will appear here once recorded.</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- USER TAB 6: MY DEVICES & MOBILE AUTHENTICATOR -->

@@ -1,0 +1,126 @@
+        <section class="dash-section" *ngIf="activeTab() === 'my-apps' || activeTab() === 'overview'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">My Applications (Single Sign-On)</h2>
+              <p class="section-subtitle">Launch your assigned enterprise SaaS apps with zero-trust credentials.</p>
+            </div>
+            <button type="button" class="btn-primary-action" (click)="openRequestAppModal()">
+              <span class="btn-plus">+</span>
+              <span>Request Application</span>
+            </button>
+          </div>
+
+          <div class="category-filter-bar">
+            <button
+              type="button"
+              class="cat-pill"
+              [class.active]="selectedCategory() === 'all'"
+              (click)="setCategory('all')"
+            >
+              All Applications ({{ apps().length }})
+            </button>
+            <button
+              type="button"
+              class="cat-pill"
+              [class.active]="selectedCategory() === 'cloud'"
+              (click)="setCategory('cloud')"
+            >
+              Cloud & Infrastructure
+            </button>
+            <button
+              type="button"
+              class="cat-pill"
+              [class.active]="selectedCategory() === 'developer'"
+              (click)="setCategory('developer')"
+            >
+              Developer Tools
+            </button>
+            <button
+              type="button"
+              class="cat-pill"
+              [class.active]="selectedCategory() === 'collaboration'"
+              (click)="setCategory('collaboration')"
+            >
+              Team Collaboration
+            </button>
+          </div>
+
+          <div class="apps-grid">
+            <div class="app-card" *ngFor="let app of filteredApps()">
+              <div class="app-card-top">
+                <div class="app-icon-box">{{ app.icon }}</div>
+                <span class="proto-tag">{{ app.protocol }}</span>
+              </div>
+              <h3 class="app-name">{{ app.name }}</h3>
+              <p class="app-desc">{{ app.description }}</p>
+              <button type="button" class="btn-launch-app" (click)="launchApp(app)">
+                <span>Launch App</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="launch-icon">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </button>
+            </div>
+
+            <div class="empty-card-wrap" *ngIf="filteredApps().length === 0">
+              <span class="empty-icon">📦</span>
+              <h4 class="empty-title">No applications assigned</h4>
+              <p class="empty-desc">You do not have any single sign-on applications assigned to your account. You can request access using the button below.</p>
+              <button type="button" class="btn-primary-action btn-sm" (click)="openRequestAppModal()">
+                <span class="btn-plus">+</span>
+                <span>Request Application</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- USER TAB 2: SECURITY & MFA -->
+
+  <div class="modal-backdrop" *ngIf="showRequestAppModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Request Application Access</h3>
+        <button type="button" class="modal-close-btn" (click)="closeRequestAppModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Submit an application access request to your Vanguard Security Administrator.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Application Name</label>
+          <input
+            type="text"
+            [(ngModel)]="requestedAppName"
+            placeholder="e.g. Figma Enterprise, Salesforce, Snowflake"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Business Justification</label>
+          <textarea
+            [(ngModel)]="requestAppJustification"
+            placeholder="Explain why you need access to this tool..."
+            rows="3"
+            class="form-textarea"
+          ></textarea>
+        </div>
+
+        <div class="form-success-text" *ngIf="requestAppSuccess()">
+          ✓ Request submitted to administrator for approval!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeRequestAppModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="submitAppRequest()">Submit Request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: ENROLL AUTHENTICATOR APP (USER)
+       ======================================================================== -->

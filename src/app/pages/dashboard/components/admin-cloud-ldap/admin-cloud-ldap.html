@@ -1,0 +1,324 @@
+        <section class="dash-section" *ngIf="activeTab() === 'cloud-ldap'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">Cloud LDAP Directory Manager (LDAPS 636)</h2>
+              <p class="section-subtitle">Zero-Trust identity provider for legacy storage NAS appliances, Linux server clusters, and PAM/SSSD daemons.</p>
+            </div>
+            <div class="header-actions-group">
+              <button type="button" class="btn-ghost" (click)="regenerateLdapPasswords()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                <span>Rotate Service Secrets</span>
+              </button>
+              <button type="button" class="btn-primary-action" (click)="openAddLdapHostModal()">
+                <span class="btn-plus">+</span>
+                <span>Register Hardware / NAS</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Telemetry Metric Cards -->
+          <div class="telemetry-grid">
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Active Binds / Sec</span>
+                <span class="telemetry-icon">⚡</span>
+              </div>
+              <div class="telemetry-value text-cyan">24.8 <span class="telemetry-unit">req/s</span></div>
+              <div class="telemetry-sub"><span class="text-green">↑ 4.2%</span> peak throughput</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Query Latency (Avg)</span>
+                <span class="telemetry-icon">⏱️</span>
+              </div>
+              <div class="telemetry-value text-green">1.8 <span class="telemetry-unit">ms</span></div>
+              <div class="telemetry-sub">Sub-millisecond TLS cache</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">TLS Connection Pool</span>
+                <span class="telemetry-icon">🔒</span>
+              </div>
+              <div class="telemetry-value text-accent">64 <span class="telemetry-unit">/ 128</span></div>
+              <div class="telemetry-sub">50% pool utilization</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Bind Success Rate</span>
+                <span class="telemetry-icon">🛡️</span>
+              </div>
+              <div class="telemetry-value text-green">99.98%</div>
+              <div class="telemetry-sub">Zero unauthenticated binds</div>
+            </div>
+          </div>
+
+          <!-- LDAP Config & Hierarchy Details Card -->
+          <div class="activity-table-card mb-4">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <h3 class="card-inner-title">Directory Hierarchy & Bind Endpoint Configurations</h3>
+                <span class="badge badge-success">TLS 1.3 Strict Mode</span>
+              </div>
+              <span class="text-muted text-sm">Primary Endpoint: <code>ldaps://ldap.vanguard.security:636</code></span>
+            </div>
+
+            <div class="ldap-config-grid">
+              <div class="config-cell">
+                <span class="cell-label">Base Distinguished Name (DN)</span>
+                <code class="cell-code">dc=vanguard,dc=security</code>
+                <span class="cell-desc">Root schema identifier for enterprise tenant directory tree.</span>
+              </div>
+              <div class="config-cell">
+                <span class="cell-label">Users Organizational Unit (OU)</span>
+                <code class="cell-code">ou=Users,dc=vanguard,dc=security</code>
+                <span class="cell-desc">Schema: <code>inetOrgPerson</code>, <code>posixAccount</code> (Mapped to Supabase).</span>
+              </div>
+              <div class="config-cell">
+                <span class="cell-label">Groups Organizational Unit (OU)</span>
+                <code class="cell-code">ou=Groups,dc=vanguard,dc=security</code>
+                <span class="cell-desc">Schema: <code>groupOfNames</code>, <code>posixGroup</code> (RBAC sync).</span>
+              </div>
+              <div class="config-cell">
+                <span class="cell-label">Read-Only Service Account Bind DN</span>
+                <code class="cell-code">cn=svc-ldap-readonly,ou=ServiceAccounts,dc=vanguard,dc=security</code>
+                <div class="secret-field-row">
+                  <span class="secret-val">{{ ldapReadonlyPwRevealed() ? ldapReadonlyPassword() : '••••••••••••••••' }}</span>
+                  <button type="button" class="btn-tiny" (click)="toggleLdapReadonlyPwRevealed()">
+                    {{ ldapReadonlyPwRevealed() ? 'Hide' : 'Reveal' }}
+                  </button>
+                </div>
+              </div>
+              <div class="config-cell">
+                <span class="cell-label">Admin Service Account Bind DN</span>
+                <code class="cell-code">cn=admin,dc=vanguard,dc=security</code>
+                <div class="secret-field-row">
+                  <span class="secret-val">{{ ldapAdminPwRevealed() ? ldapAdminPassword() : '••••••••••••••••' }}</span>
+                  <button type="button" class="btn-tiny" (click)="toggleLdapAdminPwRevealed()">
+                    {{ ldapAdminPwRevealed() ? 'Hide' : 'Reveal' }}
+                  </button>
+                </div>
+              </div>
+              <div class="config-cell">
+                <span class="cell-label">Supported Ciphers & TLS</span>
+                <code class="cell-code">TLS_AES_256_GCM_SHA384 (TLSv1.3)</code>
+                <span class="cell-desc">Plaintext LDAP (Port 389) strictly enforces StartTLS upgrade.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bound Hardware NAS & Linux Clusters Table -->
+          <div class="activity-table-card mb-4">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <h3 class="card-inner-title">Bound Storage Appliances & Linux Server Clusters ({{ ldapHosts().length }})</h3>
+                <span class="badge badge-accent">Auto-Synchronized</span>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Host / Appliance</th>
+                    <th>Type</th>
+                    <th>IP / Subnet CIDR</th>
+                    <th>Protocol</th>
+                    <th>Daily Queries</th>
+                    <th>Status</th>
+                    <th>Last Active</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let host of ldapHosts()">
+                    <td>
+                      <div class="user-row-meta">
+                        <div class="connector-icon-box">{{ host.type === 'NAS Storage' ? '💾' : '🖥️' }}</div>
+                        <div class="user-row-info">
+                          <span class="user-name-cell">{{ host.name }}</span>
+                          <span class="user-email-cell">{{ host.bindUser }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="dept-badge">{{ host.type }}</span></td>
+                    <td><code>{{ host.ipAddress }}</code></td>
+                    <td><span class="protocol-badge">{{ host.protocol }}</span></td>
+                    <td><strong>{{ host.dailyBinds | number }}</strong> reqs</td>
+                    <td>
+                      <span class="status-badge" [class.status-success]="host.status === 'Connected'" [class.status-warning]="host.status === 'Offline'">
+                        {{ host.status }}
+                      </span>
+                    </td>
+                    <td class="text-sm text-muted">{{ host.lastActive }}</td>
+                    <td>
+                      <div class="action-btn-group">
+                        <button
+                          type="button"
+                          class="btn-action-icon"
+                          [title]="host.status === 'Connected' ? 'Disconnect host' : 'Reconnect host'"
+                          (click)="toggleLdapHostStatus(host)"
+                        >
+                          {{ host.status === 'Connected' ? '⏸️' : '▶️' }}
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-action-icon text-red"
+                          title="Unlink Host"
+                          (click)="deleteLdapHost(host.id)"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="ldapHosts().length === 0">
+                    <td colspan="8" class="empty-state-cell">
+                      <div class="empty-state-wrap">
+                        <span class="empty-icon">💾</span>
+                        <h4 class="empty-title">No LDAP hosts or NAS appliances registered</h4>
+                        <p class="empty-desc">No storage appliances or Linux servers are currently bound to the Cloud LDAPS endpoint.</p>
+                        <button type="button" class="btn-primary-action btn-sm" (click)="openAddLdapHostModal()">
+                          <span class="btn-plus">+</span>
+                          <span>Register Hardware / NAS</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Interactive LDAP Bind Diagnostic Terminal -->
+          <div class="activity-table-card">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <h3 class="card-inner-title">Interactive LDAP Simple Bind Diagnostic Terminal</h3>
+                <span class="badge badge-success">Live ldapsearch Test</span>
+              </div>
+              <p class="text-muted text-sm">Simulate and verify LDAPS 636 authentication against central Supabase identity records.</p>
+            </div>
+
+            <div class="sandbox-config-box">
+              <div class="sandbox-form-row">
+                <div class="sandbox-field-group">
+                  <label class="sandbox-label">Target Directory User</label>
+                  <select class="sandbox-select" [(ngModel)]="ldapDiagUserId">
+                    <option value="" *ngIf="directoryUsers().length === 0" disabled selected>No directory users available</option>
+                    <option *ngFor="let u of directoryUsers()" [value]="u.id">
+                      {{ u.name }} ({{ u.email }}) - {{ u.department }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="sandbox-field-group">
+                  <label class="sandbox-label">Target Service Endpoint</label>
+                  <input type="text" class="sandbox-select" value="ldaps://ldap.vanguard.security:636" readonly />
+                </div>
+
+                <div class="sandbox-field-group btn-align-end">
+                  <button
+                    type="button"
+                    class="btn-primary-action"
+                    [disabled]="ldapDiagRunning()"
+                    (click)="runLdapBindTest()"
+                  >
+                    <span>{{ ldapDiagRunning() ? 'Testing Bind...' : 'Execute Bind Test' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Terminal Packet Log -->
+              <div class="packet-trace-box">
+                <div class="trace-header">
+                  <div class="trace-title">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span class="terminal-title-text">LDAPS 636 Simple Bind Trace</span>
+                  </div>
+                  <button type="button" class="btn-tiny" (click)="copyLdapDiagLog()">
+                    {{ copiedLdapLog() ? 'Copied Trace!' : 'Copy Trace' }}
+                  </button>
+                </div>
+                <pre class="trace-log"><code>{{ ldapDiagLog() }}</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             ADMIN TAB: CLOUD RADIUS NETWORK ACCESS MANAGER (PORT 1812 / 1813)
+             ================================================================== -->
+
+  <div class="modal-backdrop" *ngIf="showAddLdapHostModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Register LDAP Hardware / Server Cluster</h3>
+        <button type="button" class="modal-close-btn" (click)="closeAddLdapHostModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Bind a Network-Attached Storage (NAS) appliance or Linux server cluster to the Cloud LDAP 636 directory.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Host / Appliance Display Name</label>
+          <input
+            type="text"
+            [(ngModel)]="newLdapHostName"
+            placeholder="e.g. Synology Backup NAS or Prod Cluster"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hardware / Cluster Type</label>
+          <select [(ngModel)]="newLdapHostType" class="form-select">
+            <option value="NAS Storage">NAS Storage Appliance (Synology / QNAP)</option>
+            <option value="Linux Server Cluster">Linux Server Cluster (Debian / Ubuntu / RHEL)</option>
+            <option value="Legacy Application">Legacy Application (On-Prem / Docker)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">IP Address / Subnet CIDR</label>
+          <input
+            type="text"
+            [(ngModel)]="newLdapHostIp"
+            placeholder="e.g. 10.100.1.25 or 10.200.0.0/24"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Protocol & Port</label>
+          <select [(ngModel)]="newLdapHostProtocol" class="form-select">
+            <option value="LDAPS (636)">LDAPS over TLS 1.3 (Port 636) - Recommended</option>
+            <option value="StartTLS (389)">StartTLS over Port 389</option>
+          </select>
+        </div>
+
+        <div class="form-error-text" *ngIf="addLdapHostError()">
+          {{ addLdapHostError() }}
+        </div>
+        <div class="form-success-text" *ngIf="addLdapHostSuccess()">
+          ✓ Hardware host registered and bound to Cloud LDAP!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeAddLdapHostModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="submitAddLdapHost()">Bind Host</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: REGISTER RADIUS ACCESS POINT (ADMIN)
+       ======================================================================== -->

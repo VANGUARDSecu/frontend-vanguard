@@ -1,0 +1,353 @@
+        <section class="dash-section" *ngIf="activeTab() === 'directory'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">Central Directory Users & Groups</h2>
+              <p class="section-subtitle">Manage identities, role assignments, and multi-factor enforcement across departments.</p>
+            </div>
+            <button type="button" class="btn-primary-action" (click)="openInviteModal()">
+              <span class="btn-plus">+</span>
+              <span>Invite New Employee</span>
+            </button>
+          </div>
+
+          <!-- Directory Filter Toolbar -->
+          <div class="directory-toolbar">
+            <div class="toolbar-search">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="text"
+                [ngModel]="directorySearch()"
+                (ngModelChange)="directorySearch.set($event)"
+                placeholder="Search employees by name, email, or role..."
+                class="filter-search-input"
+              />
+            </div>
+
+            <div class="toolbar-filters">
+              <select
+                class="filter-select"
+                [ngModel]="directoryDepartmentFilter()"
+                (ngModelChange)="setDirectoryDepartment($event)"
+              >
+                <option value="all">All Departments</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Security Ops">Security Ops</option>
+                <option value="IT Infrastructure">IT Infrastructure</option>
+                <option value="Finance">Finance</option>
+                <option value="Executive">Executive</option>
+              </select>
+
+              <select
+                class="filter-select"
+                [ngModel]="directoryStatusFilter()"
+                (ngModelChange)="setDirectoryStatus($event)"
+              >
+                <option value="all">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Suspended">Suspended</option>
+                <option value="Pending">Pending Invite</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Directory Users Table -->
+          <div class="activity-table-card">
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Employee Name</th>
+                    <th>Department</th>
+                    <th>Role</th>
+                    <th>MFA Status</th>
+                    <th>Account Status</th>
+                    <th>Last Active</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let u of filteredDirectoryUsers()">
+                    <td>
+                      <div class="user-row-meta">
+                        <div class="user-row-avatar">{{ u.initials }}</div>
+                        <div class="user-row-info">
+                          <strong class="user-row-name">{{ u.name }}</strong>
+                          <span class="user-row-email">{{ u.email }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="dept-chip">{{ u.department }}</span>
+                    </td>
+                    <td>
+                      <span class="role-badge" [class.admin-badge]="u.role === 'Super Administrator'">
+                        {{ u.role }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="mfa-badge" [class.mfa-active]="u.mfaStatus.includes('TOTP')">
+                        {{ u.mfaStatus }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge" [class.badge-success]="u.accountStatus === 'Active'" [class.badge-orange]="u.accountStatus === 'Pending'" [class.badge-danger]="u.accountStatus === 'Suspended'">
+                        ● {{ u.accountStatus }}
+                      </span>
+                    </td>
+                    <td class="col-time">{{ u.lastLogin }}</td>
+                    <td>
+                      <div class="row-actions">
+                        <button
+                          type="button"
+                          class="action-btn"
+                          *ngIf="u.accountStatus === 'Active'"
+                          (click)="suspendUser(u)"
+                          title="Suspend User Access"
+                        >
+                          Suspend
+                        </button>
+                        <button
+                          type="button"
+                          class="action-btn text-success"
+                          *ngIf="u.accountStatus === 'Suspended'"
+                          (click)="reactivateUser(u)"
+                          title="Reactivate Account"
+                        >
+                          Reactivate
+                        </button>
+                        <button
+                          type="button"
+                          class="action-btn"
+                          (click)="forceUserPasswordReset(u)"
+                          title="Dispatch Password Reset"
+                        >
+                          Reset Pass
+                        </button>
+                        <button
+                          type="button"
+                          class="action-btn text-danger"
+                          (click)="adminRevokeUserSessions(u)"
+                          title="Revoke All Sessions"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="filteredDirectoryUsers().length === 0">
+                    <td colspan="7" class="empty-state-cell">
+                      <div class="empty-state-wrap">
+                        <span class="empty-icon">👥</span>
+                        <h4 class="empty-title">No employees or identities found</h4>
+                        <p class="empty-desc">No directory users match your search criteria or no employees have been invited yet.</p>
+                        <button type="button" class="btn-primary-action btn-sm" (click)="openInviteModal()">
+                          <span class="btn-plus">+</span>
+                          <span>Invite New Employee</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             ADMIN TAB: SAML 2.0 & OIDC WEB FEDERATION (OKTA & ENTRA ID STYLE)
+             ================================================================== -->
+
+  <div class="modal-backdrop" *ngIf="showInviteModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          {{ inviteSuccess() ? 'Employee Provisioned' : 'Invite Employee to Vanguard Directory' }}
+        </h3>
+        <button type="button" class="modal-close-btn" (click)="closeInviteModal()">✕</button>
+      </div>
+
+      <!-- VIEW A: Form Mode (inviteSuccess() is false) -->
+      <ng-container *ngIf="!inviteSuccess()">
+        <div class="modal-body">
+          <p class="modal-desc">
+            Add an identity to <strong>{{ organizationName() }}</strong>. A corporate account with a temporary password will be provisioned.
+          </p>
+
+          <div class="modal-row-grid">
+            <div class="form-group">
+              <label class="form-label">First Name</label>
+              <input
+                type="text"
+                [(ngModel)]="inviteFirstName"
+                placeholder="e.g. Rachel"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name</label>
+              <input
+                type="text"
+                [(ngModel)]="inviteLastName"
+                placeholder="e.g. Cole"
+                class="form-input"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Corporate Work Email</label>
+            <input
+              type="email"
+              [(ngModel)]="inviteEmail"
+              placeholder="r.cole@vanguard.security"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Temporary Password Field with Generate Button -->
+          <div class="form-group">
+            <div class="form-label-row">
+              <label class="form-label">Temporary Initial Password</label>
+              <button
+                type="button"
+                class="btn-text-action"
+                (click)="generateRandomPassword()"
+                title="Generate a secure random password"
+              >
+                🎲 Generate Random
+              </button>
+            </div>
+            <div class="input-with-action">
+              <input
+                type="text"
+                [(ngModel)]="invitePassword"
+                placeholder="e.g. Vanguard#2026!"
+                class="form-input input-mono"
+              />
+            </div>
+            <span class="form-hint-text">
+              The employee will use this temporary password to log in and will be prompted to reset it.
+            </span>
+          </div>
+
+          <div class="modal-row-grid">
+            <div class="form-group">
+              <label class="form-label">Department</label>
+              <select [(ngModel)]="inviteDepartment" class="form-input">
+                <option value="Engineering">Engineering</option>
+                <option value="Security Ops">Security Ops</option>
+                <option value="IT Infrastructure">IT Infrastructure</option>
+                <option value="Finance">Finance</option>
+                <option value="Executive">Executive</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Role</label>
+              <select [(ngModel)]="inviteRole" class="form-input">
+                <option value="Directory Member">Directory Member</option>
+                <option value="Security Officer">Security Officer</option>
+                <option value="Super Administrator">Super Administrator</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-error-text" *ngIf="inviteError()">
+            {{ inviteError() }}
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" (click)="closeInviteModal()">Cancel</button>
+          <button type="button" class="btn-primary-action" (click)="submitInviteUser()">Dispatch Invitation</button>
+        </div>
+      </ng-container>
+
+      <!-- VIEW B: Credentials Confirmation Card (inviteSuccess() is true) -->
+      <ng-container *ngIf="inviteSuccess()">
+        <div class="modal-body">
+          <div class="provision-success-banner">
+            <div class="provision-success-icon">✓</div>
+            <div class="provision-success-details">
+              <h4 class="provision-success-title">Employee Account Created!</h4>
+              <p class="provision-success-desc">
+                An identity for <strong>{{ inviteCreatedUser()?.name }}</strong> has been registered in the directory vault.
+              </p>
+            </div>
+          </div>
+
+          <div class="credentials-card">
+            <div class="credentials-card-title">EMPLOYEE LOGIN CREDENTIALS</div>
+            
+            <div class="credential-row">
+              <span class="credential-label">Portal Login URL:</span>
+              <span class="credential-val font-mono">/login</span>
+            </div>
+
+            <div class="credential-row">
+              <span class="credential-label">Work Email:</span>
+              <span class="credential-val font-mono text-cyan">{{ inviteCreatedUser()?.email }}</span>
+            </div>
+
+            <div class="credential-row">
+              <span class="credential-label">Assigned Role:</span>
+              <span class="credential-val">{{ inviteCreatedUser()?.role }}</span>
+            </div>
+
+            <div class="credential-row credential-password-row">
+              <div class="credential-pw-meta">
+                <span class="credential-label">Temporary Password:</span>
+                <span class="credential-password-text font-mono">{{ inviteCreatedUser()?.temporaryPassword }}</span>
+              </div>
+              <button
+                type="button"
+                class="btn-copy-sm"
+                [class.btn-copied]="passwordCopied()"
+                (click)="copyTemporaryPassword()"
+              >
+                {{ passwordCopied() ? '✓ Copied!' : '📋 Copy Password' }}
+              </button>
+            </div>
+
+            <div class="credential-row credential-email-dispatch">
+              <span class="credential-label">Email Status:</span>
+              <span class="email-status-pill" [class.sending]="inviteEmailStatus() === 'sending'" [class.sent]="inviteEmailStatus() === 'sent'" [class.failed]="inviteEmailStatus() === 'failed'">
+                <ng-container *ngIf="inviteEmailStatus() === 'sending'">
+                  <span class="email-spinner"></span> Dispatching credentials email...
+                </ng-container>
+                <ng-container *ngIf="inviteEmailStatus() === 'sent'">
+                  ✓ Credentials emailed to {{ inviteCreatedUser()?.email }}
+                </ng-container>
+                <ng-container *ngIf="inviteEmailStatus() === 'failed'">
+                  ⚠ {{ inviteEmailMessage() || 'Email delivery failed' }}
+                </ng-container>
+                <ng-container *ngIf="inviteEmailStatus() === 'idle'">
+                  Ready to dispatch
+                </ng-container>
+              </span>
+            </div>
+          </div>
+
+          <div class="provision-policy-note">
+            <svg class="notice-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+            </svg>
+            <span>
+              An official onboarding email with login URL and temporary credentials has been dispatched. The employee will be required to change this temporary password upon first sign-in.
+            </span>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" (click)="openInviteModal()">+ Invite Another</button>
+          <button type="button" class="btn-primary-action" (click)="closeInviteModal()">Done</button>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: GLOBAL EMERGENCY KILLSWITCH (ADMIN DANGER)
+       ======================================================================== -->

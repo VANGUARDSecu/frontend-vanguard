@@ -1,0 +1,356 @@
+        <section class="dash-section" *ngIf="activeTab() === 'cloud-radius'">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">Cloud RADIUS Network Access Manager (802.1X / WPA3)</h2>
+              <p class="section-subtitle">Zero-Trust network segmentation for corporate Wi-Fi access points, VPN gateways, and dynamic 802.1Q VLAN assignment.</p>
+            </div>
+            <div class="header-actions-group">
+              <button type="button" class="btn-ghost" (click)="openRotateRadiusSecretModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                <span>Rotate RADIUS Secret</span>
+              </button>
+              <button type="button" class="btn-primary-action" (click)="openAddRadiusApModal()">
+                <span class="btn-plus">+</span>
+                <span>Register Access Point</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Telemetry / Endpoint Summary Cards -->
+          <div class="telemetry-grid">
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Authentication Server</span>
+                <span class="telemetry-icon">📡</span>
+              </div>
+              <div class="telemetry-value text-cyan">UDP 1812</div>
+              <div class="telemetry-sub">radius1.vanguard.security</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Accounting Server</span>
+                <span class="telemetry-icon">📊</span>
+              </div>
+              <div class="telemetry-value text-green">UDP 1813</div>
+              <div class="telemetry-sub">radius-acct.vanguard.security</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Supported EAP Methods</span>
+                <span class="telemetry-icon">🛡️</span>
+              </div>
+              <div class="telemetry-value text-accent" style="font-size: 1.1rem; line-height: 1.8;">PEAP / EAP-TLS</div>
+              <div class="telemetry-sub">WPA3 Enterprise Strict</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Shared Secret Validity</span>
+                <span class="telemetry-icon">🔑</span>
+              </div>
+              <div class="telemetry-value text-orange">{{ radiusSecretDaysRemaining() }} <span class="telemetry-unit">days</span></div>
+              <div class="telemetry-sub">
+                <span class="secret-val">{{ radiusSecretRevealed() ? radiusSharedSecret() : '••••••••••••••••' }}</span>
+                <button type="button" class="btn-tiny ml-2" (click)="toggleRadiusSecretRevealed()">
+                  {{ radiusSecretRevealed() ? 'Hide' : 'Reveal' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Managed Network Access Points Table -->
+          <div class="activity-table-card mb-4">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <h3 class="card-inner-title">Managed Network Access Points & Gateways ({{ radiusAccessPoints().length }})</h3>
+                <span class="badge badge-success">802.1X Enforced</span>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Access Point / Gateway</th>
+                    <th>Hardware / Vendor Type</th>
+                    <th>IP Address / Gateway</th>
+                    <th>Shared Secret Status</th>
+                    <th>Status</th>
+                    <th>Last Auth Event</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let ap of radiusAccessPoints()">
+                    <td>
+                      <div class="user-row-meta">
+                        <div class="connector-icon-box">📶</div>
+                        <div class="user-row-info">
+                          <span class="user-name-cell">{{ ap.name }}</span>
+                          <span class="user-email-cell">Port 1812 / 1813</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="dept-badge">{{ ap.type }}</span></td>
+                    <td><code>{{ ap.ipAddress }}</code></td>
+                    <td><span class="badge badge-success">Synchronized</span></td>
+                    <td>
+                      <span class="status-badge" [class.status-success]="ap.status === 'Active'" [class.status-warning]="ap.status === 'Standby'">
+                        {{ ap.status }}
+                      </span>
+                    </td>
+                    <td class="text-sm text-muted">{{ ap.lastAuthEvent }}</td>
+                    <td>
+                      <div class="action-btn-group">
+                        <button
+                          type="button"
+                          class="btn-action-icon"
+                          [title]="ap.status === 'Active' ? 'Set to Standby' : 'Activate'"
+                          (click)="toggleRadiusApStatus(ap)"
+                        >
+                          {{ ap.status === 'Active' ? '⏸️' : '▶️' }}
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-action-icon text-red"
+                          title="Remove AP"
+                          (click)="deleteRadiusAp(ap.id)"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="radiusAccessPoints().length === 0">
+                    <td colspan="7" class="empty-state-cell">
+                      <div class="empty-state-wrap">
+                        <span class="empty-icon">📶</span>
+                        <h4 class="empty-title">No RADIUS access points configured</h4>
+                        <p class="empty-desc">No corporate Wi-Fi access points or VPN concentrators have been registered yet.</p>
+                        <button type="button" class="btn-primary-action btn-sm" (click)="openAddRadiusApModal()">
+                          <span class="btn-plus">+</span>
+                          <span>Add Access Point</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Dynamic 802.1Q VLAN Assignment Policy Matrix -->
+          <div class="activity-table-card mb-4">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <h3 class="card-inner-title">Dynamic 802.1Q VLAN Assignment Policy Matrix</h3>
+                <span class="badge badge-cyan">Zero-Trust Network Segmentation</span>
+              </div>
+              <p class="text-muted text-sm">Upon successful 802.1X authentication, RADIUS returns RADIUS attribute 81 (Tunnel-Private-Group-Id) mapping the client to their isolated department VLAN.</p>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Department / Group Role</th>
+                    <th>VLAN Tag ID</th>
+                    <th>Subnet CIDR Range</th>
+                    <th>Isolation Policy</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let vlan of vlanMappings()">
+                    <td><strong>{{ vlan.department }}</strong></td>
+                    <td><span class="vlan-pill">VLAN {{ vlan.vlanId }}</span></td>
+                    <td><code>{{ vlan.subnetCidr }}</code></td>
+                    <td>
+                      <span class="status-badge" [class.status-blocked]="vlan.isolated" [class.status-success]="!vlan.isolated">
+                        {{ vlan.isolated ? 'Zero-Trust Isolated' : 'Routable Subnet' }}
+                      </span>
+                    </td>
+                    <td class="text-sm text-muted">{{ vlan.description }}</td>
+                  </tr>
+                  <tr *ngIf="vlanMappings().length === 0">
+                    <td colspan="5" class="empty-state-cell">
+                      <div class="empty-state-wrap">
+                        <span class="empty-icon">🛡️</span>
+                        <h4 class="empty-title">No dynamic VLAN policies configured</h4>
+                        <p class="empty-desc">VLAN segmentation rules will assign authenticated users to isolated subnets based on role.</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Interactive RADIUS Authentication Simulator (radtest) -->
+          <div class="activity-table-card">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <h3 class="card-inner-title">Interactive RADIUS Authentication Simulator (radtest)</h3>
+                <span class="badge badge-success">UDP 1812 Packet Inspector</span>
+              </div>
+              <p class="text-muted text-sm">Simulate a full 802.1X EAP exchange from an Access Point to verify directory authentication and dynamic VLAN attribute injection.</p>
+            </div>
+
+            <div class="sandbox-config-box">
+              <div class="sandbox-form-row">
+                <div class="sandbox-field-group">
+                  <label class="sandbox-label">User / Identity</label>
+                  <select class="sandbox-select" [(ngModel)]="radiusDiagUserId">
+                    <option value="" *ngIf="directoryUsers().length === 0" disabled selected>No directory users available</option>
+                    <option *ngFor="let u of directoryUsers()" [value]="u.id">
+                      {{ u.name }} ({{ u.email }}) - {{ u.department }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="sandbox-field-group">
+                  <label class="sandbox-label">Access Point / Gateway</label>
+                  <select class="sandbox-select" [(ngModel)]="radiusDiagApId">
+                    <option value="" *ngIf="radiusAccessPoints().length === 0" disabled selected>No access points configured</option>
+                    <option *ngFor="let ap of radiusAccessPoints()" [value]="ap.id">
+                      {{ ap.name }} ({{ ap.ipAddress }})
+                    </option>
+                  </select>
+                </div>
+
+                <div class="sandbox-field-group">
+                  <label class="sandbox-label">EAP Protocol</label>
+                  <select class="sandbox-select" [(ngModel)]="radiusDiagEapMethod">
+                    <option value="PEAP-MSCHAPv2">PEAP-MSCHAPv2 (Username & Password)</option>
+                    <option value="EAP-TLS">EAP-TLS (X.509 Client Certificate)</option>
+                  </select>
+                </div>
+
+                <div class="sandbox-field-group btn-align-end">
+                  <button
+                    type="button"
+                    class="btn-primary-action"
+                    [disabled]="radiusDiagRunning()"
+                    (click)="runRadiusAuthTest()"
+                  >
+                    <span>{{ radiusDiagRunning() ? 'Authenticating...' : 'Dispatch Access-Request' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Terminal Packet Log -->
+              <div class="packet-trace-box">
+                <div class="trace-header">
+                  <div class="trace-title">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span class="terminal-title-text">RADIUS 1812 Access-Request & Dynamic VLAN Trace</span>
+                  </div>
+                  <button type="button" class="btn-tiny" (click)="copyRadiusDiagLog()">
+                    {{ copiedRadiusLog() ? 'Copied Trace!' : 'Copy Trace' }}
+                  </button>
+                </div>
+                <pre class="trace-log"><code>{{ radiusDiagLog() }}</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             ADMIN TAB 3: SECURITY AUDIT STREAM (OKTA SYSTEM LOG STYLE)
+             ================================================================== -->
+
+  <div class="modal-backdrop" *ngIf="showAddRadiusApModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Register RADIUS Access Point / Gateway</h3>
+        <button type="button" class="modal-close-btn" (click)="closeAddRadiusApModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Add an 802.1X Network Access Server (NAS) client. The primary shared secret will be applied.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Access Point / Gateway Name</label>
+          <input
+            type="text"
+            [(ngModel)]="newRadiusApName"
+            placeholder="e.g. HQ Floor 3 - Aruba CX WPA3"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hardware Vendor / Appliance</label>
+          <select [(ngModel)]="newRadiusApType" class="form-select">
+            <option value="Aruba WPA3 Enterprise">Aruba WPA3 Enterprise AP</option>
+            <option value="Cisco Catalyst 9100">Cisco Catalyst 9100 Wi-Fi 6E</option>
+            <option value="Palo Alto GlobalProtect">Palo Alto GlobalProtect VPN Gateway</option>
+            <option value="WireGuard Gateway">WireGuard Enterprise Mesh Gateway</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">IPv4 / Gateway Address</label>
+          <input
+            type="text"
+            [(ngModel)]="newRadiusApIp"
+            placeholder="e.g. 192.168.10.15"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-error-text" *ngIf="addRadiusApError()">
+          {{ addRadiusApError() }}
+        </div>
+        <div class="form-success-text" *ngIf="addRadiusApSuccess()">
+          ✓ Access Point enrolled into RADIUS cluster!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeAddRadiusApModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="submitAddRadiusAp()">Enroll Access Point</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: ROTATE RADIUS SHARED SECRET (ADMIN)
+       ======================================================================== -->
+
+  <div class="modal-backdrop" *ngIf="showRotateRadiusSecretModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title text-orange">Rotate RADIUS Shared Secret</h3>
+        <button type="button" class="modal-close-btn" (click)="closeRotateRadiusSecretModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Rotating the RADIUS shared secret will generate a cryptographically strong high-entropy secret.
+        </p>
+        <p class="modal-desc text-orange">
+          <strong>Important:</strong> All connected Access Points and VPN gateways configured with manual secrets must be updated to prevent 802.1X Access-Reject failures.
+        </p>
+
+        <div class="form-success-text" *ngIf="rotateRadiusSecretSuccess()">
+          ✓ RADIUS shared secret rotated! 90 days validity period reset.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeRotateRadiusSecretModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="executeRotateRadiusSecret()">Confirm & Rotate Secret</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: PAIR MOBILE AUTHENTICATOR (USER & ADMIN)
+       ======================================================================== -->

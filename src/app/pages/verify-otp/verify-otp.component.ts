@@ -26,7 +26,7 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
   readonly method = signal<VerificationMethod>('email_otp');
   readonly hasTotp = signal<boolean>(false);
   
-  // Dynamic code length: TOTP is 6 digits, Email OTP is 8 digits (Supabase default)
+  // Dynamic code length: TOTP is 6 digits, Email OTP is 8 digits (matching Supabase email template)
   readonly codeLength = computed<number>(() => (this.method() === 'totp' ? 6 : 8));
   readonly separatorIndex = computed<number>(() => (this.method() === 'totp' ? 2 : 3));
   readonly digits = signal<string[]>(new Array(8).fill(''));
@@ -56,7 +56,7 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
       this.method.set(methodParam);
 
       this.clearOtpInputs();
-      this.startResendTimer(45);
+      this.startResendTimer(30);
     });
   }
 
@@ -195,13 +195,13 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const type = this.mode() === 'signup' ? 'signup' : 'email_change';
+    const type = this.mode() === 'signup' ? 'signup' : 'signin';
 
     this.authService.resendOtp(email, type).subscribe({
       next: (res) => {
         this.isLoading.set(false);
-        this.showNotification('success', res.message || 'New code dispatched to your email!', 5000);
-        this.startResendTimer(60);
+        this.showNotification('success', res.message || 'New verification code dispatched to your email!', 5000);
+        this.startResendTimer(45);
         this.clearOtpInputs();
       },
       error: (err: Error) => {
