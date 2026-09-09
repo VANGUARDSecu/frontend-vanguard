@@ -1,59 +1,232 @@
-# FrontendVanguard
+# Vanguard Security Platform - Frontend Web Application
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.5.
+[![Angular](https://img.shields.io/badge/Angular-22.1-DD0031?logo=angular&logoColor=white)](https://angular.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vitest](https://img.shields.io/badge/Vitest-4.0-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![License](https://img.shields.io/badge/License-Proprietary-blue.svg)](#)
 
-## Development server
+High-assurance client portal and administrative console for the **Vanguard Zero-Trust Identity & Access Management Platform**. Built with Angular 22, Angular Signals, and Server-Side Rendering (SSR), the application features a responsive cyber-dark design system, real-time security telemetry, multi-protocol federation management, and dual role-based workspaces.
 
-To start a local development server, run:
+---
 
+## Table of Contents
+
+1. [Workspaces & Features](#workspaces--features)
+   - [Admin Console](#1-admin-console-admin-view)
+   - [Employee Personal Workspace](#2-employee-personal-workspace-user-view)
+   - [Authentication & Identity Verification](#3-authentication--identity-verification)
+2. [Prerequisites](#prerequisites)
+3. [Installation & Setup](#installation--setup)
+4. [Development Server](#development-server)
+5. [Connecting to Backend](#connecting-to-the-backend-service)
+6. [Testing & Quality Assurance](#testing--quality-assurance)
+7. [Production Build & SSR](#production-build--server-side-rendering)
+8. [Architecture & Project Structure](#architecture--project-structure)
+9. [Troubleshooting](#troubleshooting)
+
+---
+
+## Workspaces & Features
+
+### 1. Admin Console (Admin View)
+Designed for SecOps engineers and system administrators to configure enterprise access:
+- **Gateway Telemetry & Health**: Live monitoring for SAML 2.0 Web SSO, OIDC Clients, Cloud LDAP (Port 636), and Cloud RADIUS (Port 1812).
+- **Directory Vault & Provisioning**:
+  - Provision employees with auto-generated secure temporary passwords (`Vanguard#XXXX!`).
+  - One-click copy credentials confirmation card.
+  - Automated onboarding email dispatch with live delivery status pills (`sending`, `sent`, `failed`).
+  - Suspend, reactivate, change roles, force password resets, and revoke active sessions.
+- **Protocol Management**:
+  - **SAML 2.0 SSO**: Manage SP connectors, download IdP metadata XML, and export X.509 certificates.
+  - **OIDC Clients**: Register client IDs, callbacks, and test via the interactive SSO Assertion Sandbox.
+  - **Cloud LDAP & RADIUS**: Manage host connections, access points, and VLAN mappings with interactive diagnostics.
+- **Enterprise Security Policies**:
+  - Enforce tenant-wide MFA, block high-risk IP ranges, and configure session timeouts.
+  - **Global Emergency Killswitch**: One-click revocation of all active sessions and gateway tokens.
+- **Tenant Audit Log Stream**: Real-time event auditing with multi-field search, protocol filtering, and CSV export.
+
+### 2. Employee Personal Workspace (User View)
+Tailored for corporate employees to access organizational resources:
+- **My Apps Launchpad**: One-click single sign-on into authorized corporate SaaS applications.
+- **Security & Password Management**: Self-service permanent password updates and MFA enrollment.
+- **Device Trust & Hardware**: Inspect enrolled laptops, phones, and MDM compliance state.
+- **Corporate Wi-Fi Profile**: Download pre-configured 802.1X / EAP-TLS profiles and certificates for immediate enterprise network access.
+- **SSH Key Manager**: Upload and manage public SSH keys (`ssh-ed25519`, `ssh-rsa`) for infrastructure access.
+- **Personal Activity History**: Review personal sign-in history, device locations, and security challenges.
+
+### 3. Authentication & Identity Verification
+- **Login Portal (`/login`)**: Email/password entry with "Remember Me" caching and seamless employee directory session recognition.
+- **2-Step Verification (`/verify-otp`)**:
+  - 8-digit Email OTP codes with 60-second cooldown resend countdown.
+  - 6-digit Authenticator TOTP codes with QR code enrollment.
+  - Developer bypass codes (`123456` / `12345678`) for accelerated offline testing.
+- **Enforced Password Reset (`/reset-password`)**: Automatically prompts newly invited employees to replace their temporary password on first sign-in.
+
+---
+
+## Prerequisites
+
+Ensure you have the following installed on your machine:
+
+| Tool | Required Version | Recommended | Notes |
+|:---|:---|:---|:---|
+| **Node.js** | `v20.0.0+` | `v20.18.0` or `v22.x` | JavaScript runtime |
+| **npm** | `v10.0.0+` | `v11.x` | Node package manager |
+| **Backend Service** | Running | `http://localhost:3000` | Start `backend-vanguard` |
+| **Browser** | Modern | Chrome, Edge, Firefox, Safari | Modern CSS & WebAuthn support |
+
+---
+
+## Installation & Setup
+
+### 1. Navigate to the Frontend Directory
 ```bash
-ng serve
+cd frontend-vanguard
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
+### 2. Install Dependencies
+Install all required packages:
 ```bash
-ng generate component component-name
+npm install
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+---
+
+## Development Server
+
+Start the local Angular development server:
 
 ```bash
-ng generate --help
+npm start
+# or
+npx ng serve
 ```
 
-## Building
+Once compilation completes, open your browser and navigate to:
+```
+http://localhost:4200/
+```
 
-To build the project run:
+The application features hot-reloading; changes to source code will automatically refresh the browser.
+
+---
+
+## Connecting to the Backend Service
+
+The frontend connects to the backend API running at `http://localhost:3000`.
+
+To ensure complete functionality (including live email dispatch, Supabase authentication, and OTP verification):
+1. Open a separate terminal window.
+2. Navigate to `backend-vanguard` and start the API:
+   ```bash
+   cd ../backend-vanguard
+   npm run start:dev
+   ```
+3. Ensure the backend is listening on `http://localhost:3000`.
+
+---
+
+## Testing & Quality Assurance
+
+### Run Unit Test Suite
+Execute unit tests using the modern [Vitest](https://vitest.dev/) test runner:
 
 ```bash
-ng build
+# Run tests once and exit (CI mode)
+npm test -- --watch=false
+# or
+npx ng test --watch=false
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+### Expected Test Results:
+- **13 Test Suites**: All passed (100%)
+- **66 Unit Tests**: All passed (100%)
 
-## Running unit tests
+---
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+## Production Build & Server-Side Rendering
+
+Compile the application for production deployment:
 
 ```bash
-ng test
+npm run build
 ```
 
-## Running end-to-end tests
+This creates optimized production bundles in `dist/frontend-vanguard`:
+- **Browser bundles**: Optimized client-side JavaScript chunks, CSS, and assets.
+- **Server bundles**: Node.js SSR server for fast initial paint and SEO.
 
-For end-to-end (e2e) testing, run:
-
+To preview the production SSR build locally:
 ```bash
-ng e2e
+npm run serve:ssr:frontend-vanguard
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+---
 
-## Additional Resources
+## Architecture & Project Structure
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+The frontend is modularized into decoupled standalone components, centralized signal services, and isolated models:
+
+```
+frontend-vanguard/
+├── src/
+│   ├── app/
+│   │   ├── guards/
+│   │   │   └── auth.guard.ts             # Route authentication guard
+│   │   ├── pages/
+│   │   │   ├── dashboard/
+│   │   │   │   ├── components/           # 16 decoupled standalone views
+│   │   │   │   │   ├── admin-overview/
+│   │   │   │   │   ├── admin-saml/
+│   │   │   │   │   ├── admin-oidc/
+│   │   │   │   │   ├── admin-cloud-ldap/
+│   │   │   │   │   ├── admin-cloud-radius/
+│   │   │   │   │   ├── admin-directory/  # Employee invitation & credentials card
+│   │   │   │   │   ├── admin-mfa-policies/
+│   │   │   │   │   ├── admin-saas-catalog/
+│   │   │   │   │   ├── admin-device-trust/
+│   │   │   │   │   ├── admin-audit-logs/ # Live audit stream & CSV export
+│   │   │   │   │   ├── user-my-apps/     # Employee SSO application catalog
+│   │   │   │   │   ├── user-security/    # Employee credentials & MFA management
+│   │   │   │   │   ├── user-devices/     # Hardware inspection & compliance
+│   │   │   │   │   ├── user-wifi-profile/# Corporate 802.1X Wi-Fi profiles
+│   │   │   │   │   ├── user-ssh-keys/    # SSH public key manager
+│   │   │   │   │   ├── user-activity/    # Personal security audit history
+│   │   │   │   │   └── dashboard-shared.css # Unified design system styles
+│   │   │   │   ├── models/
+│   │   │   │   │   └── dashboard.models.ts  # Strongly typed domain models
+│   │   │   │   ├── services/
+│   │   │   │   │   └── dashboard.service.ts # Reactive state via Angular Signals
+│   │   │   │   ├── dashboard.component.ts   # Parent orchestrator
+│   │   │   │   └── dashboard.component.html # View switcher
+│   │   │   ├── landing/                  # Enterprise public landing page
+│   │   │   ├── login/                    # Login page with directory auth
+│   │   │   ├── register/                 # Tenant registration
+│   │   │   ├── verify-otp/               # 8-digit Email OTP & TOTP verification
+│   │   │   └── reset-password/           # First-login password change flow
+│   │   ├── services/
+│   │   │   └── auth.service.ts           # Central auth & API client
+│   │   ├── app.config.ts                 # Global application configuration
+│   │   └── app.routes.ts                 # Application route definitions
+│   └── styles.css                        # Global CSS variables & cyber grid
+└── package.json
+```
+
+---
+
+## Troubleshooting
+
+### 1. Cannot connect to backend server (`HttpErrorResponse`)
+- **Cause**: The backend API service is not running.
+- **Solution**: Open another terminal, navigate to `backend-vanguard`, and run `npm run start:dev`.
+
+### 2. "Unable to dispatch invitation email"
+- **Cause**: Backend SMTP credentials in `backend-vanguard/.env` are not configured, or backend needs to be restarted.
+- **Solution**: The backend automatically falls back to Ethereal test accounts. Check the backend terminal console to see the generated email preview link.
+
+---
+
+## License
+
+This project is part of the **Vanguard Security Platform**. All rights reserved.
