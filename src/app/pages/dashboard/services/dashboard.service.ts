@@ -170,8 +170,8 @@ export class DashboardService {
   inviteLastName = '';
   inviteEmail = '';
   invitePassword = '';
-  inviteDepartment: string = 'Engineering';
-  inviteRole: string = 'Directory Member';
+  inviteDepartment: DirectoryUser['department'] = 'Engineering';
+  inviteRole: DirectoryUser['role'] = 'Directory Member';
   readonly inviteSuccess = signal<boolean>(false);
   readonly inviteError = signal<string | null>(null);
   readonly inviteCreatedUser = signal<DirectoryUser | null>(null);
@@ -271,67 +271,6 @@ export class DashboardService {
         g.department.toLowerCase().includes(query) ||
         g.email.toLowerCase().includes(query)
     );
-  });
-
-  // ==========================================
-  // SCRUM-37: Dynamic Departments & Roles Autocomplete & Filter
-  // ==========================================
-  readonly defaultDepartments: readonly string[] = [
-    'Engineering',
-    'Security Ops',
-    'IT Infrastructure',
-    'Finance',
-    'Executive',
-    'Human Resources',
-    'Legal & Compliance',
-    'Product & Design',
-    'Sales & Marketing',
-    'Customer Support',
-  ];
-
-  readonly defaultRoles: readonly string[] = [
-    'Directory Member',
-    'Security Officer',
-    'Super Administrator',
-    'Security Analyst',
-    'DevOps Engineer',
-    'Compliance Auditor',
-    'IT Administrator',
-  ];
-
-  readonly availableDepartments = computed(() => {
-    const list: string[] = [...this.defaultDepartments];
-    const seen = new Set<string>(this.defaultDepartments.map((d) => d.toLowerCase()));
-
-    for (const u of this.directoryUsers()) {
-      const dept = u.department?.trim();
-      if (dept && !seen.has(dept.toLowerCase())) {
-        seen.add(dept.toLowerCase());
-        list.push(dept);
-      }
-    }
-    for (const g of this.directoryGroups()) {
-      const dept = g.department?.trim();
-      if (dept && !seen.has(dept.toLowerCase())) {
-        seen.add(dept.toLowerCase());
-        list.push(dept);
-      }
-    }
-    return list;
-  });
-
-  readonly availableRoles = computed(() => {
-    const list: string[] = [...this.defaultRoles];
-    const seen = new Set<string>(this.defaultRoles.map((r) => r.toLowerCase()));
-
-    for (const u of this.directoryUsers()) {
-      const role = u.role?.trim();
-      if (role && !seen.has(role.toLowerCase())) {
-        seen.add(role.toLowerCase());
-        list.push(role);
-      }
-    }
-    return list;
   });
 
   // Group Create / Edit Modal State
@@ -486,7 +425,6 @@ export class DashboardService {
 
     const newEvt: TenantAuditEvent = {
       id: 'log-' + Date.now(),
-      action,
       timestamp: timeStr,
       isoTimestamp: isoStr,
       actor,
@@ -1017,20 +955,14 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   readonly copiedRadiusLog = signal<boolean>(false);
 
   // ==========================================
-  private resolveDisplayName(): string {
-    const u = this.user?.();
-    if (!u) return 'Security Analyst';
-    if (u.firstName && u.lastName) return `${u.firstName} ${u.lastName}`;
-    if (u.firstName) return u.firstName;
-    return u.email ? u.email.split('@')[0] : 'Security Analyst';
-  }
-
+  // PHASE 6: Mobile Companion App & Biometrics State (Dynamic)
+  // ==========================================
   private initFleetDevices(): EnrolledDevice[] {
     const stored = this.loadStored<EnrolledDevice[]>('vanguard_fleet_devices', []);
     if (stored && stored.length > 0) {
       return stored;
     }
-    const name = this.resolveDisplayName();
+    const name = this.displayName();
     const email = this.user()?.email || 'admin@vanguard.security';
     const dept = 'Engineering';
 
@@ -1113,12 +1045,18 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     return baseDevices;
   }
 
-  readonly userDevices = signal<EnrolledDevice[]>(
-    this.loadStored<EnrolledDevice[]>('vanguard_user_devices', [])
-  );
-  readonly fleetDevices = signal<EnrolledDevice[]>(
-    this.loadStored<EnrolledDevice[]>('vanguard_fleet_devices', [])
-  );
+  private initUserDevices(): EnrolledDevice[] {
+    const stored = this.loadStored<EnrolledDevice[]>('vanguard_user_devices', []);
+    if (stored && stored.length > 0) {
+      return stored;
+    }
+    const fleet = this.initFleetDevices();
+    const email = this.user()?.email || 'admin@vanguard.security';
+    return fleet.filter((d) => d.ownerEmail === email);
+  }
+
+  readonly userDevices = signal<EnrolledDevice[]>(this.initUserDevices());
+  readonly fleetDevices = signal<EnrolledDevice[]>(this.initFleetDevices());
 
   readonly mobilePolicy = signal<MobilePolicyConfig>(
     this.loadStored<MobilePolicyConfig>('vanguard_mobile_policy', {
@@ -1775,13 +1713,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     this.inviteError.set(null);
     this.existingPendingUser.set(null);
 
-    if (
-      !this.inviteFirstName.trim() ||
-      !this.inviteLastName.trim() ||
-      !this.inviteEmail.trim() ||
-      !this.inviteDepartment?.trim() ||
-      !this.inviteRole?.trim()
-    ) {
+    if (!this.inviteFirstName.trim() || !this.inviteLastName.trim() || !this.inviteEmail.trim()) {
       this.inviteError.set('Please fill out all required fields.');
       return;
     }
@@ -1837,8 +1769,8 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
       id: 'usr-' + Date.now(),
       name: `${this.inviteFirstName.trim()} ${this.inviteLastName.trim()}`,
       email: cleanEmail,
-      department: this.inviteDepartment.trim(),
-      role: this.inviteRole.trim(),
+      department: this.inviteDepartment,
+      role: this.inviteRole,
       mfaStatus: 'Email OTP Only',
       accountStatus: 'Pending',
       lastLogin: 'Never (Invite sent)',
@@ -1850,13 +1782,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
 
     this.directoryUsers.update((users) => [newUser, ...users]);
     this.saveStored('vanguard_directory_users', this.directoryUsers());
-    this.logAuditEvent(
-      `Invited employee ${newUser.email} (${newUser.department} - ${newUser.role}) (Valid for 48h)`,
-      'Directory Vault',
-      'Invitation Service',
-      'success',
-      'Low'
-    );
+    this.logAuditEvent(`Invited employee ${newUser.email} (Valid for 48h)`, 'Directory Vault', 'Invitation Service', 'success', 'Low');
 
     this.inviteCreatedUser.set(newUser);
     this.inviteSuccess.set(true);
