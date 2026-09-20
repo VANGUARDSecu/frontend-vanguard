@@ -61,7 +61,10 @@ export class AuthService {
 
   readonly userRole = computed<'admin' | 'security_officer' | 'user'>(() => {
     const u = this.currentUser();
-    return u?.role || (u?.user_metadata?.['role'] as any) || 'admin';
+    const r = u?.role || (u?.user_metadata?.['role'] as any);
+    if (r === 'admin' || r === 'Super Administrator') return 'admin';
+    if (r === 'security_officer' || r === 'Security Officer') return 'security_officer';
+    return 'user';
   });
 
   readonly isAdmin = computed<boolean>(() => {
@@ -84,13 +87,19 @@ export class AuthService {
       if (!stored) return null;
       const parsed = JSON.parse(stored);
       const meta = parsed.user_metadata || {};
+      let role: 'admin' | 'security_officer' | 'user' = 'user';
+      if (parsed.role === 'admin' || meta['role'] === 'admin') {
+        role = 'admin';
+      } else if (parsed.role === 'security_officer' || meta['role'] === 'security_officer') {
+        role = 'security_officer';
+      }
       return {
         ...parsed,
         firstName: parsed.firstName || meta['first_name'] || meta['firstName'] || meta['given_name'] || meta['name']?.split(' ')[0] || '',
         lastName: parsed.lastName || meta['last_name'] || meta['lastName'] || meta['family_name'] || meta['name']?.split(' ').slice(1).join(' ') || '',
         companyName: parsed.companyName || meta['company_name'] || meta['companyName'] || 'Vanguard Security Inc.',
         phone: parsed.phone || meta['phone'] || '',
-        role: parsed.role || meta['role'] || 'admin',
+        role,
         avatarUrl: parsed.avatarUrl || meta['avatar_url'] || meta['picture'] || '',
       };
     } catch {
@@ -271,9 +280,7 @@ export class AuthService {
       }
 
       let role: 'admin' | 'security_officer' | 'user' = 'user';
-      if (user.role === 'Super Administrator') {
-        role = 'admin';
-      } else if (user.role === 'Security Officer') {
+      if (user.role === 'Security Officer') {
         role = 'security_officer';
       }
 
@@ -546,16 +553,59 @@ export class AuthService {
 
   setSession(user: UserProfile, session: AuthSession): void {
     const meta = user.user_metadata || {};
+    let resolvedRole: 'admin' | 'security_officer' | 'user' = 'user';
+
+    // 1. Cross reference with local directory users:
+    // Any employee invited or created from the directory must strictly be an employee ('user')
+    if (this.isBrowser) {
+      try {
+        const storedDir = localStorage.getItem('vanguard_directory_users');
+        if (storedDir) {
+          const dirUsers: any[] = JSON.parse(storedDir);
+          const matched = dirUsers.find(
+            (d) => d.email?.trim().toLowerCase() === user.email?.trim().toLowerCase(),
+          );
+          if (matched) {
+            resolvedRole = matched.role === 'Security Officer' ? 'security_officer' : 'user';
+          } else if (user.role === 'admin' || meta['role'] === 'admin') {
+            resolvedRole = 'admin';
+          } else if (user.role === 'security_officer' || meta['role'] === 'security_officer') {
+            resolvedRole = 'security_officer';
+          }
+        } else if (user.role === 'admin' || meta['role'] === 'admin') {
+          resolvedRole = 'admin';
+        } else if (user.role === 'security_officer' || meta['role'] === 'security_officer') {
+          resolvedRole = 'security_officer';
+        }
+      } catch {
+        if (user.role === 'admin' || meta['role'] === 'admin') resolvedRole = 'admin';
+      }
+    } else {
+      if (user.role === 'admin' || meta['role'] === 'admin') resolvedRole = 'admin';
+      else if (user.role === 'security_officer' || meta['role'] === 'security_officer') resolvedRole = 'security_officer';
+    }
+
     const normalizedUser: UserProfile = {
       ...user,
       firstName: user.firstName || meta['first_name'] || meta['firstName'] || meta['given_name'] || meta['name']?.split(' ')[0] || '',
       lastName: user.lastName || meta['last_name'] || meta['lastName'] || meta['family_name'] || meta['name']?.split(' ').slice(1).join(' ') || '',
       companyName: user.companyName || meta['company_name'] || meta['companyName'] || 'Vanguard Security Inc.',
       phone: user.phone || meta['phone'] || '',
-      role: user.role || meta['role'] || 'admin',
+      role: resolvedRole,
       avatarUrl: user.avatarUrl || meta['avatar_url'] || meta['picture'] || '',
-      user_metadata: meta,
+      user_metadata: {
+        ...meta,
+        role: resolvedRole,
+      },
     };
+
+    // Flag password reset required on first sign-in if temporary password was flagged
+    if (meta['is_temporary_password'] || meta['isTemporaryPassword']) {
+      this.isPasswordResetRequired.set(true);
+      if (this.isBrowser) {
+        localStorage.setItem('vanguard_reset_required', 'true');
+      }
+    }
 
     this.currentUser.set(normalizedUser);
     this.token.set(session.access_token);
@@ -595,7 +645,7 @@ export class AuthService {
     const currentEmail = this.currentUser()?.email || this.pendingEmail() || this.loadStoredUser()?.email;
     const isLocalDirectorySession = token.startsWith('vanguard_') || (token && token.split('.').length !== 3);
 
-    // If resetting for a directory employee with local/temporary session, update localStorage directly
+    // Sync to localStorage directory cache if present
     if (this.isBrowser && (isLocalDirectorySession || currentEmail)) {
       try {
         const stored = localStorage.getItem('vanguard_directory_users');
@@ -609,18 +659,6 @@ export class AuthService {
             users[idx].password = password.trim();
             delete users[idx].temporaryPassword;
             localStorage.setItem('vanguard_directory_users', JSON.stringify(users));
-
-            this.isPasswordResetRequired.set(false);
-            localStorage.removeItem('vanguard_reset_required');
-            localStorage.removeItem('vanguard_user');
-            localStorage.removeItem('vanguard_token');
-            this.currentUser.set(null);
-            this.token.set(null);
-
-            return of({
-              success: true,
-              message: 'Password updated successfully! Please sign in with your new password.',
-            });
           }
         }
       } catch (e) {
@@ -635,7 +673,7 @@ export class AuthService {
     return this.http
       .post<{ success: boolean; message: string }>(
         `${this.API_URL}/reset-password`,
-        { password, accessToken: token },
+        { password, accessToken: token, email: currentEmail },
         { headers }
       )
       .pipe(

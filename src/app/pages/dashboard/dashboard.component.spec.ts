@@ -3,6 +3,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { Component } from '@angular/core';
+import { of } from 'rxjs';
+import { vi } from 'vitest';
 import { DashboardComponent } from './dashboard.component';
 import { AuthService } from '../../services/auth.service';
 
@@ -53,7 +55,16 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     expect(names).toContain('Cloud RADIUS Gateway');
   });
 
-  it('should toggle view mode between admin and user', () => {
+  it('should toggle view mode between admin and user for admin user', () => {
+    authService.currentUser.set({
+      id: 'adm-1',
+      email: 'admin@vanguard.io',
+      firstName: 'Super',
+      lastName: 'Admin',
+      companyName: 'Vanguard',
+      role: 'admin',
+    });
+
     component.toggleViewMode('user');
     expect(component.viewMode()).toBe('user');
     expect(component.activeTab()).toBe('my-apps');
@@ -61,6 +72,20 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     component.toggleViewMode('admin');
     expect(component.viewMode()).toBe('admin');
     expect(component.activeTab()).toBe('overview');
+  });
+
+  it('should prevent non-admin directory user from switching to admin console (SCRUM-38)', () => {
+    authService.currentUser.set({
+      id: 'usr-1',
+      email: 'employee@vanguard.io',
+      firstName: 'Standard',
+      lastName: 'Employee',
+      companyName: 'Vanguard',
+      role: 'user',
+    });
+
+    component.toggleViewMode('admin');
+    expect(component.viewMode()).toBe('user');
   });
 
   it('should trigger session revocation feedback', () => {
@@ -257,6 +282,120 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
 
     component.closeInviteModal();
     expect(component.showInviteModal()).toBe(false);
+  });
+
+  it('should prevent duplicate user creation when active email already exists (SCRUM-40)', () => {
+    let existingActive = component.directoryUsers().find((u) => u.accountStatus === 'Active');
+    if (!existingActive) {
+      existingActive = {
+        id: 'usr-active-test',
+        name: 'Active User',
+        email: 'active.user@vanguard.security',
+        department: 'Engineering',
+        role: 'Security Analyst',
+        mfaStatus: 'Email OTP Only',
+        accountStatus: 'Active',
+        lastLogin: 'Just now',
+        initials: 'AU',
+      };
+      component.directoryUsers.update((users) => [existingActive!, ...users]);
+    }
+    expect(existingActive).toBeDefined();
+
+    component.openInviteModal();
+    component.inviteFirstName = 'Duplicate';
+    component.inviteLastName = 'Active';
+    component.inviteEmail = existingActive!.email;
+    component.submitInviteUser();
+
+    expect(component.inviteError()).toContain('An active employee account already exists');
+    expect(component.existingPendingUser()).toBeNull();
+  });
+
+  it('should detect duplicate pending invitation and allow 1-click renewal (SCRUM-40)', () => {
+    vi.spyOn(authService, 'sendInviteEmail').mockReturnValue(
+      of({ success: true, message: 'Invitation resent' })
+    );
+
+    // First invite creates a pending user
+    component.openInviteModal();
+    component.inviteFirstName = 'Pending';
+    component.inviteLastName = 'Person';
+    component.inviteEmail = 'pending.person@vanguard.security';
+    component.submitInviteUser();
+    expect(component.inviteSuccess()).toBe(true);
+    const initialUsersCount = component.directoryUsers().length;
+
+    // Reset modal fields and try to invite same email again
+    component.openInviteModal();
+    component.inviteFirstName = 'Pending';
+    component.inviteLastName = 'Person';
+    component.inviteEmail = 'pending.person@vanguard.security';
+    component.submitInviteUser();
+
+    expect(component.inviteError()).toContain('already pending');
+    expect(component.existingPendingUser()).not.toBeNull();
+    expect(component.existingPendingUser()?.email).toBe('pending.person@vanguard.security');
+
+    // Perform 1-click renewal
+    component.renewExistingPendingUser();
+    expect(component.showInviteModal()).toBe(false);
+    expect(component.directoryUsers().length).toBe(initialUsersCount); // No duplicate rows!
+    const renewed = component.directoryUsers().find((u) => u.email === 'pending.person@vanguard.security');
+    expect(renewed?.accountStatus).toBe('Pending');
+    expect(renewed?.expiresAt).toBeDefined();
+    expect(renewed?.lastLogin).toContain('Invite resent');
+  });
+
+  it('should resend invitation with fresh temporary password and renewed 48h expiration (SCRUM-40)', () => {
+    const sendSpy = vi.spyOn(authService, 'sendInviteEmail').mockReturnValue(
+      of({ success: true, message: 'Invite dispatched' })
+    );
+
+    const pendingUser = component.directoryUsers().find((u) => u.accountStatus === 'Pending') || {
+      id: 'usr-test-pending',
+      name: 'Test Expired User',
+      email: 'expired.user@vanguard.security',
+      department: 'Engineering',
+      role: 'Security Analyst',
+      mfaStatus: 'Email OTP Only' as const,
+      accountStatus: 'Expired' as const,
+      lastLogin: 'Never',
+      initials: 'TE',
+      temporaryPassword: 'OldPassword123!',
+      invitedAt: new Date(Date.now() - 50 * 3600 * 1000).toISOString(),
+      expiresAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    };
+
+    if (!component.directoryUsers().some((u) => u.id === pendingUser.id)) {
+      component.directoryUsers.update((users) => [pendingUser, ...users]);
+    }
+
+    const oldPassword = pendingUser.temporaryPassword;
+    component.resendInvitation(pendingUser);
+
+    expect(sendSpy).toHaveBeenCalled();
+    const updated = component.directoryUsers().find((u) => u.id === pendingUser.id);
+    expect(updated).toBeDefined();
+    expect(updated?.accountStatus).toBe('Pending');
+    expect(updated?.temporaryPassword).not.toBe(oldPassword);
+    expect(new Date(updated!.expiresAt!).getTime()).toBeGreaterThan(Date.now());
+    expect(component.adminActionNotice()).toContain('Invitation successfully re-sent');
+  });
+
+  it('should format invite expiry text correctly (SCRUM-40)', () => {
+    const now = Date.now();
+    const futureUser: any = {
+      expiresAt: new Date(now + 40 * 3600 * 1000).toISOString(),
+    };
+    const expiredUser: any = {
+      expiresAt: new Date(now - 1000).toISOString(),
+    };
+    const noExpiryUser: any = {};
+
+    expect(component.getInviteExpiryText(futureUser)).toContain('Expires in');
+    expect(component.getInviteExpiryText(expiredUser)).toBe('Expired');
+    expect(component.getInviteExpiryText(noExpiryUser)).toBe('Expires in 48h');
   });
 
   it('should manage audit events and support status and protocol filtering', () => {

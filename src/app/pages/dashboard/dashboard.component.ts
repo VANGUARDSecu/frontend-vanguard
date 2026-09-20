@@ -108,6 +108,7 @@ export class DashboardComponent {
   readonly inviteSuccess = this.dashboardService.inviteSuccess;
   readonly inviteError = this.dashboardService.inviteError;
   readonly inviteCreatedUser = this.dashboardService.inviteCreatedUser;
+  readonly existingPendingUser = this.dashboardService.existingPendingUser;
   readonly passwordCopied = this.dashboardService.passwordCopied;
 
   get inviteFirstName() { return this.dashboardService.inviteFirstName; }
@@ -349,6 +350,9 @@ export class DashboardComponent {
   openInviteModal() { return this.dashboardService.openInviteModal(); }
   closeInviteModal() { return this.dashboardService.closeInviteModal(); }
   submitInviteUser() { return this.dashboardService.submitInviteUser(); }
+  resendInvitation(user: DirectoryUser) { return this.dashboardService.resendInvitation(user); }
+  renewExistingPendingUser() { return this.dashboardService.renewExistingPendingUser(); }
+  getInviteExpiryText(user: DirectoryUser) { return this.dashboardService.getInviteExpiryText(user); }
   generateRandomPassword() { return this.dashboardService.generateRandomPassword(); }
   copyTemporaryPassword() { return this.dashboardService.copyTemporaryPassword(); }
   setAuditStatus(status: string) { return this.dashboardService.setAuditStatus(status); }

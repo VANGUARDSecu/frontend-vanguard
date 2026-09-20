@@ -17,6 +17,7 @@ export interface SaaSApp {
   protocol: 'SAML 2.0' | 'OIDC';
   launchUrl: string;
   assigned: boolean;
+  inheritedViaGroup?: string;
 }
 
 export interface SignInEvent {
@@ -38,17 +39,39 @@ export interface SSHKey {
   addedAt: string;
 }
 
+export interface GroupPolicy {
+  requireMfa: boolean;
+  mfaType?: 'any' | 'hardware_totp';
+  sessionDurationHours: number;
+}
+
+export interface DirectoryGroup {
+  id: string;
+  name: string;
+  description: string;
+  department: string;
+  email: string;
+  memberIds: string[];
+  appIds: string[];
+  policy: GroupPolicy;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface DirectoryUser {
   id: string;
   name: string;
   email: string;
-  department: 'Engineering' | 'Security Ops' | 'IT Infrastructure' | 'Finance' | 'Executive';
-  role: 'Super Administrator' | 'Security Officer' | 'Directory Member';
+  department: string;
+  role: string;
   mfaStatus: 'Enrolled (TOTP)' | 'Email OTP Only';
-  accountStatus: 'Active' | 'Suspended' | 'Pending';
+  accountStatus: 'Active' | 'Suspended' | 'Pending' | 'Expired';
   lastLogin: string;
   initials: string;
   temporaryPassword?: string;
+  invitedAt?: string;
+  expiresAt?: string;
+  groups?: string[];
 }
 
 export interface TenantAuditEvent {

@@ -58,6 +58,8 @@ export class AdminDirectory {
   get inviteRole() { return this.dashboardService.inviteRole; }
   set inviteRole(v: any) { this.dashboardService.inviteRole = v; }
 
+  readonly existingPendingUser = this.dashboardService.existingPendingUser;
+
   setDirectoryDepartment(dept: string) { this.dashboardService.setDirectoryDepartment(dept); }
   setDirectoryStatus(status: string) { this.dashboardService.setDirectoryStatus(status); }
   suspendUser(user: DirectoryUser) { this.dashboardService.suspendUser(user); }
@@ -70,5 +72,8 @@ export class AdminDirectory {
   submitInviteUser() { this.dashboardService.submitInviteUser(); }
   generateRandomPassword() { return this.dashboardService.generateRandomPassword(); }
   copyTemporaryPassword() { this.dashboardService.copyTemporaryPassword(); }
+  resendInvitation(user: DirectoryUser) { this.dashboardService.resendInvitation(user); }
+  renewExistingPendingUser() { this.dashboardService.renewExistingPendingUser(); }
+  getInviteExpiryText(user: DirectoryUser) { return this.dashboardService.getInviteExpiryText(user); }
 
 }

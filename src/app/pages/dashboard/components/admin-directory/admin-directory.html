@@ -49,6 +49,7 @@
                 <option value="Active">Active</option>
                 <option value="Suspended">Suspended</option>
                 <option value="Pending">Pending Invite</option>
+                <option value="Expired">Expired Invite</option>
               </select>
             </div>
           </div>
@@ -93,13 +94,31 @@
                       </span>
                     </td>
                     <td>
-                      <span class="badge" [class.badge-success]="u.accountStatus === 'Active'" [class.badge-orange]="u.accountStatus === 'Pending'" [class.badge-danger]="u.accountStatus === 'Suspended'">
+                      <span
+                        class="badge"
+                        [class.badge-success]="u.accountStatus === 'Active'"
+                        [class.badge-orange]="u.accountStatus === 'Pending'"
+                        [class.badge-danger]="u.accountStatus === 'Suspended'"
+                        [class.badge-expired]="u.accountStatus === 'Expired'"
+                      >
                         ● {{ u.accountStatus }}
                       </span>
+                      <div class="expiry-subtext" *ngIf="u.accountStatus === 'Pending' || u.accountStatus === 'Expired'">
+                        {{ getInviteExpiryText(u) }}
+                      </div>
                     </td>
                     <td class="col-time">{{ u.lastLogin }}</td>
                     <td>
                       <div class="row-actions">
+                        <button
+                          type="button"
+                          class="action-btn action-btn-resend"
+                          *ngIf="u.accountStatus === 'Pending' || u.accountStatus === 'Expired'"
+                          (click)="resendInvitation(u)"
+                          title="Resend Invitation Email & Renew Expiration"
+                        >
+                          Resend Invite
+                        </button>
                         <button
                           type="button"
                           class="action-btn"
@@ -257,11 +276,42 @@
           <div class="form-error-text" *ngIf="inviteError()">
             {{ inviteError() }}
           </div>
+
+          <div class="pending-warning-card" *ngIf="existingPendingUser()">
+            <div class="pending-warning-meta">
+              <span class="pending-warning-badge">Existing Invitation Detected</span>
+              <span class="pending-warning-desc">
+                An invitation record already exists for <strong>{{ existingPendingUser()?.email }}</strong>.
+              </span>
+            </div>
+            <button
+              type="button"
+              class="btn-resend-modal"
+              (click)="renewExistingPendingUser()"
+            >
+              🔄 Renew &amp; Resend Existing Invitation (48h Validity)
+            </button>
+          </div>
         </div>
 
         <div class="modal-footer">
           <button type="button" class="btn-ghost" (click)="closeInviteModal()">Cancel</button>
-          <button type="button" class="btn-primary-action" (click)="submitInviteUser()">Dispatch Invitation</button>
+          <button
+            type="button"
+            class="btn-primary-action"
+            *ngIf="!existingPendingUser()"
+            (click)="submitInviteUser()"
+          >
+            Dispatch Invitation
+          </button>
+          <button
+            type="button"
+            class="btn-primary-action"
+            *ngIf="existingPendingUser()"
+            (click)="renewExistingPendingUser()"
+          >
+            Renew &amp; Resend
+          </button>
         </div>
       </ng-container>
 

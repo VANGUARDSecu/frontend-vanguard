@@ -82,7 +82,27 @@ export class DashboardService {
 
   private initDirectoryUsers(): DirectoryUser[] {
     const stored = this.loadStored<DirectoryUser[]>('vanguard_directory_users', []);
-    if (stored && stored.length > 0) return stored;
+    if (stored && stored.length > 0) {
+      const seen = new Set<string>();
+      const now = Date.now();
+      const updated = stored
+        .filter((u) => {
+          const email = u.email?.toLowerCase().trim();
+          if (!email || seen.has(email)) return false;
+          seen.add(email);
+          return true;
+        })
+        .map((u) => {
+          if (u.accountStatus === 'Pending' && u.expiresAt) {
+            const exp = new Date(u.expiresAt).getTime();
+            if (exp < now) {
+              return { ...u, accountStatus: 'Expired' as const };
+            }
+          }
+          return u;
+        });
+      return updated;
+    }
 
     const u = this.authService.currentUser();
     if (u && u.email) {
@@ -146,6 +166,7 @@ export class DashboardService {
   readonly passwordCopied = signal<boolean>(false);
   readonly inviteEmailStatus = signal<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   readonly inviteEmailMessage = signal<string>('');
+  readonly existingPendingUser = signal<DirectoryUser | null>(null);
 
   // ==========================================
   // PHASE 3: Tenant-Wide Security Audit Stream (Dynamic)
@@ -859,6 +880,9 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   }
 
   toggleViewMode(mode: 'admin' | 'user'): void {
+    if (!this.isAdmin() && mode === 'admin') {
+      return; // Disallow non-admin directory members from entering admin console
+    }
     this.viewMode.set(mode);
     if (mode === 'admin') {
       this.activeTab.set('overview');
@@ -954,6 +978,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     this.inviteRole = 'Directory Member';
     this.generateRandomPassword();
     this.inviteCreatedUser.set(null);
+    this.existingPendingUser.set(null);
     this.passwordCopied.set(false);
     this.inviteEmailStatus.set('idle');
     this.inviteEmailMessage.set('');
@@ -964,6 +989,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   closeInviteModal(): void {
     this.showInviteModal.set(false);
     this.inviteCreatedUser.set(null);
+    this.existingPendingUser.set(null);
     this.inviteSuccess.set(false);
     this.passwordCopied.set(false);
     this.inviteEmailStatus.set('idle');
@@ -973,14 +999,50 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
 
   submitInviteUser(): void {
     this.inviteError.set(null);
+    this.existingPendingUser.set(null);
+
     if (!this.inviteFirstName.trim() || !this.inviteLastName.trim() || !this.inviteEmail.trim()) {
       this.inviteError.set('Please fill out all required fields.');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(this.inviteEmail.trim())) {
+    const cleanEmail = this.inviteEmail.trim().toLowerCase();
+    if (!emailRegex.test(cleanEmail)) {
       this.inviteError.set('Please enter a valid email address.');
+      return;
+    }
+
+    // STRICT DUPLICATE PREVENTION (SCRUM-40):
+    // Check if an account already exists for this email address
+    const existing = this.directoryUsers().find(
+      (u) => u.email.trim().toLowerCase() === cleanEmail,
+    );
+
+    if (existing) {
+      if (existing.accountStatus === 'Active') {
+        this.inviteError.set(
+          `An active employee account already exists with ${cleanEmail}. Duplicate account creation is prohibited.`,
+        );
+        return;
+      }
+
+      // If already pending or expired, prevent duplicate creation and prompt for renewal/resend
+      this.existingPendingUser.set(existing);
+      const isExpired =
+        existing.accountStatus === 'Expired' ||
+        (existing.expiresAt && new Date(existing.expiresAt).getTime() < Date.now());
+
+      if (isExpired) {
+        this.inviteError.set(
+          `An expired invitation already exists for ${cleanEmail}. Click "Renew & Resend Existing Invitation" below to dispatch fresh credentials.`,
+        );
+      } else {
+        const expiryText = this.getInviteExpiryText(existing);
+        this.inviteError.set(
+          `An active invitation is already pending for ${cleanEmail} (${expiryText}). Click "Renew & Resend Existing Invitation" to refresh credentials or extend validity.`,
+        );
+      }
       return;
     }
 
@@ -988,11 +1050,13 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
       this.generateRandomPassword();
     }
 
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 48 * 3600 * 1000).toISOString();
     const initials = (this.inviteFirstName[0] + this.inviteLastName[0]).toUpperCase();
     const newUser: DirectoryUser = {
       id: 'usr-' + Date.now(),
       name: `${this.inviteFirstName.trim()} ${this.inviteLastName.trim()}`,
-      email: this.inviteEmail.trim().toLowerCase(),
+      email: cleanEmail,
       department: this.inviteDepartment,
       role: this.inviteRole,
       mfaStatus: 'Email OTP Only',
@@ -1000,11 +1064,13 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
       lastLogin: 'Never (Invite sent)',
       initials,
       temporaryPassword: this.invitePassword.trim(),
+      invitedAt: now.toISOString(),
+      expiresAt,
     };
 
     this.directoryUsers.update((users) => [newUser, ...users]);
     this.saveStored('vanguard_directory_users', this.directoryUsers());
-    this.logAuditEvent(`Invited employee ${newUser.email}`, 'Directory Vault', 'Invitation Service', 'success', 'Low');
+    this.logAuditEvent(`Invited employee ${newUser.email} (Valid for 48h)`, 'Directory Vault', 'Invitation Service', 'success', 'Low');
 
     this.inviteCreatedUser.set(newUser);
     this.inviteSuccess.set(true);
@@ -1034,6 +1100,86 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
           this.showAdminNotice(`Account created. Notice: ${msg}`);
         },
       });
+  }
+
+  renewExistingPendingUser(): void {
+    const user = this.existingPendingUser();
+    if (!user) return;
+    this.resendInvitation(user);
+    this.closeInviteModal();
+  }
+
+  resendInvitation(user: DirectoryUser): void {
+    const cleanEmail = user.email.trim().toLowerCase();
+    // Generate fresh high-entropy temporary password
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
+    let newTempPw = 'Vanguard#';
+    for (let i = 0; i < 6; i++) {
+      newTempPw += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    newTempPw += '!';
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 48 * 3600 * 1000).toISOString();
+
+    const updatedUser: DirectoryUser = {
+      ...user,
+      accountStatus: 'Pending',
+      temporaryPassword: newTempPw,
+      invitedAt: now.toISOString(),
+      expiresAt: expiresAt,
+      lastLogin: 'Never (Invite resent)',
+    };
+
+    // Update in directoryUsers list without creating duplicate rows
+    this.directoryUsers.update((users) =>
+      users.map((u) => (u.email.toLowerCase().trim() === cleanEmail ? updatedUser : u)),
+    );
+    this.saveStored('vanguard_directory_users', this.directoryUsers());
+    this.logAuditEvent(
+      `Resent invitation to ${cleanEmail} with renewed 48h expiration`,
+      'Directory Vault',
+      'Invitation Service',
+      'success',
+      'Low',
+    );
+
+    this.showAdminNotice(`Dispatching renewed credentials to ${cleanEmail}...`);
+
+    this.authService
+      .sendInviteEmail({
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        department: updatedUser.department,
+        temporaryPassword: newTempPw,
+        loginUrl: typeof window !== 'undefined' ? `${window.location.origin}/login` : 'http://localhost:4200/login',
+      })
+      .subscribe({
+        next: (res) => {
+          this.showAdminNotice(`Invitation successfully re-sent to ${cleanEmail} (Valid for 48h)`);
+        },
+        error: (err) => {
+          const msg = err.message || 'Email delivery failed.';
+          this.showAdminNotice(`Invitation renewed. Notice: ${msg}`);
+        },
+      });
+  }
+
+  getInviteExpiryText(user: DirectoryUser): string {
+    if (!user.expiresAt) return 'Expires in 48h';
+    const remainingMs = new Date(user.expiresAt).getTime() - Date.now();
+    if (remainingMs <= 0) return 'Expired';
+    const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      return `Expires in ${days}d ${hours % 24}h`;
+    }
+    if (hours > 0) {
+      return `Expires in ${hours}h`;
+    }
+    const mins = Math.max(1, Math.floor(remainingMs / (1000 * 60)));
+    return `Expires in ${mins}m`;
   }
 
   // ==========================================
