@@ -2,6 +2,7 @@ import { Injectable, inject, signal, computed, PLATFORM_ID } from '@angular/core
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
+import { SupabaseService } from '../../../services/supabase.service';
 import {
   ProtocolStatus,
   SaaSApp,
@@ -43,6 +44,7 @@ export class DashboardService {
   private readonly router = inject(Router);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
+  readonly supabaseService = inject(SupabaseService);
 
   // Helper methods for dynamic localStorage persistence
   private loadStored<T>(key: string, defaultVal: T): T {
@@ -461,6 +463,30 @@ export class DashboardService {
 
     this.tenantAuditEvents.update((evts) => [newEvt, ...evts]);
     this.saveStored('vanguard_audit_events', this.tenantAuditEvents());
+
+    if (this.isBrowser) {
+      const activeTenant = this.activeOrganizationId();
+      this.supabaseService
+        .insertAuditLog({
+          tenant_id: activeTenant && !activeTenant.startsWith('org_') ? activeTenant : undefined,
+          actor_email: actor,
+          action: action,
+          target_type: target,
+          ip_address: newEvt.clientIp,
+          user_agent: newEvt.userAgent,
+          severity: newEvt.severity,
+          metadata: {
+            protocol,
+            status,
+            riskScore,
+            eventType: newEvt.eventType,
+            requestId: newEvt.requestId,
+            threatIndicator: newEvt.threatIndicator,
+            rawPayload: newEvt.rawPayload,
+          },
+        })
+        .catch((err) => console.warn('Supabase audit log insert notice:', err));
+    }
   }
 
   // ==========================================
@@ -1229,6 +1255,153 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     };
   });
 
+  async initSupabaseSync(): Promise<void> {
+    if (!this.isBrowser) return;
+
+    try {
+      // 1. Synchronize Tenant Organizations from Supabase
+      const cloudTenants = await this.supabaseService.getTenants();
+      if (cloudTenants && cloudTenants.length > 0) {
+        const mappedTenants: TenantOrganization[] = cloudTenants.map((t) => ({
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          tier: (t.subscription_tier as any) || 'Enterprise',
+          domain: t.domain || undefined,
+          logoUrl: t.branding?.logoUrl || undefined,
+          primaryContactEmail: t.branding?.supportEmail || undefined,
+          createdAt: t.created_at,
+          memberCount: 1,
+          isCustomDomainVerified: t.branding?.ssoDomainVerified || false,
+        }));
+        this.organizations.set(mappedTenants);
+        this.saveStored('vanguard_organizations', mappedTenants);
+
+        const currentActiveId = this.activeOrganizationId();
+        const activeCloud = cloudTenants.find((c) => c.id === currentActiveId) || cloudTenants[0];
+        if (activeCloud) {
+          if (activeCloud.id !== currentActiveId) {
+            this.activeOrganizationId.set(activeCloud.id);
+            this.saveStored('vanguard_active_org_id', activeCloud.id);
+          }
+          if (activeCloud.branding) {
+            const b = activeCloud.branding;
+            const mergedBranding: TenantBranding = {
+              organizationId: activeCloud.id,
+              companyName: activeCloud.name,
+              primaryAccentColor: b.primaryAccentColor || b.primaryColor || '#3b82f6',
+              ssoCustomDomain: b.ssoCustomDomain || activeCloud.domain || '',
+              ssoDomainVerified: b.ssoDomainVerified || false,
+              logoUrl: b.logoUrl || undefined,
+              supportEmail: b.supportEmail || undefined,
+              emailCustomGreeting: b.emailCustomGreeting || undefined,
+              emailButtonText: b.emailButtonText || undefined,
+            };
+            this.tenantBranding.set(mergedBranding);
+            this.saveStored('vanguard_tenant_branding', mergedBranding);
+            this.applyBrandAccent(mergedBranding.primaryAccentColor);
+          }
+        }
+      }
+
+      // 2. Synchronize Immutable Audit Logs from Supabase
+      const cloudLogs = await this.supabaseService.getAuditLogs(undefined, 100);
+      if (cloudLogs && cloudLogs.length > 0) {
+        const mappedLogs: TenantAuditEvent[] = cloudLogs.map((l) => ({
+          id: l.id,
+          timestamp: new Date(l.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          isoTimestamp: l.created_at,
+          actor: l.actor_email || 'System Agent',
+          action: l.action,
+          target: l.target_type || 'System',
+          protocol: l.metadata?.protocol || 'Management API',
+          status: (l.metadata?.status as any) || 'success',
+          riskScore: (l.severity as any) || 'Low',
+          eventType: (l.metadata?.eventType as any) || 'SSO_LOGIN',
+          severity: (l.severity as any) || 'INFO',
+          threatIndicator: l.metadata?.threatIndicator || undefined,
+          clientIp: l.ip_address || '127.0.0.1 (Local)',
+          location: l.metadata?.location || 'Local Workstation',
+          device: l.metadata?.device || 'Chrome / macOS',
+          requestId: l.metadata?.requestId || ('req-' + l.id),
+          userAgent: l.user_agent || '',
+          rawPayload: l.metadata?.rawPayload || undefined,
+        }));
+        this.tenantAuditEvents.set(mappedLogs);
+        this.saveStored('vanguard_audit_events', mappedLogs);
+      }
+
+      // 3. Synchronize Directory Groups from Supabase
+      const cloudGroups = await this.supabaseService.getDirectoryGroups();
+      if (cloudGroups && cloudGroups.length > 0) {
+        const mappedGroups: DirectoryGroup[] = cloudGroups.map((g) => ({
+          id: g.id,
+          name: g.name,
+          description: g.description || '',
+          department: g.department || '',
+          email: g.email || '',
+          memberIds: g.member_ids || [],
+          appIds: g.app_ids || [],
+          policy: g.policy || { requireMfa: false, sessionDurationHours: 8 },
+          createdAt: g.created_at,
+          updatedAt: g.updated_at,
+        }));
+        this.directoryGroups.set(mappedGroups);
+        this.saveStored('vanguard_directory_groups', mappedGroups);
+        this.syncGroupInheritedApps();
+      }
+
+      // 4. Synchronize Webhooks from Supabase
+      const cloudEndpoints = await this.supabaseService.getWebhookEndpoints();
+      if (cloudEndpoints && cloudEndpoints.length > 0) {
+        const mappedEndpoints: WebhookEndpoint[] = cloudEndpoints.map((e) => ({
+          id: e.id,
+          url: e.url,
+          description: e.description,
+          events: e.events || [],
+          signingSecret: e.signing_secret,
+          isActive: e.is_active,
+          lastStatus: e.last_status,
+          lastStatusCode: e.last_status_code,
+          lastDeliveryAt: e.last_delivery_at,
+          successCount: e.success_count || 0,
+          failureCount: e.failure_count || 0,
+          createdAt: e.created_at,
+          updatedAt: e.updated_at,
+        }));
+        this.webhookEndpoints.set(mappedEndpoints);
+        this.saveStored('vanguard_webhook_endpoints', mappedEndpoints);
+      }
+
+      const cloudDeliveries = await this.supabaseService.getWebhookDeliveries();
+      if (cloudDeliveries && cloudDeliveries.length > 0) {
+        const mappedDeliveries: WebhookDelivery[] = cloudDeliveries.map((d) => ({
+          id: d.id,
+          endpointId: d.endpoint_id || '',
+          url: d.url,
+          event: d.event,
+          timestamp: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          isoTimestamp: d.created_at,
+          status: d.status,
+          statusCode: d.status_code,
+          statusText: d.status_text,
+          latencyMs: d.latency_ms,
+          attempts: d.attempts,
+          requestHeaders: d.request_headers,
+          requestPayload: d.request_payload || {},
+          responseHeaders: d.response_headers,
+          responseBody: d.response_body,
+          signature: d.signature || '',
+          isTest: d.is_test,
+        }));
+        this.webhookDeliveries.set(mappedDeliveries);
+        this.saveStored('vanguard_webhook_deliveries', mappedDeliveries);
+      }
+    } catch (err) {
+      console.warn('Supabase: Background synchronization failed, defaulting to local cache:', err);
+    }
+  }
+
   constructor() {
     // Default view mode to the user's role
     if (!this.isAdmin()) {
@@ -1236,6 +1409,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
       this.activeTab.set('my-apps');
     }
     this.syncGroupInheritedApps();
+    this.initSupabaseSync();
   }
 
   initDashboardForCurrentUser(): void {
@@ -1246,6 +1420,8 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
       this.viewMode.set('user');
       this.activeTab.set('my-apps');
     }
+
+    this.initSupabaseSync();
 
     const storedUsers = this.loadStored<DirectoryUser[]>('vanguard_directory_users', []);
     if (storedUsers && storedUsers.length > 0) {
@@ -1662,6 +1838,8 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
       sessionDurationHours: this.groupFormSessionDuration(),
     };
 
+    let grpToSave: DirectoryGroup;
+
     if (currentEditing) {
       // Update existing group
       const updated: DirectoryGroup = {
@@ -1675,6 +1853,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
         policy,
         updatedAt: new Date().toISOString(),
       };
+      grpToSave = updated;
 
       this.directoryGroups.update((groups) =>
         groups.map((g) => (g.id === currentEditing.id ? updated : g))
@@ -1702,6 +1881,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
         policy,
         createdAt: new Date().toISOString(),
       };
+      grpToSave = newGroup;
 
       this.directoryGroups.update((groups) => [newGroup, ...groups]);
       this.saveStored('vanguard_directory_groups', this.directoryGroups());
@@ -1719,6 +1899,34 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     this.syncGroupMembershipsToUsers();
     this.syncGroupInheritedApps();
 
+    // Persist to Supabase
+    if (this.isBrowser) {
+      const activeTenantId = this.activeOrganizationId();
+      if (!activeTenantId.startsWith('org_')) {
+        this.supabaseService
+          .upsertDirectoryGroup({
+            id: grpToSave.id.startsWith('grp-') ? undefined as any : grpToSave.id,
+            tenant_id: activeTenantId,
+            name: grpToSave.name,
+            description: grpToSave.description,
+            department: grpToSave.department,
+            email: grpToSave.email,
+            member_ids: grpToSave.memberIds,
+            app_ids: grpToSave.appIds,
+            policy: grpToSave.policy,
+          })
+          .then((saved) => {
+            if (saved && saved.id && grpToSave.id.startsWith('grp-')) {
+              this.directoryGroups.update((groups) =>
+                groups.map((g) => (g.id === grpToSave.id ? { ...g, id: saved.id } : g))
+              );
+              this.saveStored('vanguard_directory_groups', this.directoryGroups());
+            }
+          })
+          .catch((err) => console.warn('Supabase group save notice:', err));
+      }
+    }
+
     this.groupFormSuccess.set(true);
     setTimeout(() => {
       this.closeGroupModal();
@@ -1732,6 +1940,10 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
 
     this.directoryGroups.update((groups) => groups.filter((g) => g.id !== groupId));
     this.saveStored('vanguard_directory_groups', this.directoryGroups());
+
+    if (this.isBrowser && !groupId.startsWith('grp-')) {
+      this.supabaseService.deleteDirectoryGroup(groupId).catch((err) => console.warn('Supabase group deletion notice:', err));
+    }
 
     this.logAuditEvent(
       `Deleted enterprise group: ${target.name} (${target.email})`,
@@ -3992,6 +4204,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     const secret = this.webhookSecret().trim() || this.generateWebhookSecret();
     const editing = this.editingWebhook();
     const now = new Date().toISOString();
+    let epToSave: WebhookEndpoint;
 
     if (editing) {
       const updated: WebhookEndpoint = {
@@ -4001,6 +4214,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
         signingSecret: secret,
         events: [...this.webhookEvents()],
       };
+      epToSave = updated;
       this.webhookEndpoints.update((list) => list.map((ep) => (ep.id === editing.id ? updated : ep)));
       this.saveStored('vanguard_webhook_endpoints', this.webhookEndpoints());
       this.logAuditEvent(`Updated webhook endpoint: ${url}`, 'Webhook & Event API', 'HTTP Dispatcher', 'success', 'Medium');
@@ -4017,10 +4231,38 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
         successCount: 0,
         failureCount: 0,
       };
+      epToSave = newEp;
       this.webhookEndpoints.update((list) => [newEp, ...list]);
       this.saveStored('vanguard_webhook_endpoints', this.webhookEndpoints());
       this.logAuditEvent(`Created new webhook endpoint: ${url}`, 'Webhook & Event API', 'HTTP Dispatcher', 'success', 'Medium');
       this.showAdminNotice(`Webhook endpoint ${url} created successfully.`);
+    }
+
+    if (this.isBrowser) {
+      const activeTenantId = this.activeOrganizationId();
+      if (!activeTenantId.startsWith('org_')) {
+        this.supabaseService
+          .upsertWebhookEndpoint({
+            id: epToSave.id.startsWith('wh_') ? undefined as any : epToSave.id,
+            tenant_id: activeTenantId,
+            url: epToSave.url,
+            description: epToSave.description,
+            events: epToSave.events,
+            signing_secret: epToSave.signingSecret,
+            is_active: epToSave.isActive,
+            success_count: epToSave.successCount,
+            failure_count: epToSave.failureCount,
+          })
+          .then((saved) => {
+            if (saved && saved.id && epToSave.id.startsWith('wh_')) {
+              this.webhookEndpoints.update((list) =>
+                list.map((e) => (e.id === epToSave.id ? { ...e, id: saved.id } : e))
+              );
+              this.saveStored('vanguard_webhook_endpoints', this.webhookEndpoints());
+            }
+          })
+          .catch((err) => console.warn('Supabase webhook save notice:', err));
+      }
     }
 
     this.closeWebhookModal();
@@ -4030,6 +4272,11 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     const ep = this.webhookEndpoints().find((e) => e.id === id);
     this.webhookEndpoints.update((list) => list.filter((e) => e.id !== id));
     this.saveStored('vanguard_webhook_endpoints', this.webhookEndpoints());
+
+    if (this.isBrowser && !id.startsWith('wh_')) {
+      this.supabaseService.deleteWebhookEndpoint(id).catch((err) => console.warn('Supabase webhook delete notice:', err));
+    }
+
     if (ep) {
       this.logAuditEvent(`Deleted webhook endpoint: ${ep.url}`, 'Webhook & Event API', 'HTTP Dispatcher', 'success', 'Medium');
       this.showAdminNotice(`Webhook endpoint ${ep.url} deleted.`);
@@ -4311,6 +4558,41 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     this.saveStored('vanguard_organizations', this.organizations());
     this.switchOrganization(newOrg.id);
 
+    // Persist to Supabase
+    if (this.isBrowser) {
+      this.supabaseService
+        .upsertTenant({
+          id: newOrg.id.startsWith('org_') ? undefined as any : newOrg.id,
+          name: newOrg.name,
+          slug: newOrg.slug,
+          domain: newOrg.domain,
+          subscription_tier: newOrg.tier,
+          branding: {
+            companyName: newOrg.name,
+            primaryAccentColor: '#3b82f6',
+            ssoCustomDomain: newOrg.domain || '',
+            ssoDomainVerified: false,
+          },
+          settings: {
+            mfaEnforced: this.enforceMfaAll(),
+            blockHighRiskIps: this.blockHighRiskIps(),
+          },
+        })
+        .then((saved) => {
+          if (saved && saved.id && newOrg.id.startsWith('org_')) {
+            this.organizations.update((list) =>
+              list.map((o) => (o.id === newOrg.id ? { ...o, id: saved.id } : o))
+            );
+            if (this.activeOrganizationId() === newOrg.id) {
+              this.activeOrganizationId.set(saved.id);
+              this.saveStored('vanguard_active_org_id', saved.id);
+            }
+            this.saveStored('vanguard_organizations', this.organizations());
+          }
+        })
+        .catch((err) => console.warn('Supabase tenant creation notice:', err));
+    }
+
     this.logAuditEvent(
       `Created new tenant organization: ${name} [${newOrg.tier}]`,
       'Tenant Manager',
@@ -4336,6 +4618,10 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
 
     if (this.activeOrganizationId() === orgId) {
       this.switchOrganization(remaining[0].id);
+    }
+
+    if (this.isBrowser && !orgId.startsWith('org_')) {
+      this.supabaseService.deleteTenant(orgId).catch((err) => console.warn('Supabase tenant deletion notice:', err));
     }
 
     if (org) {
@@ -4389,6 +4675,20 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
         list.map((org) => (org.id === merged.organizationId ? { ...org, name: updated.companyName!.trim() } : org))
       );
       this.saveStored('vanguard_organizations', this.organizations());
+    }
+
+    // Persist branding to Supabase
+    if (this.isBrowser) {
+      const activeOrgId = this.activeOrganizationId();
+      this.supabaseService
+        .upsertTenant({
+          id: activeOrgId.startsWith('org_') ? undefined as any : activeOrgId,
+          name: merged.companyName,
+          slug: this.activeOrganization().slug,
+          domain: merged.ssoCustomDomain || this.activeOrganization().domain,
+          branding: { ...merged },
+        })
+        .catch((err) => console.warn('Supabase branding save notice:', err));
     }
 
     this.brandingSavedNotice.set(true);
