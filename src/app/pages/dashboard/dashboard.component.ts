@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from './services/dashboard.service';
@@ -82,8 +82,12 @@ export type {
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
   readonly dashboardService = inject(DashboardService);
+
+  ngOnInit(): void {
+    this.dashboardService.initDashboardForCurrentUser();
+  }
 
   // Authentication & Session
   readonly user = this.dashboardService.user;
@@ -124,12 +128,43 @@ export class DashboardComponent {
   get inviteRole() { return this.dashboardService.inviteRole; }
   set inviteRole(v: any) { this.dashboardService.inviteRole = v; }
 
-  // Audit Logs (Phase 3)
+  // User Groups & App Matrix (SCRUM-25)
+  readonly directoryActiveSubTab = this.dashboardService.directoryActiveSubTab;
+  readonly directoryGroups = this.dashboardService.directoryGroups;
+  readonly directoryGroupSearch = this.dashboardService.directoryGroupSearch;
+  readonly filteredDirectoryGroups = this.dashboardService.filteredDirectoryGroups;
+  readonly showGroupModal = this.dashboardService.showGroupModal;
+  readonly editingGroup = this.dashboardService.editingGroup;
+  readonly groupModalActiveTab = this.dashboardService.groupModalActiveTab;
+  readonly groupFormMemberIds = this.dashboardService.groupFormMemberIds;
+  readonly groupFormAppIds = this.dashboardService.groupFormAppIds;
+  readonly groupFormSuccess = this.dashboardService.groupFormSuccess;
+  readonly groupFormError = this.dashboardService.groupFormError;
+  get groupFormName() { return this.dashboardService.groupFormName; }
+  set groupFormName(v: string) { this.dashboardService.groupFormName = v; }
+  get groupFormDescription() { return this.dashboardService.groupFormDescription; }
+  set groupFormDescription(v: string) { this.dashboardService.groupFormDescription = v; }
+  get groupFormDepartment() { return this.dashboardService.groupFormDepartment; }
+  set groupFormDepartment(v: string) { this.dashboardService.groupFormDepartment = v; }
+  get groupFormEmail() { return this.dashboardService.groupFormEmail; }
+  set groupFormEmail(v: string) { this.dashboardService.groupFormEmail = v; }
+
+  // Audit Logs (Phase 3 & SCRUM-26)
   readonly auditStatusFilter = this.dashboardService.auditStatusFilter;
   readonly auditProtocolFilter = this.dashboardService.auditProtocolFilter;
+  readonly auditEventTypeFilter = this.dashboardService.auditEventTypeFilter;
+  readonly auditSeverityFilter = this.dashboardService.auditSeverityFilter;
+  readonly auditDateRangeFilter = this.dashboardService.auditDateRangeFilter;
+  readonly auditThreatsOnlyFilter = this.dashboardService.auditThreatsOnlyFilter;
   readonly auditSearchQuery = this.dashboardService.auditSearchQuery;
   readonly tenantAuditEvents = this.dashboardService.tenantAuditEvents;
   readonly filteredAuditEvents = this.dashboardService.filteredAuditEvents;
+  readonly paginatedAuditEvents = this.dashboardService.paginatedAuditEvents;
+  readonly auditCurrentPage = this.dashboardService.auditCurrentPage;
+  readonly auditPageSize = this.dashboardService.auditPageSize;
+  readonly auditTotalPages = this.dashboardService.auditTotalPages;
+  readonly selectedAuditEvent = this.dashboardService.selectedAuditEvent;
+  readonly showAuditInspector = this.dashboardService.showAuditInspector;
 
   // Vault Policies & Killswitch (Phase 3)
   readonly enforceMfaAll = this.dashboardService.enforceMfaAll;
@@ -355,8 +390,26 @@ export class DashboardComponent {
   getInviteExpiryText(user: DirectoryUser) { return this.dashboardService.getInviteExpiryText(user); }
   generateRandomPassword() { return this.dashboardService.generateRandomPassword(); }
   copyTemporaryPassword() { return this.dashboardService.copyTemporaryPassword(); }
+  setDirectoryActiveSubTab(tab: 'users' | 'groups') { return this.dashboardService.setDirectoryActiveSubTab(tab); }
+  setGroupModalActiveTab(tab: 'details' | 'members' | 'apps' | 'policies') { return this.dashboardService.setGroupModalActiveTab(tab); }
+  openCreateGroupModal() { return this.dashboardService.openCreateGroupModal(); }
+  openEditGroupModal(group: any) { return this.dashboardService.openEditGroupModal(group); }
+  closeGroupModal() { return this.dashboardService.closeGroupModal(); }
+  toggleGroupFormMember(userId: string) { return this.dashboardService.toggleGroupFormMember(userId); }
+  toggleGroupFormApp(appId: string) { return this.dashboardService.toggleGroupFormApp(appId); }
+  saveGroup() { return this.dashboardService.saveGroup(); }
+  deleteGroup(groupId: string) { return this.dashboardService.deleteGroup(groupId); }
   setAuditStatus(status: string) { return this.dashboardService.setAuditStatus(status); }
   setAuditProtocol(protocol: string) { return this.dashboardService.setAuditProtocol(protocol); }
+  setAuditEventType(type: string) { return this.dashboardService.setAuditEventType(type); }
+  setAuditSeverity(sev: string) { return this.dashboardService.setAuditSeverity(sev); }
+  setAuditDateRange(range: string) { return this.dashboardService.setAuditDateRange(range); }
+  toggleAuditThreatsOnly() { return this.dashboardService.toggleAuditThreatsOnly(); }
+  resetAuditFilters() { return this.dashboardService.resetAuditFilters(); }
+  setAuditPage(p: number) { return this.dashboardService.setAuditPage(p); }
+  setAuditPageSize(size: number) { return this.dashboardService.setAuditPageSize(size); }
+  openAuditInspector(evt: TenantAuditEvent) { return this.dashboardService.openAuditInspector(evt); }
+  closeAuditInspector() { return this.dashboardService.closeAuditInspector(); }
   exportAuditLogs() { return this.dashboardService.exportAuditLogs(); }
   toggleEnforceMfa() { return this.dashboardService.toggleEnforceMfa(); }
   toggleBlockHighRiskIps() { return this.dashboardService.toggleBlockHighRiskIps(); }

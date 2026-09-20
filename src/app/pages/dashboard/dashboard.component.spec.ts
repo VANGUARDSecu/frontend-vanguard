@@ -420,7 +420,92 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     component.auditSearchQuery.set('');
   });
 
-  it('should trigger audit log CSV export without error', () => {
+  it('should filter audit events by event type and severity (SCRUM-26)', () => {
+    component.dashboardService.logAuditEvent('Test Auth', 'Corporate-WiFi', 'RADIUS (1812)', 'success', 'Low', {
+      eventType: 'RADIUS_AUTH',
+      severity: 'INFO',
+    });
+    component.dashboardService.logAuditEvent('Brute force alert', 'Directory Gateway', 'Web Portal', 'blocked', 'High', {
+      eventType: 'SSO_LOGIN',
+      severity: 'SECURITY_ALERT',
+    });
+
+    component.setAuditEventType('RADIUS_AUTH');
+    expect(component.auditEventTypeFilter()).toBe('RADIUS_AUTH');
+    expect(component.filteredAuditEvents().every((e) => e.eventType === 'RADIUS_AUTH')).toBe(true);
+
+    component.setAuditEventType('all');
+    component.setAuditSeverity('SECURITY_ALERT');
+    expect(component.auditSeverityFilter()).toBe('SECURITY_ALERT');
+    expect(component.filteredAuditEvents().every((e) => e.severity === 'SECURITY_ALERT')).toBe(true);
+
+    component.resetAuditFilters();
+    expect(component.auditEventTypeFilter()).toBe('all');
+    expect(component.auditSeverityFilter()).toBe('all');
+    expect(component.auditStatusFilter()).toBe('all');
+    expect(component.auditProtocolFilter()).toBe('all');
+  });
+
+  it('should filter audit events by anomalies only and date range (SCRUM-26)', () => {
+    component.dashboardService.logAuditEvent('Test Auth', 'Corporate-WiFi', 'RADIUS (1812)', 'success', 'Low');
+    component.dashboardService.logAuditEvent('Brute force alert', 'Directory Gateway', 'Web Portal', 'blocked', 'High', {
+      threatIndicator: {
+        anomalyType: 'FAILED_LOGIN_BURST',
+        description: 'Rapid attempt bursts',
+        alertLevel: 'HIGH',
+      },
+    });
+
+    component.toggleAuditThreatsOnly();
+    expect(component.auditThreatsOnlyFilter()).toBe(true);
+    expect(component.filteredAuditEvents().every((e) => !!e.threatIndicator)).toBe(true);
+    expect(component.filteredAuditEvents().length).toBe(1);
+
+    component.toggleAuditThreatsOnly();
+    expect(component.auditThreatsOnlyFilter()).toBe(false);
+
+    component.setAuditDateRange('24h');
+    expect(component.auditDateRangeFilter()).toBe('24h');
+    expect(component.filteredAuditEvents().length).toBe(2);
+
+    component.resetAuditFilters();
+  });
+
+  it('should open and close audit inspector drawer with full forensics (SCRUM-26)', () => {
+    component.dashboardService.logAuditEvent('Test Auth', 'Corporate-WiFi', 'RADIUS (1812)', 'success', 'Low');
+    const events = component.tenantAuditEvents();
+    expect(events.length).toBeGreaterThan(0);
+
+    const targetEvt = events[0];
+    component.openAuditInspector(targetEvt);
+    expect(component.showAuditInspector()).toBe(true);
+    expect(component.selectedAuditEvent()?.id).toBe(targetEvt.id);
+    expect(component.selectedAuditEvent()?.requestId).toBeTruthy();
+
+    component.closeAuditInspector();
+    expect(component.showAuditInspector()).toBe(false);
+  });
+
+  it('should handle pagination controls and page sizing (SCRUM-26)', () => {
+    for (let i = 0; i < 7; i++) {
+      component.dashboardService.logAuditEvent(`Event ${i}`, 'Gateway', 'Web Portal', 'success', 'Low');
+    }
+    component.resetAuditFilters();
+    component.setAuditPageSize(5);
+    expect(component.auditPageSize()).toBe(5);
+    expect(component.paginatedAuditEvents().length).toBeLessThanOrEqual(5);
+
+    const totalPages = component.auditTotalPages();
+    expect(totalPages).toBeGreaterThanOrEqual(1);
+
+    component.setAuditPage(2);
+    expect(component.auditCurrentPage()).toBe(Math.min(2, totalPages));
+
+    component.setAuditPageSize(10);
+    expect(component.auditCurrentPage()).toBe(1);
+  });
+
+  it('should trigger audit log CSV export with enhanced columns without error (SCRUM-26)', () => {
     expect(() => component.exportAuditLogs()).not.toThrow();
     expect(component.adminActionNotice()).toContain('exported successfully');
   });
@@ -1225,5 +1310,175 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
       expect(validResult?.cipher).toContain('TLS_AES_256_GCM_SHA384');
     });
   });
+
+  describe('SCRUM-25: User Groups & Group-to-App Permission Matrix', () => {
+    it('should initialize default user groups with expected policy configurations', () => {
+      const groups = component.directoryGroups();
+      expect(groups.length).toBeGreaterThanOrEqual(4);
+
+      const devops = groups.find((g) => g.id === 'grp-devops');
+      expect(devops).toBeDefined();
+      expect(devops?.name).toBe('DevOps & Cloud Infrastructure');
+      expect(devops?.department).toBe('Engineering');
+      expect(devops?.appIds).toContain('aws-iam');
+      expect(devops?.policy.requireMfa).toBe(true);
+      expect(devops?.policy.mfaType).toBe('hardware_totp');
+
+      const secops = groups.find((g) => g.id === 'grp-secops');
+      expect(secops?.policy.sessionDurationHours).toBe(2);
+    });
+
+    it('should filter groups by search query (name, department, email)', () => {
+      component.dashboardService.directoryGroupSearch.set('DevOps');
+      expect(component.filteredDirectoryGroups().length).toBe(1);
+      expect(component.filteredDirectoryGroups()[0].id).toBe('grp-devops');
+
+      component.dashboardService.directoryGroupSearch.set('Security Ops');
+      expect(component.filteredDirectoryGroups().some((g) => g.id === 'grp-secops')).toBe(true);
+
+      component.dashboardService.directoryGroupSearch.set('nonexistent-query-xyz');
+      expect(component.filteredDirectoryGroups().length).toBe(0);
+
+      component.dashboardService.directoryGroupSearch.set('');
+      expect(component.filteredDirectoryGroups().length).toBe(component.directoryGroups().length);
+    });
+
+    it('should toggle directory subtabs and group modal subtabs', () => {
+      component.setDirectoryActiveSubTab('groups');
+      expect(component.directoryActiveSubTab()).toBe('groups');
+
+      component.setDirectoryActiveSubTab('users');
+      expect(component.directoryActiveSubTab()).toBe('users');
+
+      component.openCreateGroupModal();
+      expect(component.showGroupModal()).toBe(true);
+      expect(component.groupModalActiveTab()).toBe('details');
+
+      component.setGroupModalActiveTab('members');
+      expect(component.groupModalActiveTab()).toBe('members');
+
+      component.setGroupModalActiveTab('apps');
+      expect(component.groupModalActiveTab()).toBe('apps');
+
+      component.setGroupModalActiveTab('policies');
+      expect(component.groupModalActiveTab()).toBe('policies');
+
+      component.closeGroupModal();
+      expect(component.showGroupModal()).toBe(false);
+    });
+
+    it('should validate form and create a new enterprise user group', () => {
+      component.openCreateGroupModal();
+
+      // Empty validation
+      component.groupFormName = '';
+      component.saveGroup();
+      expect(component.groupFormError()).toContain('Group name is required');
+
+      component.groupFormName = 'QA & Test Automation';
+      component.groupFormEmail = 'invalid-email';
+      component.saveGroup();
+      expect(component.groupFormError()).toContain('valid group email');
+
+      const initialCount = component.directoryGroups().length;
+      component.groupFormEmail = 'qa-team@vanguard.security';
+      component.groupFormDescription = 'Quality engineers responsible for automated E2E testing.';
+      component.groupFormDepartment = 'Engineering';
+      component.toggleGroupFormApp('github');
+      component.toggleGroupFormApp('jira');
+
+      component.saveGroup();
+      expect(component.groupFormSuccess()).toBe(true);
+      expect(component.directoryGroups().length).toBe(initialCount + 1);
+
+      const created = component.directoryGroups().find((g) => g.name === 'QA & Test Automation');
+      expect(created).toBeDefined();
+      expect(created?.email).toBe('qa-team@vanguard.security');
+      expect(created?.appIds).toContain('github');
+      expect(created?.appIds).toContain('jira');
+    });
+
+    it('should edit an existing group, toggle member and app assignments, and persist updates', () => {
+      const group = component.directoryGroups()[0];
+      component.openEditGroupModal(group);
+      expect(component.editingGroup()?.id).toBe(group.id);
+      expect(component.groupFormName).toBe(group.name);
+
+      // Toggle member and app
+      component.toggleGroupFormMember('usr-test-123');
+      expect(component.groupFormMemberIds()).toContain('usr-test-123');
+      component.toggleGroupFormMember('usr-test-123');
+      expect(component.groupFormMemberIds()).not.toContain('usr-test-123');
+
+      component.toggleGroupFormApp('figma');
+      expect(component.groupFormAppIds()).toContain('figma');
+
+      // Update name and description
+      component.groupFormName = group.name + ' Updated';
+      component.groupFormDescription = 'Updated description';
+      component.saveGroup();
+
+      const updated = component.directoryGroups().find((g) => g.id === group.id);
+      expect(updated?.name).toContain('Updated');
+      expect(updated?.appIds).toContain('figma');
+    });
+
+    it('should automatically grant inherited app access to users who are members of the group', () => {
+      authService.currentUser.set({
+        id: 'usr-member-1',
+        email: 's.connor@vanguard.security',
+        firstName: 'Sarah',
+        lastName: 'Connor',
+        role: 'user',
+        companyName: 'Vanguard Security Systems',
+        phone: '+1 555 0199',
+      });
+
+      // Set test user
+      component.dashboardService.directoryUsers.set([
+        {
+          id: 'usr-member-1',
+          name: 'Sarah Connor',
+          email: 's.connor@vanguard.security',
+          department: 'Engineering',
+          role: 'Directory Member',
+          mfaStatus: 'Enrolled (TOTP)',
+          accountStatus: 'Active',
+          lastLogin: 'Today',
+          initials: 'SC',
+        },
+      ]);
+
+      // Create group containing usr-member-1 with datadog and github
+      component.openCreateGroupModal();
+      component.groupFormName = 'Site Reliability Engineering';
+      component.groupFormEmail = 'sre@vanguard.security';
+      component.toggleGroupFormMember('usr-member-1');
+      component.toggleGroupFormApp('datadog');
+      component.toggleGroupFormApp('github');
+      component.saveGroup();
+
+      // Check user groups
+      const user = component.dashboardService.directoryUsers()[0];
+      const userGroups = component.dashboardService.getUserGroups(user);
+      expect(userGroups.some((g) => g.name === 'Site Reliability Engineering')).toBe(true);
+
+      // Check that apps were inherited
+      const userApps = component.dashboardService.apps();
+      const inheritedDatadog = userApps.find((a) => a.id === 'datadog');
+      expect(inheritedDatadog).toBeDefined();
+      expect(inheritedDatadog?.inheritedViaGroup).toBe('Site Reliability Engineering');
+    });
+
+    it('should delete a group and synchronize member permissions', () => {
+      const initialCount = component.directoryGroups().length;
+      const targetGroup = component.directoryGroups()[0];
+
+      component.deleteGroup(targetGroup.id);
+      expect(component.directoryGroups().length).toBe(initialCount - 1);
+      expect(component.directoryGroups().some((g) => g.id === targetGroup.id)).toBe(false);
+    });
+  });
 });
+
 

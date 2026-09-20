@@ -11,7 +11,7 @@ export interface ProtocolStatus {
 export interface SaaSApp {
   id: string;
   name: string;
-  category: 'cloud' | 'developer' | 'collaboration';
+  category: 'cloud' | 'developer' | 'collaboration' | 'custom';
   description: string;
   icon: string;
   protocol: 'SAML 2.0' | 'OIDC';
@@ -74,6 +74,26 @@ export interface DirectoryUser {
   groups?: string[];
 }
 
+export type AuditEventType =
+  | 'SSO_LOGIN'
+  | 'RADIUS_AUTH'
+  | 'LDAP_BIND'
+  | 'USER_PROVISIONED'
+  | 'PASSWORD_RESET'
+  | 'POLICY_CHANGE'
+  | 'SESSION_REVOKED'
+  | 'MFA_CHALLENGE'
+  | 'VAULT_ACCESS'
+  | (string & {});
+
+export type AuditSeverity = 'INFO' | 'WARN' | 'SECURITY_ALERT';
+
+export interface AuditThreatIndicator {
+  anomalyType: 'FAILED_LOGIN_BURST' | 'UNKNOWN_IP_RANGE' | 'ADMIN_ELEVATION' | 'UNUSUAL_GEO' | 'BRUTE_FORCE_THROTTLED' | (string & {});
+  description: string;
+  alertLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
+
 export interface TenantAuditEvent {
   id: string;
   timestamp: string;
@@ -85,7 +105,16 @@ export interface TenantAuditEvent {
   device: string;
   status: 'success' | 'challenge' | 'blocked';
   riskScore: 'Low' | 'Medium' | 'High';
+  eventType: AuditEventType;
+  severity: AuditSeverity;
+  userAgent?: string;
+  tlsCipher?: string;
+  requestId: string;
+  threatIndicator?: AuditThreatIndicator;
+  isoTimestamp?: string;
+  rawPayload?: Record<string, any>;
 }
+
 
 export interface AttributeStatementMapping {
   userAttribute: string;

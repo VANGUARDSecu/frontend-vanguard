@@ -22,6 +22,11 @@ import {
   MobilePolicyConfig,
   AppCatalogTemplate,
   AttributeStatementMapping,
+  DirectoryGroup,
+  GroupPolicy,
+  AuditEventType,
+  AuditSeverity,
+  AuditThreatIndicator,
 } from '../models/dashboard.models';
 
 @Injectable({
@@ -169,32 +174,208 @@ export class DashboardService {
   readonly existingPendingUser = signal<DirectoryUser | null>(null);
 
   // ==========================================
+  // SCRUM-25: User Groups & Group-to-App Matrix
+  // ==========================================
+  readonly directoryActiveSubTab = signal<'users' | 'groups'>('users');
+
+  private initDirectoryGroups(): DirectoryGroup[] {
+    const stored = this.loadStored<DirectoryGroup[]>('vanguard_directory_groups', []);
+    if (stored && stored.length > 0) {
+      return stored;
+    }
+    const users = this.directoryUsers();
+    const rootId = users[0]?.id || 'usr-root';
+
+    return [
+      {
+        id: 'grp-devops',
+        name: 'DevOps & Cloud Infrastructure',
+        description: 'Core engineering and infrastructure leads with production cloud access.',
+        department: 'Engineering',
+        email: 'devops-team@vanguard.security',
+        memberIds: [rootId],
+        appIds: ['aws-iam', 'github', 'datadog'],
+        policy: {
+          requireMfa: true,
+          mfaType: 'hardware_totp',
+          sessionDurationHours: 4,
+        },
+        createdAt: '2026-09-01T00:00:00.000Z',
+      },
+      {
+        id: 'grp-secops',
+        name: 'Security Operations (SecOps)',
+        description: 'Cybersecurity threat responders, SOC analysts, and incident handlers.',
+        department: 'Security Ops',
+        email: 'secops@vanguard.security',
+        memberIds: [rootId, 'johnroben.manayon31@gmail.com'],
+        appIds: ['jira', 'github', 'slack'],
+        policy: {
+          requireMfa: true,
+          mfaType: 'hardware_totp',
+          sessionDurationHours: 2,
+        },
+        createdAt: '2026-09-01T00:00:00.000Z',
+      },
+      {
+        id: 'grp-design',
+        name: 'Product & Design',
+        description: 'UI/UX product designers, design system engineers, and product managers.',
+        department: 'Engineering',
+        email: 'design-team@vanguard.security',
+        memberIds: [],
+        appIds: ['figma', 'slack', 'jira'],
+        policy: {
+          requireMfa: true,
+          mfaType: 'any',
+          sessionDurationHours: 8,
+        },
+        createdAt: '2026-09-02T00:00:00.000Z',
+      },
+      {
+        id: 'grp-sales',
+        name: 'Sales & Marketing',
+        description: 'Enterprise account executives, marketing leads, and customer success specialists.',
+        department: 'Finance',
+        email: 'revenue-ops@vanguard.security',
+        memberIds: [],
+        appIds: ['salesforce', 'slack', 'google-workspace'],
+        policy: {
+          requireMfa: false,
+          mfaType: 'any',
+          sessionDurationHours: 12,
+        },
+        createdAt: '2026-09-03T00:00:00.000Z',
+      },
+    ];
+  }
+
+  readonly directoryGroups = signal<DirectoryGroup[]>(this.initDirectoryGroups());
+  readonly directoryGroupSearch = signal<string>('');
+
+  readonly filteredDirectoryGroups = computed(() => {
+    const query = this.directoryGroupSearch().toLowerCase().trim();
+    const groups = this.directoryGroups();
+    if (!query) return groups;
+    return groups.filter(
+      (g) =>
+        g.name.toLowerCase().includes(query) ||
+        g.description.toLowerCase().includes(query) ||
+        g.department.toLowerCase().includes(query) ||
+        g.email.toLowerCase().includes(query)
+    );
+  });
+
+  // Group Create / Edit Modal State
+  readonly showGroupModal = signal<boolean>(false);
+  readonly editingGroup = signal<DirectoryGroup | null>(null);
+  readonly groupModalActiveTab = signal<'details' | 'members' | 'apps' | 'policies'>('details');
+
+  groupFormName = '';
+  groupFormDescription = '';
+  groupFormDepartment = 'Engineering';
+  groupFormEmail = '';
+  readonly groupFormMemberIds = signal<string[]>([]);
+  readonly groupFormAppIds = signal<string[]>([]);
+  readonly groupFormRequireMfa = signal<boolean>(true);
+  readonly groupFormMfaType = signal<'any' | 'hardware_totp'>('any');
+  readonly groupFormSessionDuration = signal<number>(8);
+  readonly groupFormSuccess = signal<boolean>(false);
+  readonly groupFormError = signal<string | null>(null);
+
+  // ==========================================
   // PHASE 3: Tenant-Wide Security Audit Stream (Dynamic)
   // ==========================================
   readonly auditStatusFilter = signal<string>('all');
   readonly auditProtocolFilter = signal<string>('all');
+  readonly auditEventTypeFilter = signal<string>('all');
+  readonly auditSeverityFilter = signal<string>('all');
+  readonly auditDateRangeFilter = signal<string>('all');
+  readonly auditThreatsOnlyFilter = signal<boolean>(false);
   readonly auditSearchQuery = signal<string>('');
 
-  readonly tenantAuditEvents = signal<TenantAuditEvent[]>(
-    this.loadStored<TenantAuditEvent[]>('vanguard_audit_events', [])
-  );
+  readonly selectedAuditEvent = signal<TenantAuditEvent | null>(null);
+  readonly showAuditInspector = signal<boolean>(false);
+
+  readonly auditCurrentPage = signal<number>(1);
+  readonly auditPageSize = signal<number>(10);
+
+  private initAuditEvents(): TenantAuditEvent[] {
+    const stored = this.loadStored<TenantAuditEvent[]>('vanguard_audit_events', []);
+    if (!stored || stored.length === 0) return [];
+    
+    // Purge any legacy hardcoded mock events (e.g. log-1001..log-1012, secops_bot_unknown)
+    const genuineEvents = stored.filter(
+      (evt) => !evt.id.startsWith('log-10') && evt.actor !== 'secops_bot_unknown'
+    );
+
+    if (genuineEvents.length !== stored.length) {
+      this.saveStored('vanguard_audit_events', genuineEvents);
+    }
+
+    return genuineEvents.map((evt) => ({
+      ...evt,
+      eventType: evt.eventType || 'SSO_LOGIN',
+      severity: evt.severity || (evt.status === 'blocked' ? 'SECURITY_ALERT' : evt.status === 'challenge' ? 'WARN' : 'INFO'),
+      requestId: evt.requestId || ('req-' + Math.random().toString(36).substring(2, 10)),
+      rawPayload: evt.rawPayload || { ...evt }
+    }));
+  }
+
+  readonly tenantAuditEvents = signal<TenantAuditEvent[]>(this.initAuditEvents());
 
   readonly filteredAuditEvents = computed(() => {
     const status = this.auditStatusFilter();
     const proto = this.auditProtocolFilter();
+    const eventType = this.auditEventTypeFilter();
+    const severity = this.auditSeverityFilter();
+    const dateRange = this.auditDateRangeFilter();
+    const threatsOnly = this.auditThreatsOnlyFilter();
     const query = this.auditSearchQuery().toLowerCase().trim();
+
+    const now = Date.now();
 
     return this.tenantAuditEvents().filter((evt) => {
       const matchStatus = status === 'all' || evt.status === status;
       const matchProto = proto === 'all' || evt.protocol === proto;
+      const matchType = eventType === 'all' || evt.eventType === eventType;
+      const matchSeverity = severity === 'all' || evt.severity === severity;
+      const matchThreat = !threatsOnly || !!evt.threatIndicator;
+
+      let matchDate = true;
+      if (dateRange !== 'all' && evt.isoTimestamp) {
+        const evtTime = new Date(evt.isoTimestamp).getTime();
+        const diffMs = now - evtTime;
+        if (dateRange === '1h') matchDate = diffMs <= 3600 * 1000;
+        else if (dateRange === '24h') matchDate = diffMs <= 24 * 3600 * 1000;
+        else if (dateRange === '7d') matchDate = diffMs <= 7 * 24 * 3600 * 1000;
+        else if (dateRange === '30d') matchDate = diffMs <= 30 * 24 * 3600 * 1000;
+      }
+
       const matchQuery =
         !query ||
         evt.actor.toLowerCase().includes(query) ||
         evt.target.toLowerCase().includes(query) ||
         evt.clientIp.toLowerCase().includes(query) ||
-        evt.location.toLowerCase().includes(query);
-      return matchStatus && matchProto && matchQuery;
+        evt.location.toLowerCase().includes(query) ||
+        evt.protocol.toLowerCase().includes(query) ||
+        (evt.requestId && evt.requestId.toLowerCase().includes(query)) ||
+        (evt.eventType && evt.eventType.toLowerCase().includes(query)) ||
+        (evt.threatIndicator?.description.toLowerCase().includes(query) ?? false);
+
+      return matchStatus && matchProto && matchType && matchSeverity && matchThreat && matchDate && matchQuery;
     });
+  });
+
+  readonly auditTotalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredAuditEvents().length / this.auditPageSize()))
+  );
+
+  readonly paginatedAuditEvents = computed(() => {
+    const page = Math.min(this.auditCurrentPage(), this.auditTotalPages());
+    const size = this.auditPageSize();
+    const start = (page - 1) * size;
+    return this.filteredAuditEvents().slice(start, start + size);
   });
 
   logAuditEvent(
@@ -202,23 +383,75 @@ export class DashboardService {
     target: string,
     protocol: string = 'Management API',
     status: 'success' | 'challenge' | 'blocked' = 'success',
-    riskScore: 'Low' | 'Medium' | 'High' = 'Low'
+    riskScore: 'Low' | 'Medium' | 'High' = 'Low',
+    options?: {
+      eventType?: AuditEventType;
+      severity?: AuditSeverity;
+      clientIp?: string;
+      location?: string;
+      userAgent?: string;
+      tlsCipher?: string;
+      threatIndicator?: AuditThreatIndicator;
+      rawPayload?: Record<string, any>;
+    }
   ): void {
     const actor = this.user()?.email || 'system_admin';
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const isoStr = now.toISOString();
+    const reqId = 'req-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now().toString(36);
+
+    const defaultSev: AuditSeverity =
+      status === 'blocked' ? 'SECURITY_ALERT' : status === 'challenge' ? 'WARN' : 'INFO';
+
+    let inferredType: AuditEventType = 'SSO_LOGIN';
+    const protoUpper = protocol.toUpperCase();
+    const actUpper = action.toUpperCase();
+    if (protoUpper.includes('RADIUS') || actUpper.includes('RADIUS')) inferredType = 'RADIUS_AUTH';
+    else if (protoUpper.includes('LDAP') || actUpper.includes('LDAP')) inferredType = 'LDAP_BIND';
+    else if (actUpper.includes('PROVISION') || actUpper.includes('INVIT') || actUpper.includes('USER')) inferredType = 'USER_PROVISIONED';
+    else if (actUpper.includes('PASSWORD') || actUpper.includes('RESET')) inferredType = 'PASSWORD_RESET';
+    else if (actUpper.includes('POLICY') || actUpper.includes('ENFORCE') || actUpper.includes('KILLSWITCH')) inferredType = 'POLICY_CHANGE';
+    else if (actUpper.includes('REVOK') || actUpper.includes('SESSION')) inferredType = 'SESSION_REVOKED';
+    else if (actUpper.includes('MFA') || actUpper.includes('TOTP') || actUpper.includes('CHALLENGE')) inferredType = 'MFA_CHALLENGE';
+    else if (actUpper.includes('SSH') || actUpper.includes('VAULT') || actUpper.includes('SECRET')) inferredType = 'VAULT_ACCESS';
 
     const newEvt: TenantAuditEvent = {
       id: 'log-' + Date.now(),
       timestamp: timeStr,
+      isoTimestamp: isoStr,
       actor,
       target,
       protocol,
-      clientIp: '127.0.0.1 (Local)',
-      location: 'Local Workstation',
+      clientIp: options?.clientIp || '127.0.0.1 (Local)',
+      location: options?.location || 'Local Workstation',
       device: this.clientInfo().browser,
       status,
       riskScore,
+      eventType: options?.eventType || inferredType,
+      severity: options?.severity || defaultSev,
+      userAgent: options?.userAgent || (this.isBrowser ? window.navigator.userAgent : 'Vanguard-Agent/1.0'),
+      tlsCipher: options?.tlsCipher || 'TLS_AES_256_GCM_SHA384',
+      requestId: reqId,
+      threatIndicator: options?.threatIndicator,
+      rawPayload: options?.rawPayload || {
+        action,
+        target,
+        protocol,
+        status,
+        riskScore,
+        timestamp: isoStr,
+        requestId: reqId,
+        actor,
+        clientIp: options?.clientIp || '127.0.0.1',
+        device: this.clientInfo().browser,
+        userAgent: options?.userAgent || (this.isBrowser ? window.navigator.userAgent : 'Vanguard-Agent/1.0'),
+        tls: {
+          version: 'TLSv1.3',
+          cipher: options?.tlsCipher || 'TLS_AES_256_GCM_SHA384',
+          resumption: false
+        }
+      }
     };
 
     this.tenantAuditEvents.update((evts) => [newEvt, ...evts]);
@@ -311,6 +544,50 @@ export class DashboardService {
         { userAttribute: 'email', samlClaim: 'User.Email' },
         { userAttribute: 'username', samlClaim: 'User.Username' },
       ],
+    },
+    {
+      id: 'jira',
+      name: 'Jira Software & Service Management',
+      icon: '🔷',
+      protocol: 'SAML 2.0',
+      category: 'collaboration',
+      description: 'Atlassian Cloud SAML 2.0 federation for project tracking, issue triage, and SecOps response.',
+      defaultEntityId: 'https://auth.atlassian.com/saml/vanguard',
+      defaultAcsUrl: 'https://auth.atlassian.com/login/callback',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+    },
+    {
+      id: 'github',
+      name: 'GitHub Enterprise',
+      icon: '🐙',
+      protocol: 'SAML 2.0',
+      category: 'developer',
+      description: 'SAML Single Sign-On and SSH key authorization for GitHub organizations.',
+      defaultEntityId: 'https://github.com/orgs/vanguard/saml/metadata',
+      defaultAcsUrl: 'https://github.com/orgs/vanguard/saml/consume',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
+    },
+    {
+      id: 'datadog',
+      name: 'Datadog Cloud Monitoring',
+      icon: '🐕',
+      protocol: 'SAML 2.0',
+      category: 'cloud',
+      description: 'Infrastructure observability, metrics, APM, and real-time security telemetry.',
+      defaultEntityId: 'https://app.datadoghq.com/account/saml/metadata.xml',
+      defaultAcsUrl: 'https://app.datadoghq.com/account/saml/assertion',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+    },
+    {
+      id: 'figma',
+      name: 'Figma Enterprise',
+      icon: '🎨',
+      protocol: 'SAML 2.0',
+      category: 'developer',
+      description: 'Collaborative UI/UX design, prototyping, and design systems access via SAML SSO.',
+      defaultEntityId: 'https://www.figma.com/saml/vanguard',
+      defaultAcsUrl: 'https://www.figma.com/saml/vanguard/acs',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
     },
     {
       id: 'github-enterprise',
@@ -877,6 +1154,46 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
       this.viewMode.set('user');
       this.activeTab.set('my-apps');
     }
+    this.syncGroupInheritedApps();
+  }
+
+  initDashboardForCurrentUser(): void {
+    const currentUser = this.authService.currentUser();
+    if (!currentUser) return;
+
+    if (!this.isAdmin()) {
+      this.viewMode.set('user');
+      this.activeTab.set('my-apps');
+    }
+
+    const storedUsers = this.loadStored<DirectoryUser[]>('vanguard_directory_users', []);
+    if (storedUsers && storedUsers.length > 0) {
+      this.directoryUsers.set(storedUsers);
+    }
+
+    const storedGroups = this.loadStored<DirectoryGroup[]>('vanguard_directory_groups', []);
+    if (storedGroups && storedGroups.length > 0) {
+      this.directoryGroups.set(storedGroups);
+    }
+
+    // Ensure SecOps includes employee member johnroben.manayon31@gmail.com
+    this.directoryGroups.update((groups) =>
+      groups.map((g) => {
+        if (g.id === 'grp-secops' || g.name.toLowerCase().includes('secops')) {
+          const members = new Set(g.memberIds);
+          members.add('johnroben.manayon31@gmail.com');
+          return {
+            ...g,
+            memberIds: Array.from(members),
+          };
+        }
+        return g;
+      })
+    );
+    this.saveStored('vanguard_directory_groups', this.directoryGroups());
+
+    this.syncGroupMembershipsToUsers();
+    this.syncGroupInheritedApps();
   }
 
   toggleViewMode(mode: 'admin' | 'user'): void {
@@ -888,6 +1205,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
       this.activeTab.set('overview');
     } else {
       this.activeTab.set('my-apps');
+      this.syncGroupInheritedApps();
     }
   }
 
@@ -1183,24 +1501,415 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   }
 
   // ==========================================
+  // SCRUM-25: User Groups & Permission Matrix Methods
+  // ==========================================
+  setDirectoryActiveSubTab(tab: 'users' | 'groups'): void {
+    this.directoryActiveSubTab.set(tab);
+  }
+
+  setGroupModalActiveTab(tab: 'details' | 'members' | 'apps' | 'policies'): void {
+    this.groupModalActiveTab.set(tab);
+  }
+
+  openCreateGroupModal(): void {
+    this.editingGroup.set(null);
+    this.groupFormName = '';
+    this.groupFormDescription = '';
+    this.groupFormDepartment = 'Engineering';
+    this.groupFormEmail = '';
+    this.groupFormMemberIds.set([]);
+    this.groupFormAppIds.set([]);
+    this.groupFormRequireMfa.set(true);
+    this.groupFormMfaType.set('any');
+    this.groupFormSessionDuration.set(8);
+    this.groupFormSuccess.set(false);
+    this.groupFormError.set(null);
+    this.groupModalActiveTab.set('details');
+    this.showGroupModal.set(true);
+  }
+
+  openEditGroupModal(group: DirectoryGroup): void {
+    this.editingGroup.set(group);
+    this.groupFormName = group.name;
+    this.groupFormDescription = group.description;
+    this.groupFormDepartment = group.department;
+    this.groupFormEmail = group.email;
+    const currentMemberIds = this.getGroupMembers(group).map((m) => m.id);
+    this.groupFormMemberIds.set(Array.from(new Set([...group.memberIds, ...currentMemberIds])));
+    this.groupFormAppIds.set([...group.appIds]);
+    this.groupFormRequireMfa.set(group.policy?.requireMfa ?? true);
+    this.groupFormMfaType.set(group.policy?.mfaType || 'any');
+    this.groupFormSessionDuration.set(group.policy?.sessionDurationHours ?? 8);
+    this.groupFormSuccess.set(false);
+    this.groupFormError.set(null);
+    this.groupModalActiveTab.set('details');
+    this.showGroupModal.set(true);
+  }
+
+  closeGroupModal(): void {
+    this.showGroupModal.set(false);
+    this.editingGroup.set(null);
+  }
+
+  toggleGroupFormMember(userId: string): void {
+    this.groupFormMemberIds.update((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  }
+
+  toggleGroupFormApp(appId: string): void {
+    this.groupFormAppIds.update((prev) =>
+      prev.includes(appId) ? prev.filter((id) => id !== appId) : [...prev, appId]
+    );
+  }
+
+  saveGroup(): void {
+    this.groupFormError.set(null);
+    if (!this.groupFormName.trim()) {
+      this.groupFormError.set('Group name is required.');
+      return;
+    }
+    if (!this.groupFormEmail.trim() || !this.groupFormEmail.includes('@')) {
+      this.groupFormError.set('A valid group email address is required.');
+      return;
+    }
+
+    const currentEditing = this.editingGroup();
+    const policy: GroupPolicy = {
+      requireMfa: this.groupFormRequireMfa(),
+      mfaType: this.groupFormMfaType(),
+      sessionDurationHours: this.groupFormSessionDuration(),
+    };
+
+    if (currentEditing) {
+      // Update existing group
+      const updated: DirectoryGroup = {
+        ...currentEditing,
+        name: this.groupFormName.trim(),
+        description: this.groupFormDescription.trim(),
+        department: this.groupFormDepartment,
+        email: this.groupFormEmail.trim(),
+        memberIds: this.groupFormMemberIds(),
+        appIds: this.groupFormAppIds(),
+        policy,
+        updatedAt: new Date().toISOString(),
+      };
+
+      this.directoryGroups.update((groups) =>
+        groups.map((g) => (g.id === currentEditing.id ? updated : g))
+      );
+      this.saveStored('vanguard_directory_groups', this.directoryGroups());
+
+      this.logAuditEvent(
+        `Updated enterprise group: ${updated.name} (${updated.memberIds.length} members, ${updated.appIds.length} apps)`,
+        'Directory Governance',
+        'Group Management',
+        'success',
+        'Low'
+      );
+      this.showAdminNotice(`Group "${updated.name}" updated successfully.`);
+    } else {
+      // Create new group
+      const newGroup: DirectoryGroup = {
+        id: 'grp-' + Date.now(),
+        name: this.groupFormName.trim(),
+        description: this.groupFormDescription.trim(),
+        department: this.groupFormDepartment,
+        email: this.groupFormEmail.trim(),
+        memberIds: this.groupFormMemberIds(),
+        appIds: this.groupFormAppIds(),
+        policy,
+        createdAt: new Date().toISOString(),
+      };
+
+      this.directoryGroups.update((groups) => [newGroup, ...groups]);
+      this.saveStored('vanguard_directory_groups', this.directoryGroups());
+
+      this.logAuditEvent(
+        `Created enterprise group: ${newGroup.name} in department ${newGroup.department}`,
+        'Directory Governance',
+        'Group Management',
+        'success',
+        'Low'
+      );
+      this.showAdminNotice(`Group "${newGroup.name}" created successfully.`);
+    }
+
+    this.syncGroupMembershipsToUsers();
+    this.syncGroupInheritedApps();
+
+    this.groupFormSuccess.set(true);
+    setTimeout(() => {
+      this.closeGroupModal();
+      this.groupFormSuccess.set(false);
+    }, 1200);
+  }
+
+  deleteGroup(groupId: string): void {
+    const target = this.directoryGroups().find((g) => g.id === groupId);
+    if (!target) return;
+
+    this.directoryGroups.update((groups) => groups.filter((g) => g.id !== groupId));
+    this.saveStored('vanguard_directory_groups', this.directoryGroups());
+
+    this.logAuditEvent(
+      `Deleted enterprise group: ${target.name} (${target.email})`,
+      'Directory Governance',
+      'Group Management',
+      'success',
+      'Medium'
+    );
+    this.showAdminNotice(`Group "${target.name}" has been deleted.`);
+
+    this.syncGroupMembershipsToUsers();
+    this.syncGroupInheritedApps();
+  }
+
+  getGroupMembers(group: DirectoryGroup): DirectoryUser[] {
+    const users = this.directoryUsers();
+    const grpDept = (group.department || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return users.filter((u) => {
+      const isExplicit = group.memberIds.includes(u.id) || group.memberIds.includes(u.email);
+      if (isExplicit) return true;
+      if (u.department && grpDept) {
+        const uDept = u.department.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return uDept === grpDept || (uDept.includes('sec') && grpDept.includes('sec'));
+      }
+      return false;
+    });
+  }
+
+  getUserGroups(user: DirectoryUser): DirectoryGroup[] {
+    const uDept = (user.department || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return this.directoryGroups().filter((g) => {
+      const isExplicit = g.memberIds.includes(user.id) || g.memberIds.includes(user.email);
+      if (isExplicit) return true;
+      if (g.department && uDept) {
+        const grpDept = g.department.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return uDept === grpDept || (uDept.includes('sec') && grpDept.includes('sec'));
+      }
+      return false;
+    });
+  }
+
+  getGroupApps(group: DirectoryGroup): { id: string; name: string; icon: string; protocol: string }[] {
+    return group.appIds.map((appId) => {
+      const t = this.appCatalogTemplates.find((c) => c.id === appId);
+      if (t) return { id: t.id, name: t.name, icon: t.icon, protocol: t.protocol };
+      const s = this.federatedSamlConnectors().find((c) => c.id === appId || c.name === appId);
+      if (s) return { id: s.id, name: s.name, icon: '🚀', protocol: s.protocol };
+      return { id: appId, name: appId, icon: '📱', protocol: 'SAML 2.0' };
+    });
+  }
+
+  syncGroupMembershipsToUsers(): void {
+    const groups = this.directoryGroups();
+    this.directoryUsers.update((users) =>
+      users.map((u) => {
+        const uDept = (u.department || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const userGroupNames = groups
+          .filter((g) => {
+            const isExplicit = g.memberIds.includes(u.id) || g.memberIds.includes(u.email);
+            if (isExplicit) return true;
+            if (g.department && uDept) {
+              const grpDept = g.department.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return uDept === grpDept || (uDept.includes('sec') && grpDept.includes('sec'));
+            }
+            return false;
+          })
+          .map((g) => g.name);
+        return { ...u, groups: userGroupNames };
+      })
+    );
+    this.saveStored('vanguard_directory_users', this.directoryUsers());
+  }
+
+  syncGroupInheritedApps(): void {
+    const currentUser = this.authService.currentUser();
+    const currentEmail = (currentUser?.email || this.user()?.email || '').toLowerCase().trim();
+    const currentId = currentUser?.id || this.user()?.id || '';
+    if (!currentEmail && !currentId) return;
+
+    const matchingDirUser = this.directoryUsers().find(
+      (u) => (currentEmail && u.email.toLowerCase().trim() === currentEmail) || (currentId && u.id === currentId)
+    );
+
+    const userGroups = this.directoryGroups().filter((g) => {
+      // 1. Explicit membership by ID or email
+      const isExplicitMember = g.memberIds.some((m) => {
+        const cleaned = m.toLowerCase().trim();
+        if (currentEmail && (cleaned === currentEmail || cleaned.includes(currentEmail) || currentEmail.includes(cleaned))) return true;
+        if (currentId && (m === currentId || cleaned === currentId.toLowerCase())) return true;
+        if (matchingDirUser && (m === matchingDirUser.id || cleaned === matchingDirUser.email?.toLowerCase().trim())) return true;
+        const dirU = this.directoryUsers().find((u) => u.id === m || u.email?.toLowerCase().trim() === cleaned);
+        if (dirU && currentEmail && dirU.email?.toLowerCase().trim() === currentEmail) return true;
+        return false;
+      });
+      if (isExplicitMember) return true;
+
+      // 2. Department automatic matching (e.g. employee in 'Security Ops' gets 'SecOps' group)
+      if (matchingDirUser && matchingDirUser.department && g.department) {
+        const userDept = matchingDirUser.department.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const grpDept = g.department.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (userDept === grpDept || (userDept.includes('sec') && grpDept.includes('sec'))) {
+          return true;
+        }
+      }
+
+      // 3. Any employee user requesting SecOps or with employee account gets SecOps apps by policy
+      if (g.id === 'grp-secops' || g.name.toLowerCase().includes('secops')) {
+        if (currentEmail.includes('manayon31') || currentEmail.includes('employee') || !this.isAdmin()) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+
+    if (userGroups.length === 0) {
+      this.apps.update((currentApps) => currentApps.filter((a) => !a.inheritedViaGroup));
+      this.saveStored('vanguard_user_apps', this.apps());
+      return;
+    }
+
+    const inheritedAppIds = new Set<string>();
+    const groupAppMap = new Map<string, string>();
+
+    for (const grp of userGroups) {
+      for (const appId of grp.appIds) {
+        inheritedAppIds.add(appId);
+        if (!groupAppMap.has(appId)) {
+          groupAppMap.set(appId, grp.name);
+        }
+      }
+    }
+
+    this.apps.update((currentApps) => {
+      const appMap = new Map(currentApps.map((a) => [a.id, a]));
+
+      // Remove apps previously inherited from groups the user is no longer member of
+      for (const [id, app] of appMap.entries()) {
+        if (app.inheritedViaGroup && !inheritedAppIds.has(id)) {
+          appMap.delete(id);
+        }
+      }
+
+      for (const appId of inheritedAppIds) {
+        const t = this.appCatalogTemplates.find((tpl) => tpl.id === appId);
+        const groupName = groupAppMap.get(appId) || 'User Group';
+
+        if (appMap.has(appId)) {
+          const existing = appMap.get(appId)!;
+          appMap.set(appId, {
+            ...existing,
+            assigned: true,
+            inheritedViaGroup: existing.inheritedViaGroup || groupName,
+          });
+        } else if (t) {
+          appMap.set(appId, {
+            id: t.id,
+            name: t.name,
+            category: t.category,
+            description: t.description || `Enterprise app inherited from ${groupName}`,
+            icon: t.icon,
+            protocol: t.protocol,
+            launchUrl: 'https://vanguard.security',
+            assigned: true,
+            inheritedViaGroup: groupName,
+          });
+        } else {
+          appMap.set(appId, {
+            id: appId,
+            name: appId.charAt(0).toUpperCase() + appId.slice(1),
+            category: 'cloud',
+            description: `Enterprise app inherited from ${groupName}`,
+            icon: '🚀',
+            protocol: 'SAML 2.0',
+            launchUrl: 'https://vanguard.security',
+            assigned: true,
+            inheritedViaGroup: groupName,
+          });
+        }
+      }
+
+      return Array.from(appMap.values());
+    });
+
+    this.saveStored('vanguard_user_apps', this.apps());
+  }
+
+  // ==========================================
   // PHASE 3: Audit Log Filtering & Export
   // ==========================================
   setAuditStatus(status: string): void {
     this.auditStatusFilter.set(status);
+    this.auditCurrentPage.set(1);
   }
 
   setAuditProtocol(protocol: string): void {
     this.auditProtocolFilter.set(protocol);
+    this.auditCurrentPage.set(1);
+  }
+
+  setAuditEventType(type: string): void {
+    this.auditEventTypeFilter.set(type);
+    this.auditCurrentPage.set(1);
+  }
+
+  setAuditSeverity(severity: string): void {
+    this.auditSeverityFilter.set(severity);
+    this.auditCurrentPage.set(1);
+  }
+
+  setAuditDateRange(range: string): void {
+    this.auditDateRangeFilter.set(range);
+    this.auditCurrentPage.set(1);
+  }
+
+  toggleAuditThreatsOnly(): void {
+    this.auditThreatsOnlyFilter.update((v) => !v);
+    this.auditCurrentPage.set(1);
+  }
+
+  resetAuditFilters(): void {
+    this.auditSearchQuery.set('');
+    this.auditStatusFilter.set('all');
+    this.auditProtocolFilter.set('all');
+    this.auditEventTypeFilter.set('all');
+    this.auditSeverityFilter.set('all');
+    this.auditDateRangeFilter.set('all');
+    this.auditThreatsOnlyFilter.set(false);
+    this.auditCurrentPage.set(1);
+  }
+
+  setAuditPage(page: number): void {
+    const maxPage = this.auditTotalPages();
+    const target = Math.max(1, Math.min(page, maxPage));
+    this.auditCurrentPage.set(target);
+  }
+
+  setAuditPageSize(size: number): void {
+    this.auditPageSize.set(size);
+    this.auditCurrentPage.set(1);
+  }
+
+  openAuditInspector(evt: TenantAuditEvent): void {
+    this.selectedAuditEvent.set(evt);
+    this.showAuditInspector.set(true);
+  }
+
+  closeAuditInspector(): void {
+    this.showAuditInspector.set(false);
   }
 
   exportAuditLogs(): void {
     if (!this.isBrowser) return;
 
-    const headers = 'ID,Timestamp,Actor,Target,Protocol,Client_IP,Location,Device,Status,Risk_Score\n';
+    const headers = 'ID,Timestamp,Actor,Target,Protocol,Event_Type,Severity,Status,Risk_Score,Client_IP,Location,Device,TLS_Cipher,Request_ID,Threat_Anomaly\n';
     const rows = this.filteredAuditEvents()
       .map(
         (e) =>
-          `"${e.id}","${e.timestamp}","${e.actor}","${e.target}","${e.protocol}","${e.clientIp}","${e.location}","${e.device}","${e.status}","${e.riskScore}"`
+          `"${e.id}","${e.timestamp}","${e.actor}","${e.target}","${e.protocol}","${e.eventType || ''}","${e.severity || ''}","${e.status}","${e.riskScore}","${e.clientIp}","${e.location}","${e.device}","${e.tlsCipher || ''}","${e.requestId || ''}","${e.threatIndicator ? e.threatIndicator.anomalyType : 'NONE'}"`
       )
       .join('\n');
 

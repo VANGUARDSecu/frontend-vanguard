@@ -2,177 +2,377 @@
           <div class="section-header">
             <div class="section-title-wrap">
               <h2 class="section-title">Central Directory Users & Groups</h2>
-              <p class="section-subtitle">Manage identities, role assignments, and multi-factor enforcement across departments.</p>
+              <p class="section-subtitle">Manage identities, role assignments, user groups, and multi-factor enforcement across departments.</p>
             </div>
-            <button type="button" class="btn-primary-action" (click)="openInviteModal()">
-              <span class="btn-plus">+</span>
-              <span>Invite New Employee</span>
+            <div class="header-actions">
+              <button
+                type="button"
+                class="btn-primary-action"
+                *ngIf="directoryActiveSubTab() === 'users'"
+                (click)="openInviteModal()"
+              >
+                <span class="btn-plus">+</span>
+                <span>Invite New Employee</span>
+              </button>
+              <button
+                type="button"
+                class="btn-primary-action"
+                *ngIf="directoryActiveSubTab() === 'groups'"
+                (click)="openCreateGroupModal()"
+              >
+                <span class="btn-plus">+</span>
+                <span>Create User Group</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Directory Subtabs Navigation -->
+          <div class="directory-subtabs-bar">
+            <button
+              type="button"
+              class="directory-subtab-btn"
+              [class.active]="directoryActiveSubTab() === 'users'"
+              (click)="setDirectoryActiveSubTab('users')"
+            >
+              <span class="subtab-icon">👤</span>
+              <span>Employees & Identities</span>
+              <span class="subtab-pill-count">{{ directoryUsers().length }}</span>
+            </button>
+            <button
+              type="button"
+              class="directory-subtab-btn"
+              [class.active]="directoryActiveSubTab() === 'groups'"
+              (click)="setDirectoryActiveSubTab('groups')"
+            >
+              <span class="subtab-icon">👥</span>
+              <span>User Groups & App Matrix</span>
+              <span class="subtab-pill-count">{{ directoryGroups().length }}</span>
             </button>
           </div>
 
-          <!-- Directory Filter Toolbar -->
-          <div class="directory-toolbar">
-            <div class="toolbar-search">
-              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input
-                type="text"
-                [ngModel]="directorySearch()"
-                (ngModelChange)="directorySearch.set($event)"
-                placeholder="Search employees by name, email, or role..."
-                class="filter-search-input"
-              />
+          <!-- SUBTAB 1: EMPLOYEES & IDENTITIES -->
+          <ng-container *ngIf="directoryActiveSubTab() === 'users'">
+            <!-- Directory Filter Toolbar -->
+            <div class="directory-toolbar">
+              <div class="toolbar-search">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                  type="text"
+                  [ngModel]="directorySearch()"
+                  (ngModelChange)="directorySearch.set($event)"
+                  placeholder="Search employees by name, email, or role..."
+                  class="filter-search-input"
+                />
+              </div>
+
+              <div class="toolbar-filters">
+                <select
+                  class="filter-select"
+                  [ngModel]="directoryDepartmentFilter()"
+                  (ngModelChange)="setDirectoryDepartment($event)"
+                >
+                  <option value="all">All Departments</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="Security Ops">Security Ops</option>
+                  <option value="IT Infrastructure">IT Infrastructure</option>
+                  <option value="Finance">Finance</option>
+                  <option value="Executive">Executive</option>
+                </select>
+
+                <select
+                  class="filter-select"
+                  [ngModel]="directoryStatusFilter()"
+                  (ngModelChange)="setDirectoryStatus($event)"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Suspended">Suspended</option>
+                  <option value="Pending">Pending Invite</option>
+                  <option value="Expired">Expired Invite</option>
+                </select>
+              </div>
             </div>
 
-            <div class="toolbar-filters">
-              <select
-                class="filter-select"
-                [ngModel]="directoryDepartmentFilter()"
-                (ngModelChange)="setDirectoryDepartment($event)"
-              >
-                <option value="all">All Departments</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Security Ops">Security Ops</option>
-                <option value="IT Infrastructure">IT Infrastructure</option>
-                <option value="Finance">Finance</option>
-                <option value="Executive">Executive</option>
-              </select>
-
-              <select
-                class="filter-select"
-                [ngModel]="directoryStatusFilter()"
-                (ngModelChange)="setDirectoryStatus($event)"
-              >
-                <option value="all">All Statuses</option>
-                <option value="Active">Active</option>
-                <option value="Suspended">Suspended</option>
-                <option value="Pending">Pending Invite</option>
-                <option value="Expired">Expired Invite</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Directory Users Table -->
-          <div class="activity-table-card">
-            <div class="table-responsive">
-              <table class="activity-table">
-                <thead>
-                  <tr>
-                    <th>Employee Name</th>
-                    <th>Department</th>
-                    <th>Role</th>
-                    <th>MFA Status</th>
-                    <th>Account Status</th>
-                    <th>Last Active</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let u of filteredDirectoryUsers()">
-                    <td>
-                      <div class="user-row-meta">
-                        <div class="user-row-avatar">{{ u.initials }}</div>
-                        <div class="user-row-info">
-                          <strong class="user-row-name">{{ u.name }}</strong>
-                          <span class="user-row-email">{{ u.email }}</span>
+            <!-- Directory Users Table -->
+            <div class="activity-table-card">
+              <div class="table-responsive">
+                <table class="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Employee Name</th>
+                      <th>Department</th>
+                      <th>Role</th>
+                      <th>Assigned Groups</th>
+                      <th>MFA Status</th>
+                      <th>Account Status</th>
+                      <th>Last Active</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let u of filteredDirectoryUsers()">
+                      <td>
+                        <div class="user-row-meta">
+                          <div class="user-row-avatar">{{ u.initials }}</div>
+                          <div class="user-row-info">
+                            <strong class="user-row-name">{{ u.name }}</strong>
+                            <span class="user-row-email">{{ u.email }}</span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span class="dept-chip">{{ u.department }}</span>
-                    </td>
-                    <td>
-                      <span class="role-badge" [class.admin-badge]="u.role === 'Super Administrator'">
-                        {{ u.role }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="mfa-badge" [class.mfa-active]="u.mfaStatus.includes('TOTP')">
-                        {{ u.mfaStatus }}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        class="badge"
-                        [class.badge-success]="u.accountStatus === 'Active'"
-                        [class.badge-orange]="u.accountStatus === 'Pending'"
-                        [class.badge-danger]="u.accountStatus === 'Suspended'"
-                        [class.badge-expired]="u.accountStatus === 'Expired'"
-                      >
-                        ● {{ u.accountStatus }}
-                      </span>
-                      <div class="expiry-subtext" *ngIf="u.accountStatus === 'Pending' || u.accountStatus === 'Expired'">
-                        {{ getInviteExpiryText(u) }}
-                      </div>
-                    </td>
-                    <td class="col-time">{{ u.lastLogin }}</td>
-                    <td>
-                      <div class="row-actions">
-                        <button
-                          type="button"
-                          class="action-btn action-btn-resend"
-                          *ngIf="u.accountStatus === 'Pending' || u.accountStatus === 'Expired'"
-                          (click)="resendInvitation(u)"
-                          title="Resend Invitation Email & Renew Expiration"
+                      </td>
+                      <td>
+                        <span class="dept-chip">{{ u.department }}</span>
+                      </td>
+                      <td>
+                        <span class="role-badge" [class.admin-badge]="u.role === 'Super Administrator'">
+                          {{ u.role }}
+                        </span>
+                      </td>
+                      <td>
+                        <div class="user-groups-preview" *ngIf="getUserGroups(u).length > 0">
+                          <span class="user-group-tag" *ngFor="let g of getUserGroups(u)">
+                            {{ g.name }}
+                          </span>
+                        </div>
+                        <span class="no-group-text" *ngIf="getUserGroups(u).length === 0">No groups</span>
+                      </td>
+                      <td>
+                        <span class="mfa-badge" [class.mfa-active]="u.mfaStatus.includes('TOTP')">
+                          {{ u.mfaStatus }}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          class="badge"
+                          [class.badge-success]="u.accountStatus === 'Active'"
+                          [class.badge-orange]="u.accountStatus === 'Pending'"
+                          [class.badge-danger]="u.accountStatus === 'Suspended'"
+                          [class.badge-expired]="u.accountStatus === 'Expired'"
                         >
-                          Resend Invite
-                        </button>
-                        <button
-                          type="button"
-                          class="action-btn"
-                          *ngIf="u.accountStatus === 'Active'"
-                          (click)="suspendUser(u)"
-                          title="Suspend User Access"
-                        >
-                          Suspend
-                        </button>
-                        <button
-                          type="button"
-                          class="action-btn text-success"
-                          *ngIf="u.accountStatus === 'Suspended'"
-                          (click)="reactivateUser(u)"
-                          title="Reactivate Account"
-                        >
-                          Reactivate
-                        </button>
-                        <button
-                          type="button"
-                          class="action-btn"
-                          (click)="forceUserPasswordReset(u)"
-                          title="Dispatch Password Reset"
-                        >
-                          Reset Pass
-                        </button>
-                        <button
-                          type="button"
-                          class="action-btn text-danger"
-                          (click)="adminRevokeUserSessions(u)"
-                          title="Revoke All Sessions"
-                        >
-                          Revoke
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr *ngIf="filteredDirectoryUsers().length === 0">
-                    <td colspan="7" class="empty-state-cell">
-                      <div class="empty-state-wrap">
-                        <span class="empty-icon">👥</span>
-                        <h4 class="empty-title">No employees or identities found</h4>
-                        <p class="empty-desc">No directory users match your search criteria or no employees have been invited yet.</p>
-                        <button type="button" class="btn-primary-action btn-sm" (click)="openInviteModal()">
-                          <span class="btn-plus">+</span>
-                          <span>Invite New Employee</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                          ● {{ u.accountStatus }}
+                        </span>
+                        <div class="expiry-subtext" *ngIf="u.accountStatus === 'Pending' || u.accountStatus === 'Expired'">
+                          {{ getInviteExpiryText(u) }}
+                        </div>
+                      </td>
+                      <td class="col-time">{{ u.lastLogin }}</td>
+                      <td>
+                        <div class="row-actions">
+                          <button
+                            type="button"
+                            class="action-btn action-btn-resend"
+                            *ngIf="u.accountStatus === 'Pending' || u.accountStatus === 'Expired'"
+                            (click)="resendInvitation(u)"
+                            title="Resend Invitation Email & Renew Expiration"
+                          >
+                            Resend Invite
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn"
+                            *ngIf="u.accountStatus === 'Active'"
+                            (click)="suspendUser(u)"
+                            title="Suspend User Access"
+                          >
+                            Suspend
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn text-success"
+                            *ngIf="u.accountStatus === 'Suspended'"
+                            (click)="reactivateUser(u)"
+                            title="Reactivate Account"
+                          >
+                            Reactivate
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn"
+                            (click)="forceUserPasswordReset(u)"
+                            title="Dispatch Password Reset"
+                          >
+                            Reset Pass
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn text-danger"
+                            (click)="adminRevokeUserSessions(u)"
+                            title="Revoke All Sessions"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr *ngIf="filteredDirectoryUsers().length === 0">
+                      <td colspan="8" class="empty-state-cell">
+                        <div class="empty-state-wrap">
+                          <span class="empty-icon">👥</span>
+                          <h4 class="empty-title">No employees or identities found</h4>
+                          <p class="empty-desc">No directory users match your search criteria or no employees have been invited yet.</p>
+                          <button type="button" class="btn-primary-action btn-sm" (click)="openInviteModal()">
+                            <span class="btn-plus">+</span>
+                            <span>Invite New Employee</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          </ng-container>
+
+          <!-- SUBTAB 2: USER GROUPS & APP PERMISSION MATRIX -->
+          <ng-container *ngIf="directoryActiveSubTab() === 'groups'">
+            <!-- Groups Toolbar -->
+            <div class="directory-toolbar">
+              <div class="toolbar-search">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                  type="text"
+                  [ngModel]="directoryGroupSearch()"
+                  (ngModelChange)="directoryGroupSearch.set($event)"
+                  placeholder="Search groups by name, department, or email..."
+                  class="filter-search-input"
+                />
+              </div>
+
+              <div class="toolbar-stats-chips">
+                <span class="stats-chip">
+                  <strong>{{ directoryGroups().length }}</strong> Enterprise Groups
+                </span>
+                <button type="button" class="btn-primary-action btn-sm" (click)="openCreateGroupModal()">
+                  <span class="btn-plus">+</span>
+                  <span>Create User Group</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Groups Table -->
+            <div class="activity-table-card">
+              <div class="table-responsive">
+                <table class="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Group Name & Email</th>
+                      <th>Department</th>
+                      <th>Members</th>
+                      <th>Assigned Applications</th>
+                      <th>Security Policy</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let g of filteredDirectoryGroups()">
+                      <td>
+                        <div class="group-row-meta">
+                          <div class="group-row-avatar">👥</div>
+                          <div class="group-row-info">
+                            <strong class="group-row-name">{{ g.name }}</strong>
+                            <span class="group-row-desc">{{ g.description }}</span>
+                            <span class="group-row-email">✉ {{ g.email }}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="dept-chip">{{ g.department }}</span>
+                      </td>
+                      <td>
+                        <div class="group-members-col">
+                          <span class="member-count-badge">
+                            <strong>{{ getGroupMembers(g).length }}</strong> {{ getGroupMembers(g).length === 1 ? 'member' : 'members' }}
+                          </span>
+                          <div class="member-avatar-stack" *ngIf="getGroupMembers(g).length > 0">
+                            <span
+                              class="stack-avatar"
+                              *ngFor="let m of getGroupMembers(g).slice(0, 3)"
+                              [title]="m.name + ' (' + m.email + ')'"
+                            >
+                              {{ m.initials }}
+                            </span>
+                            <span class="stack-avatar-more" *ngIf="getGroupMembers(g).length > 3">
+                              +{{ getGroupMembers(g).length - 3 }}
+                            </span>
+                          </div>
+                          <span class="no-members-text" *ngIf="getGroupMembers(g).length === 0">No members assigned</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="group-apps-col">
+                          <div class="group-app-chips" *ngIf="g.appIds.length > 0">
+                            <span
+                              class="group-app-pill"
+                              *ngFor="let app of getGroupApps(g)"
+                              [title]="app.name + ' (' + app.protocol + ')'"
+                            >
+                              <span class="group-app-icon">{{ app.icon }}</span>
+                              <span class="group-app-name">{{ app.name }}</span>
+                            </span>
+                          </div>
+                          <span class="no-apps-text" *ngIf="g.appIds.length === 0">No applications assigned</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="group-policy-col">
+                          <span
+                            class="policy-badge"
+                            [class.policy-strict]="g.policy?.mfaType === 'hardware_totp'"
+                            [class.policy-standard]="g.policy?.requireMfa && g.policy?.mfaType !== 'hardware_totp'"
+                            [class.policy-optional]="!g.policy?.requireMfa"
+                          >
+                            {{ g.policy?.requireMfa ? (g.policy?.mfaType === 'hardware_totp' ? '🛡 Hardware TOTP' : '✓ MFA Required') : '○ MFA Optional' }}
+                          </span>
+                          <span class="session-duration-tag">
+                            ⏱ {{ g.policy?.sessionDurationHours || 8 }}h session
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="row-actions">
+                          <button
+                            type="button"
+                            class="action-btn"
+                            (click)="openEditGroupModal(g)"
+                            title="Edit Group & Access Matrix"
+                          >
+                            Edit & Matrix
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn text-danger"
+                            (click)="deleteGroup(g.id)"
+                            title="Delete Group"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr *ngIf="filteredDirectoryGroups().length === 0">
+                      <td colspan="6" class="empty-state-cell">
+                        <div class="empty-state-wrap">
+                          <span class="empty-icon">👥</span>
+                          <h4 class="empty-title">No user groups found</h4>
+                          <p class="empty-desc">Create enterprise user groups to bundle access to cloud SaaS apps and configure security policy enforcement.</p>
+                          <button type="button" class="btn-primary-action btn-sm" (click)="openCreateGroupModal()">
+                            <span class="btn-plus">+</span>
+                            <span>Create First Group</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </ng-container>
         </section>
 
         <!-- ==================================================================
@@ -395,6 +595,276 @@
           <button type="button" class="btn-primary-action" (click)="closeInviteModal()">Done</button>
         </div>
       </ng-container>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: CREATE / EDIT DIRECTORY USER GROUP & APP MATRIX (SCRUM-25)
+       ======================================================================== -->
+  <div class="modal-backdrop" *ngIf="showGroupModal()">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div class="modal-header-meta">
+          <h3 class="modal-title">
+            {{ editingGroup() ? 'Edit Group: ' + editingGroup()?.name : 'Create Enterprise User Group' }}
+          </h3>
+          <p class="modal-subtitle">
+            Configure membership, automated SaaS app provisioning, and group security policies.
+          </p>
+        </div>
+        <button type="button" class="modal-close-btn" (click)="closeGroupModal()">✕</button>
+      </div>
+
+      <!-- Modal Tabs Navigation -->
+      <div class="group-modal-tabs">
+        <button
+          type="button"
+          class="group-tab-btn"
+          [class.active]="groupModalActiveTab() === 'details'"
+          (click)="setGroupModalActiveTab('details')"
+        >
+          <span>1. General Details</span>
+        </button>
+        <button
+          type="button"
+          class="group-tab-btn"
+          [class.active]="groupModalActiveTab() === 'members'"
+          (click)="setGroupModalActiveTab('members')"
+        >
+          <span>2. Members</span>
+          <span class="tab-badge">{{ groupFormMemberIds().length }}</span>
+        </button>
+        <button
+          type="button"
+          class="group-tab-btn"
+          [class.active]="groupModalActiveTab() === 'apps'"
+          (click)="setGroupModalActiveTab('apps')"
+        >
+          <span>3. App Permissions</span>
+          <span class="tab-badge">{{ groupFormAppIds().length }}</span>
+        </button>
+        <button
+          type="button"
+          class="group-tab-btn"
+          [class.active]="groupModalActiveTab() === 'policies'"
+          (click)="setGroupModalActiveTab('policies')"
+        >
+          <span>4. Security Policies</span>
+        </button>
+      </div>
+
+      <div class="modal-body group-modal-body">
+        <!-- TAB 1: DETAILS -->
+        <div *ngIf="groupModalActiveTab() === 'details'" class="tab-pane">
+          <div class="modal-row-grid">
+            <div class="form-group">
+              <label class="form-label">Group Name *</label>
+              <input
+                type="text"
+                [(ngModel)]="groupFormName"
+                placeholder="e.g. DevOps & Cloud Infrastructure"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Department</label>
+              <select [(ngModel)]="groupFormDepartment" class="form-input">
+                <option value="Engineering">Engineering</option>
+                <option value="Security Ops">Security Ops</option>
+                <option value="IT Infrastructure">IT Infrastructure</option>
+                <option value="Finance">Finance</option>
+                <option value="Executive">Executive</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Group Email / Alias *</label>
+            <input
+              type="email"
+              [(ngModel)]="groupFormEmail"
+              placeholder="e.g. devops-team@vanguard.security"
+              class="form-input"
+            />
+            <span class="form-hint-text">
+              Used for corporate mailing list synchronization and IdP SCIM group matching.
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Group Description</label>
+            <textarea
+              [(ngModel)]="groupFormDescription"
+              placeholder="Describe the primary responsibilities and access scope of this group..."
+              class="form-input form-textarea"
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- TAB 2: MEMBERS -->
+        <div *ngIf="groupModalActiveTab() === 'members'" class="tab-pane">
+          <div class="member-tab-header">
+            <p class="tab-desc">
+              Select employees to include in this group. All assigned members automatically receive inherited access to apps linked to this group.
+            </p>
+            <span class="selection-pill">
+              <strong>{{ groupFormMemberIds().length }}</strong> of {{ directoryUsers().length }} selected
+            </span>
+          </div>
+
+          <div class="member-checklist-container">
+            <div
+              class="member-check-item"
+              *ngFor="let u of directoryUsers()"
+              [class.selected]="groupFormMemberIds().includes(u.id)"
+              (click)="toggleGroupFormMember(u.id)"
+            >
+              <input
+                type="checkbox"
+                [checked]="groupFormMemberIds().includes(u.id)"
+                (click)="$event.stopPropagation(); toggleGroupFormMember(u.id)"
+                class="member-checkbox"
+              />
+              <div class="user-row-avatar">{{ u.initials }}</div>
+              <div class="member-check-info">
+                <div class="member-check-name-row">
+                  <strong class="member-check-name">{{ u.name }}</strong>
+                  <span class="dept-chip">{{ u.department }}</span>
+                  <span
+                    class="badge badge-sm"
+                    [class.badge-success]="u.accountStatus === 'Active'"
+                    [class.badge-orange]="u.accountStatus === 'Pending'"
+                    [class.badge-danger]="u.accountStatus === 'Suspended'"
+                  >
+                    {{ u.accountStatus }}
+                  </span>
+                </div>
+                <span class="member-check-email">{{ u.email }} · {{ u.role }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: APPS PERMISSION MATRIX -->
+        <div *ngIf="groupModalActiveTab() === 'apps'" class="tab-pane">
+          <div class="apps-tab-header">
+            <p class="tab-desc">
+              Grant group-wide access to enterprise cloud services. Apps selected here appear directly in each member's personal dashboard under <strong>My Apps</strong>.
+            </p>
+            <span class="selection-pill">
+              <strong>{{ groupFormAppIds().length }}</strong> applications authorized
+            </span>
+          </div>
+
+          <div class="app-matrix-grid">
+            <div
+              class="app-matrix-card"
+              *ngFor="let app of appCatalogTemplates"
+              [class.selected]="groupFormAppIds().includes(app.id)"
+              (click)="toggleGroupFormApp(app.id)"
+            >
+              <div class="app-matrix-header">
+                <span class="app-matrix-icon">{{ app.icon }}</span>
+                <div class="app-matrix-toggle">
+                  <input
+                    type="checkbox"
+                    [checked]="groupFormAppIds().includes(app.id)"
+                    (click)="$event.stopPropagation(); toggleGroupFormApp(app.id)"
+                  />
+                </div>
+              </div>
+              <div class="app-matrix-body">
+                <strong class="app-matrix-name">{{ app.name }}</strong>
+                <span class="app-matrix-proto">{{ app.protocol }} SSO</span>
+                <p class="app-matrix-desc">{{ app.description }}</p>
+              </div>
+              <div class="app-matrix-footer">
+                <span class="app-status-chip" [class.active]="groupFormAppIds().includes(app.id)">
+                  {{ groupFormAppIds().includes(app.id) ? '✓ Authorized' : '+ Click to Grant' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: SECURITY POLICIES -->
+        <div *ngIf="groupModalActiveTab() === 'policies'" class="tab-pane">
+          <div class="policy-settings-card">
+            <h4 class="policy-group-title">Authentication &amp; MFA Enforcement</h4>
+            <p class="policy-group-desc">
+              Enforce higher assurance verification when group members access corporate services or initiate SSO sessions.
+            </p>
+
+            <div class="policy-row">
+              <div class="policy-info">
+                <strong class="policy-name">Enforce Multi-Factor Authentication</strong>
+                <span class="policy-sub">Require members of this group to verify MFA before launching assigned applications.</span>
+              </div>
+              <label class="switch-toggle">
+                <input
+                  type="checkbox"
+                  [(ngModel)]="groupFormRequireMfa"
+                />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+
+            <div class="policy-row" *ngIf="groupFormRequireMfa">
+              <div class="policy-info">
+                <strong class="policy-name">Allowed MFA Factor Strength</strong>
+                <span class="policy-sub">Select minimum token tier required for authentication.</span>
+              </div>
+              <select [(ngModel)]="groupFormMfaType" class="form-input policy-select">
+                <option value="any">Any Registered Factor (SMS, TOTP, Biometrics)</option>
+                <option value="hardware_totp">Strict: Hardware Token / FIDO2 Security Key Only</option>
+              </select>
+            </div>
+
+            <div class="policy-divider"></div>
+
+            <h4 class="policy-group-title">Session Duration &amp; Re-authentication</h4>
+            <div class="policy-row">
+              <div class="policy-info">
+                <strong class="policy-name">Max Group Session Lifetime</strong>
+                <span class="policy-sub">After this window, members must re-authenticate to maintain access to high-privilege apps.</span>
+              </div>
+              <select [(ngModel)]="groupFormSessionDuration" class="form-input policy-select">
+                <option [ngValue]="1">1 Hour (High Security / Zero Trust)</option>
+                <option [ngValue]="2">2 Hours (Privileged SecOps)</option>
+                <option [ngValue]="4">4 Hours (Cloud Infrastructure)</option>
+                <option [ngValue]="8">8 Hours (Standard Business Day)</option>
+                <option [ngValue]="12">12 Hours (Extended Shift)</option>
+                <option [ngValue]="24">24 Hours (Low Security)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="policy-summary-callout">
+            <div class="callout-icon">🛡</div>
+            <div class="callout-content">
+              <strong>Zero-Trust Group Governance:</strong>
+              Policies set here automatically apply to any session initiated by members accessing the <strong>{{ groupFormAppIds().length }}</strong> authorized applications.
+            </div>
+          </div>
+        </div>
+
+        <!-- Form feedback -->
+        <div class="form-error-text" *ngIf="groupFormError()">
+          {{ groupFormError() }}
+        </div>
+
+        <div class="form-success-banner" *ngIf="groupFormSuccess()">
+          ✓ Group configurations and permission matrices updated successfully!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeGroupModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="saveGroup()">
+          {{ editingGroup() ? 'Save Changes' : 'Create Group' }}
+        </button>
+      </div>
     </div>
   </div>
 
