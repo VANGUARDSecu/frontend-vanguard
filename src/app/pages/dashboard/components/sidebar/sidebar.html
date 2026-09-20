@@ -99,6 +99,20 @@
         <button
           type="button"
           class="nav-link-btn"
+          [class.active]="activeTab() === 'webhooks'"
+          (click)="setActiveTab('webhooks')"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+          <span>Webhooks & Event API</span>
+          <span class="nav-count-badge" *ngIf="webhookEndpoints().length > 0">{{ webhookEndpoints().length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-link-btn"
           [class.active]="activeTab() === 'device-fleet'"
           (click)="setActiveTab('device-fleet')"
         >

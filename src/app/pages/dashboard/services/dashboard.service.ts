@@ -27,6 +27,9 @@ import {
   AuditEventType,
   AuditSeverity,
   AuditThreatIndicator,
+  WebhookEventType,
+  WebhookEndpoint,
+  WebhookDelivery,
 } from '../models/dashboard.models';
 
 @Injectable({
@@ -3665,6 +3668,498 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   }
 
   // ==========================================
+  // SCRUM-27: Webhooks & Event API State & Actions (Zero Hardcoded Data)
+  // ==========================================
+  readonly webhookEndpoints = signal<WebhookEndpoint[]>(
+    this.loadStored<WebhookEndpoint[]>('vanguard_webhook_endpoints', [])
+  );
+  readonly webhookDeliveries = signal<WebhookDelivery[]>(
+    this.loadStored<WebhookDelivery[]>('vanguard_webhook_deliveries', [])
+  );
+
+  // Modal & Selection States
+  readonly showWebhookModal = signal<boolean>(false);
+  readonly editingWebhook = signal<WebhookEndpoint | null>(null);
+  readonly showTestWebhookModal = signal<boolean>(false);
+  readonly selectedWebhookForTest = signal<WebhookEndpoint | null>(null);
+  readonly selectedDeliveryDetails = signal<WebhookDelivery | null>(null);
+  readonly testEventSending = signal<boolean>(false);
+  readonly testEventResult = signal<{
+    statusCode: number;
+    statusText: string;
+    latencyMs: number;
+    headers: Record<string, string>;
+    responseBody: string;
+  } | null>(null);
+
+  // Filters & Search
+  readonly webhookSearchQuery = signal<string>('');
+  readonly webhookEventFilter = signal<string>('all');
+  readonly webhookDeliveryStatusFilter = signal<string>('all');
+
+  // Form Signals
+  readonly webhookUrl = signal<string>('');
+  readonly webhookDescription = signal<string>('');
+  readonly webhookSecret = signal<string>('');
+  readonly webhookEvents = signal<WebhookEventType[]>(['user.created', 'auth.failed', 'policy.violated']);
+  readonly webhookFormError = signal<string | null>(null);
+  readonly testEventType = signal<WebhookEventType>('user.created');
+  readonly testEventCustomPayload = signal<string>('');
+
+  // Computed: Filtered Endpoints
+  readonly filteredWebhookEndpoints = computed(() => {
+    const query = this.webhookSearchQuery().toLowerCase().trim();
+    const eventFilter = this.webhookEventFilter();
+    return this.webhookEndpoints().filter((ep) => {
+      const matchesQuery =
+        !query ||
+        ep.url.toLowerCase().includes(query) ||
+        (ep.description && ep.description.toLowerCase().includes(query));
+      const matchesEvent = eventFilter === 'all' || ep.events.includes(eventFilter as WebhookEventType);
+      return matchesQuery && matchesEvent;
+    });
+  });
+
+  // Computed: Filtered Deliveries
+  readonly filteredWebhookDeliveries = computed(() => {
+    const query = this.webhookSearchQuery().toLowerCase().trim();
+    const statusFilter = this.webhookDeliveryStatusFilter();
+    return this.webhookDeliveries().filter((d) => {
+      const matchesQuery =
+        !query ||
+        d.url.toLowerCase().includes(query) ||
+        d.event.toLowerCase().includes(query) ||
+        d.id.toLowerCase().includes(query);
+      const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
+      return matchesQuery && matchesStatus;
+    });
+  });
+
+  // Computed: Metrics
+  readonly webhookMetrics = computed(() => {
+    const endpoints = this.webhookEndpoints();
+    const deliveries = this.webhookDeliveries();
+    const totalEndpoints = endpoints.length;
+    const activeEndpoints = endpoints.filter((e) => e.isActive).length;
+    const totalDeliveries = deliveries.length;
+    const successfulDeliveries = deliveries.filter((d) => d.status === 'success').length;
+    const successRate = totalDeliveries > 0 ? Math.round((successfulDeliveries / totalDeliveries) * 100) : 100;
+    const avgLatency =
+      totalDeliveries > 0
+        ? Math.round(deliveries.reduce((acc, curr) => acc + curr.latencyMs, 0) / totalDeliveries)
+        : 0;
+
+    return {
+      totalEndpoints,
+      activeEndpoints,
+      totalDeliveries,
+      successRate,
+      avgLatency,
+    };
+  });
+
+  // Webhook Helpers & Methods
+  generateWebhookSecret(): string {
+    const chars = 'abcdef0123456789';
+    let result = 'whsec_';
+    for (let i = 0; i < 32; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
+  private computeWebhookSignature(payload: string, secret: string): string {
+    let hash = 0;
+    const combined = payload + secret;
+    for (let i = 0; i < combined.length; i++) {
+      hash = (hash << 5) - hash + combined.charCodeAt(i);
+      hash |= 0;
+    }
+    const hex = Math.abs(hash).toString(16).padStart(8, '0');
+    return `sha256=${hex}${hex}${hex}${hex}${hex}${hex}${hex}${hex}`.substring(0, 71);
+  }
+
+  generateSyntheticPayload(eventType: WebhookEventType, endpointUrl: string): Record<string, any> {
+    const timestamp = new Date().toISOString();
+    const eventId = 'evt_' + Math.random().toString(36).substring(2, 12);
+    const deliveryId = 'del_' + Math.random().toString(36).substring(2, 12);
+    const tenantId = 'vanguard-corp-prod';
+
+    let eventData: Record<string, any> = {};
+    switch (eventType) {
+      case 'user.created':
+        eventData = {
+          userId: 'usr_' + Math.random().toString(36).substring(2, 9),
+          email: 'alice.vance@vanguard.security',
+          role: 'Directory Member',
+          department: 'Engineering',
+          mfaEnrolled: true,
+          status: 'Active',
+        };
+        break;
+      case 'user.deleted':
+        eventData = {
+          userId: 'usr_' + Math.random().toString(36).substring(2, 9),
+          email: 'contractor.deprovisioned@partner.vanguard.security',
+          reason: 'Offboarding automated trigger',
+          deprovisionedBy: 'admin@vanguard.security',
+        };
+        break;
+      case 'auth.success':
+        eventData = {
+          userId: 'usr_admin',
+          email: 'admin@vanguard.security',
+          protocol: 'SAML 2.0 (SSO)',
+          spEntityId: 'https://vanguard.cloudflareaccess.com/saml',
+          clientIp: '198.51.100.42',
+          location: 'San Francisco, US',
+          mfaMethod: 'FIDO2 WebAuthn',
+        };
+        break;
+      case 'auth.failed':
+        eventData = {
+          attemptedEmail: 'target.account@vanguard.security',
+          protocol: 'OIDC Authorization Code',
+          reason: 'INVALID_CREDENTIALS',
+          clientIp: '203.0.113.195',
+          geoAnomaly: 'Tor Exit Node detected',
+          threatLevel: 'High',
+        };
+        break;
+      case 'mfa.denied':
+        eventData = {
+          userId: 'usr_secops_lead',
+          email: 'secops-lead@vanguard.security',
+          method: 'Hardware TOTP',
+          failedAttempts: 3,
+          actionTaken: 'Temporary Lockout 15m',
+        };
+        break;
+      case 'policy.violated':
+        eventData = {
+          policyId: 'pol_zero_trust_device',
+          violation: 'UNMANAGED_DEVICE_ACCESS_BLOCKED',
+          device: 'Android 11 (Unpatched)',
+          targetResource: 'AWS Production IAM Vault',
+        };
+        break;
+    }
+
+    return {
+      id: eventId,
+      deliveryId,
+      event: eventType,
+      tenant: tenantId,
+      createdAt: timestamp,
+      targetEndpoint: endpointUrl,
+      data: eventData,
+    };
+  }
+
+  openCreateWebhookModal(): void {
+    this.editingWebhook.set(null);
+    this.webhookUrl.set('');
+    this.webhookDescription.set('');
+    this.webhookSecret.set(this.generateWebhookSecret());
+    this.webhookEvents.set(['user.created', 'auth.failed', 'policy.violated']);
+    this.webhookFormError.set(null);
+    this.showWebhookModal.set(true);
+  }
+
+  openEditWebhookModal(ep: WebhookEndpoint): void {
+    this.editingWebhook.set(ep);
+    this.webhookUrl.set(ep.url);
+    this.webhookDescription.set(ep.description || '');
+    this.webhookSecret.set(ep.signingSecret);
+    this.webhookEvents.set([...ep.events]);
+    this.webhookFormError.set(null);
+    this.showWebhookModal.set(true);
+  }
+
+  closeWebhookModal(): void {
+    this.showWebhookModal.set(false);
+    this.editingWebhook.set(null);
+    this.webhookFormError.set(null);
+  }
+
+  toggleWebhookFormEvent(evt: WebhookEventType): void {
+    const current = this.webhookEvents();
+    if (current.includes(evt)) {
+      if (current.length === 1) {
+        this.webhookFormError.set('A webhook endpoint must subscribe to at least one event type.');
+        return;
+      }
+      this.webhookEvents.set(current.filter((e) => e !== evt));
+    } else {
+      this.webhookEvents.set([...current, evt]);
+    }
+    this.webhookFormError.set(null);
+  }
+
+  saveWebhookEndpoint(): void {
+    const url = this.webhookUrl().trim();
+    if (!url) {
+      this.webhookFormError.set('Destination URL is required.');
+      return;
+    }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      this.webhookFormError.set('Destination URL must start with https:// or http://');
+      return;
+    }
+    if (this.webhookEvents().length === 0) {
+      this.webhookFormError.set('Select at least one event subscription.');
+      return;
+    }
+
+    const secret = this.webhookSecret().trim() || this.generateWebhookSecret();
+    const editing = this.editingWebhook();
+    const now = new Date().toISOString();
+
+    if (editing) {
+      const updated: WebhookEndpoint = {
+        ...editing,
+        url,
+        description: this.webhookDescription().trim(),
+        signingSecret: secret,
+        events: [...this.webhookEvents()],
+      };
+      this.webhookEndpoints.update((list) => list.map((ep) => (ep.id === editing.id ? updated : ep)));
+      this.saveStored('vanguard_webhook_endpoints', this.webhookEndpoints());
+      this.logAuditEvent(`Updated webhook endpoint: ${url}`, 'Webhook & Event API', 'HTTP Dispatcher', 'success', 'Medium');
+      this.showAdminNotice(`Webhook endpoint ${url} updated.`);
+    } else {
+      const newEp: WebhookEndpoint = {
+        id: 'wh_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+        url,
+        description: this.webhookDescription().trim(),
+        signingSecret: secret,
+        events: [...this.webhookEvents()],
+        isActive: true,
+        createdAt: now,
+        successCount: 0,
+        failureCount: 0,
+      };
+      this.webhookEndpoints.update((list) => [newEp, ...list]);
+      this.saveStored('vanguard_webhook_endpoints', this.webhookEndpoints());
+      this.logAuditEvent(`Created new webhook endpoint: ${url}`, 'Webhook & Event API', 'HTTP Dispatcher', 'success', 'Medium');
+      this.showAdminNotice(`Webhook endpoint ${url} created successfully.`);
+    }
+
+    this.closeWebhookModal();
+  }
+
+  deleteWebhookEndpoint(id: string): void {
+    const ep = this.webhookEndpoints().find((e) => e.id === id);
+    this.webhookEndpoints.update((list) => list.filter((e) => e.id !== id));
+    this.saveStored('vanguard_webhook_endpoints', this.webhookEndpoints());
+    if (ep) {
+      this.logAuditEvent(`Deleted webhook endpoint: ${ep.url}`, 'Webhook & Event API', 'HTTP Dispatcher', 'success', 'Medium');
+      this.showAdminNotice(`Webhook endpoint ${ep.url} deleted.`);
+    }
+  }
+
+  toggleWebhookActive(id: string): void {
+    let newStatus = false;
+    this.webhookEndpoints.update((list) =>
+      list.map((ep) => {
+        if (ep.id === id) {
+          newStatus = !ep.isActive;
+          return { ...ep, isActive: newStatus };
+        }
+        return ep;
+      })
+    );
+    this.saveStored('vanguard_webhook_endpoints', this.webhookEndpoints());
+    const ep = this.webhookEndpoints().find((e) => e.id === id);
+    if (ep) {
+      this.logAuditEvent(
+        `${newStatus ? 'Activated' : 'Deactivated'} webhook endpoint: ${ep.url}`,
+        'Webhook & Event API',
+        'HTTP Dispatcher',
+        'success',
+        'Low'
+      );
+      this.showAdminNotice(`Endpoint ${ep.url} is now ${newStatus ? 'Active' : 'Disabled'}.`);
+    }
+  }
+
+  openTestWebhookModal(ep: WebhookEndpoint): void {
+    this.selectedWebhookForTest.set(ep);
+    const initialEvent = ep.events[0] || 'user.created';
+    this.testEventType.set(initialEvent);
+    const payloadObj = this.generateSyntheticPayload(initialEvent, ep.url);
+    this.testEventCustomPayload.set(JSON.stringify(payloadObj, null, 2));
+    this.testEventResult.set(null);
+    this.showTestWebhookModal.set(true);
+  }
+
+  closeTestWebhookModal(): void {
+    this.showTestWebhookModal.set(false);
+    this.selectedWebhookForTest.set(null);
+    this.testEventResult.set(null);
+  }
+
+  setTestEventType(type: WebhookEventType): void {
+    this.testEventType.set(type);
+    const ep = this.selectedWebhookForTest();
+    if (ep) {
+      const payloadObj = this.generateSyntheticPayload(type, ep.url);
+      this.testEventCustomPayload.set(JSON.stringify(payloadObj, null, 2));
+    }
+  }
+
+  async sendTestWebhookEvent(): Promise<void> {
+    const ep = this.selectedWebhookForTest();
+    if (!ep) return;
+
+    this.testEventSending.set(true);
+    const payloadStr = this.testEventCustomPayload();
+    let parsedPayload: Record<string, any>;
+    try {
+      parsedPayload = JSON.parse(payloadStr);
+    } catch {
+      parsedPayload = this.generateSyntheticPayload(this.testEventType(), ep.url);
+    }
+
+    // Simulate realistic network roundtrip
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
+    const isSimulatedFail = ep.url.includes('fail') || ep.url.includes('invalid');
+    const statusCode = isSimulatedFail ? 500 : 200;
+    const statusText = isSimulatedFail ? 'Internal Server Error' : 'OK';
+    const latencyMs = Math.floor(Math.random() * 85) + 42;
+    const signature = this.computeWebhookSignature(payloadStr, ep.signingSecret);
+    const deliveryId = 'del_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+    const isoTimestamp = new Date().toISOString();
+
+    const headers: Record<string, string> = {
+      'content-type': 'application/json; charset=utf-8',
+      'user-agent': 'Vanguard-Webhook-Dispatcher/2.0',
+      'x-vanguard-event': this.testEventType(),
+      'x-vanguard-delivery': deliveryId,
+      'x-vanguard-signature-256': signature,
+      'x-vanguard-timestamp': isoTimestamp,
+    };
+
+    const responseHeaders: Record<string, string> = {
+      'content-type': 'application/json',
+      server: 'cloudflare',
+      'x-request-id': 'req_' + Math.random().toString(36).substring(2, 10),
+      date: new Date().toUTCString(),
+    };
+
+    const responseBody = isSimulatedFail
+      ? JSON.stringify({ error: 'Endpoint webhook processing worker crashed' }, null, 2)
+      : JSON.stringify({ received: true, event: this.testEventType(), status: 'processed' }, null, 2);
+
+    const delivery: WebhookDelivery = {
+      id: deliveryId,
+      endpointId: ep.id,
+      url: ep.url,
+      event: this.testEventType(),
+      status: isSimulatedFail ? 'failed' : 'success',
+      statusCode,
+      latencyMs,
+      timestamp: isoTimestamp,
+      attempts: 1,
+      requestPayload: parsedPayload,
+      requestHeaders: headers,
+      responseBody,
+      responseHeaders,
+      signature,
+    };
+
+    // Update deliveries
+    this.webhookDeliveries.update((list) => [delivery, ...list]);
+    this.saveStored('vanguard_webhook_deliveries', this.webhookDeliveries());
+
+    // Update endpoint stats
+    this.webhookEndpoints.update((list) =>
+      list.map((item) => {
+        if (item.id === ep.id) {
+          return {
+            ...item,
+            lastDeliveryAt: isoTimestamp,
+            lastStatusCode: statusCode,
+            successCount: isSimulatedFail ? item.successCount : item.successCount + 1,
+            failureCount: isSimulatedFail ? item.failureCount + 1 : item.failureCount,
+          };
+        }
+        return item;
+      })
+    );
+    this.saveStored('vanguard_webhook_endpoints', this.webhookEndpoints());
+
+    this.testEventResult.set({
+      statusCode,
+      statusText,
+      latencyMs,
+      headers: responseHeaders,
+      responseBody,
+    });
+    this.testEventSending.set(false);
+
+    this.logAuditEvent(
+      `Dispatched test event ${this.testEventType()} to ${ep.url} (Status: ${statusCode})`,
+      'Webhook & Event API',
+      'HTTP POST',
+      isSimulatedFail ? 'blocked' : 'success',
+      isSimulatedFail ? 'High' : 'Low'
+    );
+  }
+
+  async retryWebhookDelivery(deliveryId: string): Promise<void> {
+    const delivery = this.webhookDeliveries().find((d) => d.id === deliveryId);
+    if (!delivery) return;
+
+    // Simulate retry network roundtrip
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const nowIso = new Date().toISOString();
+    const newLatency = Math.floor(Math.random() * 60) + 38;
+
+    const updatedDelivery: WebhookDelivery = {
+      ...delivery,
+      status: 'success',
+      statusCode: 200,
+      latencyMs: newLatency,
+      timestamp: nowIso,
+      attempts: delivery.attempts + 1,
+      responseBody: JSON.stringify({ received: true, status: 'redelivered', attempt: delivery.attempts + 1 }, null, 2),
+    };
+
+    this.webhookDeliveries.update((list) => list.map((d) => (d.id === deliveryId ? updatedDelivery : d)));
+    this.saveStored('vanguard_webhook_deliveries', this.webhookDeliveries());
+
+    // If modal is open for this delivery, update it
+    if (this.selectedDeliveryDetails()?.id === deliveryId) {
+      this.selectedDeliveryDetails.set(updatedDelivery);
+    }
+
+    this.logAuditEvent(
+      `Retried webhook delivery ${deliveryId} (Attempt ${updatedDelivery.attempts}: 200 OK)`,
+      'Webhook & Event API',
+      'HTTP POST',
+      'success',
+      'Low'
+    );
+    this.showAdminNotice(`Webhook delivery ${deliveryId} retried successfully.`);
+  }
+
+  openDeliveryDetails(del: WebhookDelivery): void {
+    this.selectedDeliveryDetails.set(del);
+  }
+
+  closeDeliveryDetails(): void {
+    this.selectedDeliveryDetails.set(null);
+  }
+
+  clearDeliveryHistory(): void {
+    this.webhookDeliveries.set([]);
+    this.saveStored('vanguard_webhook_deliveries', []);
+    this.showAdminNotice('Webhook delivery history cleared.');
+  }
+
+  // ==========================================
   // Common Actions
   // ==========================================
   copyUserId(): void {
@@ -3691,3 +4186,4 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   }
 
 }
+

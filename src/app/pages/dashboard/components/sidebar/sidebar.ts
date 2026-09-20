@@ -34,7 +34,9 @@ export class DashboardSidebar {
   readonly directoryUsers = this.dashboardService.directoryUsers;
   readonly fleetDevices = this.dashboardService.fleetDevices;
   readonly userDevices = this.dashboardService.userDevices;
+  readonly webhookEndpoints = this.dashboardService.webhookEndpoints;
 
   setActiveTab(tab: string) { this.dashboardService.setActiveTab(tab); }
 
 }
+

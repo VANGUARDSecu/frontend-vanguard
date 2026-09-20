@@ -289,3 +289,51 @@ export interface MobilePolicyConfig {
   inactivityLockoutMinutes: number;
 }
 
+export type WebhookEventType =
+  | 'user.created'
+  | 'user.deleted'
+  | 'auth.success'
+  | 'auth.failed'
+  | 'mfa.denied'
+  | 'policy.violated'
+  | (string & {});
+
+export interface WebhookEndpoint {
+  id: string;
+  url: string;
+  description?: string;
+  events: WebhookEventType[];
+  signingSecret: string;
+  secret?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  lastDeliveryStatus?: 'Delivered 200' | 'Failed 500' | 'Timeout' | 'Pending' | string;
+  lastDeliveryAt?: string;
+  lastStatusCode?: number;
+  successCount: number;
+  failureCount: number;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  endpointId: string;
+  url: string;
+  event: WebhookEventType;
+  timestamp: string;
+  isoTimestamp?: string;
+  status: 'success' | 'failed' | 'timeout' | string;
+  statusCode: number;
+  statusText?: string;
+  latencyMs: number;
+  attempts: number;
+  requestHeaders?: Record<string, string>;
+  requestPayload: Record<string, any>;
+  responseHeaders?: Record<string, string>;
+  responseBody?: string;
+  signature: string;
+  isTest?: boolean;
+  retryCount?: number;
+}
+
+
