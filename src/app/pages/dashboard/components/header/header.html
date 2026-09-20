@@ -8,18 +8,88 @@
       <div class="cyber-glow-right"></div>
     </div>
 
-    <!-- Left: Logo & Title -->
+    <!-- Left: Logo & Title & Organization Switcher -->
     <div class="header-left">
       <div class="logo-container">
         <img
-          src="vanguardlogotransparent.png"
-          alt="Vanguard Logo"
+          [src]="tenantBranding().logoUrl || 'vanguardlogotransparent.png'"
+          [alt]="activeOrganization().name + ' Logo'"
           class="vanguard-logo"
         />
       </div>
       <div class="branding-text">
         <span class="brand-title">VANGUARD</span>
         <span class="brand-subtitle">Zero-Trust Directory Vault</span>
+      </div>
+
+      <!-- Multi-Tenant Organization Switcher Dropdown -->
+      <div class="org-switcher-container">
+        <button
+          type="button"
+          class="org-switcher-btn"
+          [class.active]="showOrgDropdown()"
+          (click)="toggleOrgDropdown()"
+          title="Switch Tenant Organization"
+        >
+          <div class="org-badge-icon">
+            <span>{{ activeOrganization().name.substring(0, 1).toUpperCase() }}</span>
+          </div>
+          <div class="org-btn-info">
+            <span class="org-name-text">{{ activeOrganization().name }}</span>
+            <span class="org-tier-pill">{{ activeOrganization().tier }}</span>
+          </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chevron-icon" [class.rotated]="showOrgDropdown()">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div class="org-dropdown-menu" *ngIf="showOrgDropdown()">
+          <div class="dropdown-header">
+            <span class="dropdown-title">Tenant Organizations</span>
+            <span class="org-counter">{{ organizations().length }} total</span>
+          </div>
+
+          <div class="org-list">
+            <button
+              *ngFor="let org of organizations()"
+              type="button"
+              class="org-item-btn"
+              [class.selected]="org.id === activeOrganization().id"
+              (click)="switchOrg(org.id)"
+            >
+              <div class="org-item-avatar">
+                {{ org.name.substring(0, 1).toUpperCase() }}
+              </div>
+              <div class="org-item-meta">
+                <span class="org-item-name">{{ org.name }}</span>
+                <span class="org-item-sub">{{ org.domain || org.slug }} • {{ org.tier }}</span>
+              </div>
+              <svg *ngIf="org.id === activeOrganization().id" class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </button>
+          </div>
+
+          <div class="dropdown-divider"></div>
+
+          <div class="dropdown-actions">
+            <button type="button" class="dropdown-action-link" (click)="openCreateOrgModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Create New Organization</span>
+            </button>
+            <button type="button" class="dropdown-action-link" (click)="goToBrandingStudio()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Branding & Vanity Domain</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

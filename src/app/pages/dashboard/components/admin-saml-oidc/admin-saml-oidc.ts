@@ -53,6 +53,36 @@ export class AdminSamlOidc {
   readonly simulatedOidcJwtHeader = this.dashboardService.simulatedOidcJwtHeader;
   readonly simulatedOidcJwtPayload = this.dashboardService.simulatedOidcJwtPayload;
 
+  // SCRUM-22 Wizard Signals
+  readonly wizardStep = this.dashboardService.wizardStep;
+  readonly wizardSelectedTemplate = this.dashboardService.wizardSelectedTemplate;
+  readonly wizardCatalogFilter = this.dashboardService.wizardCatalogFilter;
+  readonly filteredCatalogTemplates = this.dashboardService.filteredCatalogTemplates;
+  readonly appCatalogTemplates = this.dashboardService.appCatalogTemplates;
+
+  get wizardCatalogSearch() { return this.dashboardService.wizardCatalogSearch; }
+  set wizardCatalogSearch(v: string) { this.dashboardService.wizardCatalogSearch = v; }
+
+  // SAML 2.0 Configuration Form
+  readonly wizardSloUrl = this.dashboardService.wizardSloUrl;
+  readonly wizardNameIdFormat = this.dashboardService.wizardNameIdFormat;
+  readonly wizardSignResponse = this.dashboardService.wizardSignResponse;
+  readonly wizardSignAssertion = this.dashboardService.wizardSignAssertion;
+  readonly wizardAttributeStatements = this.dashboardService.wizardAttributeStatements;
+
+  // OIDC Configuration Form
+  readonly wizardClientId = this.dashboardService.wizardClientId;
+  readonly wizardClientSecret = this.dashboardService.wizardClientSecret;
+  readonly wizardSecretRevealed = this.dashboardService.wizardSecretRevealed;
+  readonly wizardRedirectUris = this.dashboardService.wizardRedirectUris;
+  get wizardNewRedirectUriInput() { return this.dashboardService.wizardNewRedirectUriInput; }
+  set wizardNewRedirectUriInput(v: string) { this.dashboardService.wizardNewRedirectUriInput = v; }
+  readonly wizardGrantTypes = this.dashboardService.wizardGrantTypes;
+  readonly wizardScopes = this.dashboardService.wizardScopes;
+  readonly wizardCopiedSecret = this.dashboardService.wizardCopiedSecret;
+  readonly wizardCopiedClientId = this.dashboardService.wizardCopiedClientId;
+  readonly wizardCopiedCert = this.dashboardService.wizardCopiedCert;
+
   get newAppName() { return this.dashboardService.newAppName; }
   set newAppName(v: string) { this.dashboardService.newAppName = v; }
   get newAppProtocol() { return this.dashboardService.newAppProtocol; }
@@ -71,8 +101,34 @@ export class AdminSamlOidc {
   openRotateCertModal() { this.dashboardService.openRotateCertModal(); }
   closeRotateCertModal() { this.dashboardService.closeRotateCertModal(); }
   executeRotateCert() { this.dashboardService.executeRotateCert(); }
+
+  // Wizard Methods
   openAddAppModal() { this.dashboardService.openAddAppModal(); }
   closeAddAppModal() { this.dashboardService.closeAddAppModal(); }
+  setWizardStep(step: 1 | 2 | 3) { this.dashboardService.setWizardStep(step); }
+  selectCatalogTemplate(tpl: any) { this.dashboardService.selectCatalogTemplate(tpl); }
+  setCatalogFilter(f: 'all' | 'SAML 2.0' | 'OIDC') { this.dashboardService.wizardCatalogFilter.set(f); }
+  addRedirectUriChip() { this.dashboardService.addRedirectUriChip(); }
+  removeRedirectUriChip(index: number) { this.dashboardService.removeRedirectUriChip(index); }
+  toggleWizardGrantType(grant: 'authorization_code' | 'client_credentials' | 'refresh_token') {
+    this.dashboardService.toggleWizardGrantType(grant);
+  }
+  toggleWizardScope(scope: string) { this.dashboardService.toggleWizardScope(scope); }
+  addAttributeRow() { this.dashboardService.addAttributeStatementRow(); }
+  removeAttributeRow(index: number) { this.dashboardService.removeAttributeStatementRow(index); }
+  updateAttribute(index: number, field: 'userAttribute' | 'samlClaim', val: string) {
+    this.dashboardService.updateAttributeStatement(index, field, val);
+  }
+  generateNewOidcCredentials() { this.dashboardService.generateNewOidcCredentials(); }
+  toggleWizardSecretRevealed() { this.dashboardService.toggleWizardSecretRevealed(); }
+  copyWizardClientSecret() { this.dashboardService.copyWizardClientSecret(); }
+  copyWizardClientId() { this.dashboardService.copyWizardClientId(); }
+  copyX509CertToClipboard() { this.dashboardService.copyX509CertToClipboard(); }
+
+  // Reactive Actions
+  addApp(appData: any) { this.dashboardService.addApp(appData); }
+  updateApp(id: string, updates: any) { this.dashboardService.updateApp(id, updates); }
+  deleteApp(id: string) { this.dashboardService.deleteApp(id); }
   submitAddAppConnector() { this.dashboardService.submitAddAppConnector(); }
   deleteAppConnector(conn: string | SamlConnector) { const id = typeof conn === 'string' ? conn : conn.id; this.dashboardService.deleteAppConnector(id); }
   toggleAppConnectorStatus(conn: SamlConnector) { this.dashboardService.toggleAppConnectorStatus(conn); }

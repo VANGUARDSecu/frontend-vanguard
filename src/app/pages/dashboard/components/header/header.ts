@@ -1,23 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from '../../services/dashboard.service';
-import {
-  ProtocolStatus,
-  SaaSApp,
-  SignInEvent,
-  SSHKey,
-  DirectoryUser,
-  TenantAuditEvent,
-  SamlConnector,
-  OidcClient,
-  IdpCertMetadata,
-  LdapHost,
-  RadiusAccessPoint,
-  VlanMapping,
-  EnrolledDevice,
-  MobilePolicyConfig,
-} from '../../models/dashboard.models';
+import { TenantOrganization } from '../../models/dashboard.models';
 
 @Component({
   selector: 'app-dashboard-header',
@@ -37,10 +22,53 @@ export class DashboardHeader {
   readonly userInitials = this.dashboardService.userInitials;
   readonly userRoleLabel = this.dashboardService.userRoleLabel;
 
+  // SCRUM-28: Multi-tenant organization switcher
+  readonly organizations = this.dashboardService.organizations;
+  readonly activeOrganization = this.dashboardService.activeOrganization;
+  readonly tenantBranding = this.dashboardService.tenantBranding;
+  readonly showOrgDropdown = signal<boolean>(false);
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.org-switcher-container')) {
+      this.showOrgDropdown.set(false);
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.showOrgDropdown.set(false);
+  }
+
+  toggleOrgDropdown(): void {
+    this.showOrgDropdown.update((v) => !v);
+  }
+
+  switchOrg(orgId: string): void {
+    this.dashboardService.switchOrganization(orgId);
+    this.showOrgDropdown.set(false);
+  }
+
+  openCreateOrgModal(): void {
+    this.showOrgDropdown.set(false);
+    this.dashboardService.openCreateOrgModal();
+  }
+
+  goToBrandingStudio(): void {
+    this.showOrgDropdown.set(false);
+    this.dashboardService.setActiveTab('settings');
+  }
+
   get searchQuery() { return this.dashboardService.searchQuery; }
   set searchQuery(v: string) { this.dashboardService.searchQuery = v; }
 
-  toggleViewMode(mode?: 'admin' | 'user') { const target = mode ?? (this.viewMode() === 'admin' ? 'user' : 'admin'); this.dashboardService.toggleViewMode(target); }
+  toggleViewMode(mode?: 'admin' | 'user') {
+    const target = mode ?? (this.viewMode() === 'admin' ? 'user' : 'admin');
+    this.dashboardService.toggleViewMode(target);
+  }
+
   onLogout() { this.dashboardService.onLogout(); }
 
 }
+

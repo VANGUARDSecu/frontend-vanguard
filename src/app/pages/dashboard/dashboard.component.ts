@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from './services/dashboard.service';
@@ -10,6 +10,7 @@ import { AdminSamlOidc } from './components/admin-saml-oidc/admin-saml-oidc';
 import { AdminCloudLdap } from './components/admin-cloud-ldap/admin-cloud-ldap';
 import { AdminCloudRadius } from './components/admin-cloud-radius/admin-cloud-radius';
 import { AdminAuditLogs } from './components/admin-audit-logs/admin-audit-logs';
+import { AdminWebhooks } from './components/admin-webhooks/admin-webhooks';
 import { AdminDeviceFleet } from './components/admin-device-fleet/admin-device-fleet';
 import { AdminSettings } from './components/admin-settings/admin-settings';
 import { UserMyApps } from './components/user-my-apps/user-my-apps';
@@ -29,6 +30,8 @@ import {
   OidcClient,
   IdpCertMetadata,
   LdapHost,
+  LdapServiceAccount,
+  LdapTestResult,
   RadiusAccessPoint,
   VlanMapping,
   EnrolledDevice,
@@ -46,6 +49,8 @@ export type {
   OidcClient,
   IdpCertMetadata,
   LdapHost,
+  LdapServiceAccount,
+  LdapTestResult,
   RadiusAccessPoint,
   VlanMapping,
   EnrolledDevice,
@@ -66,6 +71,7 @@ export type {
     AdminCloudLdap,
     AdminCloudRadius,
     AdminAuditLogs,
+    AdminWebhooks,
     AdminDeviceFleet,
     AdminSettings,
     UserMyApps,
@@ -78,8 +84,12 @@ export type {
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
   readonly dashboardService = inject(DashboardService);
+
+  ngOnInit(): void {
+    this.dashboardService.initDashboardForCurrentUser();
+  }
 
   // Authentication & Session
   readonly user = this.dashboardService.user;
@@ -104,6 +114,7 @@ export class DashboardComponent {
   readonly inviteSuccess = this.dashboardService.inviteSuccess;
   readonly inviteError = this.dashboardService.inviteError;
   readonly inviteCreatedUser = this.dashboardService.inviteCreatedUser;
+  readonly existingPendingUser = this.dashboardService.existingPendingUser;
   readonly passwordCopied = this.dashboardService.passwordCopied;
 
   get inviteFirstName() { return this.dashboardService.inviteFirstName; }
@@ -119,12 +130,43 @@ export class DashboardComponent {
   get inviteRole() { return this.dashboardService.inviteRole; }
   set inviteRole(v: any) { this.dashboardService.inviteRole = v; }
 
-  // Audit Logs (Phase 3)
+  // User Groups & App Matrix (SCRUM-25)
+  readonly directoryActiveSubTab = this.dashboardService.directoryActiveSubTab;
+  readonly directoryGroups = this.dashboardService.directoryGroups;
+  readonly directoryGroupSearch = this.dashboardService.directoryGroupSearch;
+  readonly filteredDirectoryGroups = this.dashboardService.filteredDirectoryGroups;
+  readonly showGroupModal = this.dashboardService.showGroupModal;
+  readonly editingGroup = this.dashboardService.editingGroup;
+  readonly groupModalActiveTab = this.dashboardService.groupModalActiveTab;
+  readonly groupFormMemberIds = this.dashboardService.groupFormMemberIds;
+  readonly groupFormAppIds = this.dashboardService.groupFormAppIds;
+  readonly groupFormSuccess = this.dashboardService.groupFormSuccess;
+  readonly groupFormError = this.dashboardService.groupFormError;
+  get groupFormName() { return this.dashboardService.groupFormName; }
+  set groupFormName(v: string) { this.dashboardService.groupFormName = v; }
+  get groupFormDescription() { return this.dashboardService.groupFormDescription; }
+  set groupFormDescription(v: string) { this.dashboardService.groupFormDescription = v; }
+  get groupFormDepartment() { return this.dashboardService.groupFormDepartment; }
+  set groupFormDepartment(v: string) { this.dashboardService.groupFormDepartment = v; }
+  get groupFormEmail() { return this.dashboardService.groupFormEmail; }
+  set groupFormEmail(v: string) { this.dashboardService.groupFormEmail = v; }
+
+  // Audit Logs (Phase 3 & SCRUM-26)
   readonly auditStatusFilter = this.dashboardService.auditStatusFilter;
   readonly auditProtocolFilter = this.dashboardService.auditProtocolFilter;
+  readonly auditEventTypeFilter = this.dashboardService.auditEventTypeFilter;
+  readonly auditSeverityFilter = this.dashboardService.auditSeverityFilter;
+  readonly auditDateRangeFilter = this.dashboardService.auditDateRangeFilter;
+  readonly auditThreatsOnlyFilter = this.dashboardService.auditThreatsOnlyFilter;
   readonly auditSearchQuery = this.dashboardService.auditSearchQuery;
   readonly tenantAuditEvents = this.dashboardService.tenantAuditEvents;
   readonly filteredAuditEvents = this.dashboardService.filteredAuditEvents;
+  readonly paginatedAuditEvents = this.dashboardService.paginatedAuditEvents;
+  readonly auditCurrentPage = this.dashboardService.auditCurrentPage;
+  readonly auditPageSize = this.dashboardService.auditPageSize;
+  readonly auditTotalPages = this.dashboardService.auditTotalPages;
+  readonly selectedAuditEvent = this.dashboardService.selectedAuditEvent;
+  readonly showAuditInspector = this.dashboardService.showAuditInspector;
 
   // Vault Policies & Killswitch (Phase 3)
   readonly enforceMfaAll = this.dashboardService.enforceMfaAll;
@@ -185,6 +227,46 @@ export class DashboardComponent {
   get newLdapHostProtocol() { return this.dashboardService.newLdapHostProtocol; }
   set newLdapHostProtocol(v: any) { this.dashboardService.newLdapHostProtocol = v; }
 
+  // Connection Configuration & Service Accounts (SCRUM-24)
+  readonly ldapServerHost = this.dashboardService.ldapServerHost;
+  readonly ldapPortLdaps = this.dashboardService.ldapPortLdaps;
+  readonly ldapPortStartTls = this.dashboardService.ldapPortStartTls;
+  readonly ldapBaseDn = this.dashboardService.ldapBaseDn;
+  readonly ldapOrgDn = this.dashboardService.ldapOrgDn;
+  readonly ldapUsersOu = this.dashboardService.ldapUsersOu;
+  readonly ldapGroupsOu = this.dashboardService.ldapGroupsOu;
+  readonly ldapServicesOu = this.dashboardService.ldapServicesOu;
+  readonly copiedLdapParamNotice = this.dashboardService.copiedLdapParamNotice;
+  readonly ldapCaCertPem = this.dashboardService.ldapCaCertPem;
+
+  readonly ldapServiceAccounts = this.dashboardService.ldapServiceAccounts;
+  readonly showAddServiceAccountModal = this.dashboardService.showAddServiceAccountModal;
+  readonly newSvcAcctPassword = this.dashboardService.newSvcAcctPassword;
+  readonly newSvcAcctPwRevealed = this.dashboardService.newSvcAcctPwRevealed;
+  readonly addServiceAccountSuccess = this.dashboardService.addServiceAccountSuccess;
+  readonly addServiceAccountError = this.dashboardService.addServiceAccountError;
+
+  get newSvcAcctName() { return this.dashboardService.newSvcAcctName; }
+  set newSvcAcctName(v: string) { this.dashboardService.newSvcAcctName = v; }
+  get newSvcAcctUid() { return this.dashboardService.newSvcAcctUid; }
+  set newSvcAcctUid(v: string) { this.dashboardService.newSvcAcctUid = v; }
+  get newSvcAcctType() { return this.dashboardService.newSvcAcctType; }
+  set newSvcAcctType(v: any) { this.dashboardService.newSvcAcctType = v; }
+  get newSvcAcctIpRestriction() { return this.dashboardService.newSvcAcctIpRestriction; }
+  set newSvcAcctIpRestriction(v: string) { this.dashboardService.newSvcAcctIpRestriction = v; }
+
+  get ldapDiagEndpoint() { return this.dashboardService.ldapDiagEndpoint; }
+  set ldapDiagEndpoint(v: string) { this.dashboardService.ldapDiagEndpoint = v; }
+  get ldapDiagBindDn() { return this.dashboardService.ldapDiagBindDn; }
+  set ldapDiagBindDn(v: string) { this.dashboardService.ldapDiagBindDn = v; }
+  get ldapDiagBindPassword() { return this.dashboardService.ldapDiagBindPassword; }
+  set ldapDiagBindPassword(v: string) { this.dashboardService.ldapDiagBindPassword = v; }
+  get ldapDiagSearchBase() { return this.dashboardService.ldapDiagSearchBase; }
+  set ldapDiagSearchBase(v: string) { this.dashboardService.ldapDiagSearchBase = v; }
+  get ldapDiagFilter() { return this.dashboardService.ldapDiagFilter; }
+  set ldapDiagFilter(v: string) { this.dashboardService.ldapDiagFilter = v; }
+  readonly ldapTestResult = this.dashboardService.ldapTestResult;
+
   // Cloud RADIUS Gateway (Phase 5)
   readonly radiusSharedSecret = this.dashboardService.radiusSharedSecret;
   readonly radiusSecretRevealed = this.dashboardService.radiusSecretRevealed;
@@ -206,6 +288,17 @@ export class DashboardComponent {
   set newRadiusApType(v: any) { this.dashboardService.newRadiusApType = v; }
   get newRadiusApIp() { return this.dashboardService.newRadiusApIp; }
   set newRadiusApIp(v: string) { this.dashboardService.newRadiusApIp = v; }
+  get newRadiusApDesc() { return this.dashboardService.newRadiusApDesc; }
+  set newRadiusApDesc(v: string) { this.dashboardService.newRadiusApDesc = v; }
+  get newRadiusApProtocol() { return this.dashboardService.newRadiusApProtocol; }
+  set newRadiusApProtocol(v: any) { this.dashboardService.newRadiusApProtocol = v; }
+  readonly newRadiusApSecret = this.dashboardService.newRadiusApSecret;
+  readonly newRadiusApSecretRevealed = this.dashboardService.newRadiusApSecretRevealed;
+  readonly copiedRadiusSecretNotice = this.dashboardService.copiedRadiusSecretNotice;
+  readonly radiusAuthActivity = this.dashboardService.radiusAuthActivity;
+  readonly radiusActivityFilter = this.dashboardService.radiusActivityFilter;
+  readonly filteredRadiusActivity = this.dashboardService.filteredRadiusActivity;
+  get editingRadiusApId() { return this.dashboardService.editingRadiusApId; }
 
   // Mobile Companion & Fleet MDM (Phase 6)
   readonly userDevices = this.dashboardService.userDevices;
@@ -294,10 +387,31 @@ export class DashboardComponent {
   openInviteModal() { return this.dashboardService.openInviteModal(); }
   closeInviteModal() { return this.dashboardService.closeInviteModal(); }
   submitInviteUser() { return this.dashboardService.submitInviteUser(); }
+  resendInvitation(user: DirectoryUser) { return this.dashboardService.resendInvitation(user); }
+  renewExistingPendingUser() { return this.dashboardService.renewExistingPendingUser(); }
+  getInviteExpiryText(user: DirectoryUser) { return this.dashboardService.getInviteExpiryText(user); }
   generateRandomPassword() { return this.dashboardService.generateRandomPassword(); }
   copyTemporaryPassword() { return this.dashboardService.copyTemporaryPassword(); }
+  setDirectoryActiveSubTab(tab: 'users' | 'groups') { return this.dashboardService.setDirectoryActiveSubTab(tab); }
+  setGroupModalActiveTab(tab: 'details' | 'members' | 'apps' | 'policies') { return this.dashboardService.setGroupModalActiveTab(tab); }
+  openCreateGroupModal() { return this.dashboardService.openCreateGroupModal(); }
+  openEditGroupModal(group: any) { return this.dashboardService.openEditGroupModal(group); }
+  closeGroupModal() { return this.dashboardService.closeGroupModal(); }
+  toggleGroupFormMember(userId: string) { return this.dashboardService.toggleGroupFormMember(userId); }
+  toggleGroupFormApp(appId: string) { return this.dashboardService.toggleGroupFormApp(appId); }
+  saveGroup() { return this.dashboardService.saveGroup(); }
+  deleteGroup(groupId: string) { return this.dashboardService.deleteGroup(groupId); }
   setAuditStatus(status: string) { return this.dashboardService.setAuditStatus(status); }
   setAuditProtocol(protocol: string) { return this.dashboardService.setAuditProtocol(protocol); }
+  setAuditEventType(type: string) { return this.dashboardService.setAuditEventType(type); }
+  setAuditSeverity(sev: string) { return this.dashboardService.setAuditSeverity(sev); }
+  setAuditDateRange(range: string) { return this.dashboardService.setAuditDateRange(range); }
+  toggleAuditThreatsOnly() { return this.dashboardService.toggleAuditThreatsOnly(); }
+  resetAuditFilters() { return this.dashboardService.resetAuditFilters(); }
+  setAuditPage(p: number) { return this.dashboardService.setAuditPage(p); }
+  setAuditPageSize(size: number) { return this.dashboardService.setAuditPageSize(size); }
+  openAuditInspector(evt: TenantAuditEvent) { return this.dashboardService.openAuditInspector(evt); }
+  closeAuditInspector() { return this.dashboardService.closeAuditInspector(); }
   exportAuditLogs() { return this.dashboardService.exportAuditLogs(); }
   toggleEnforceMfa() { return this.dashboardService.toggleEnforceMfa(); }
   toggleBlockHighRiskIps() { return this.dashboardService.toggleBlockHighRiskIps(); }
@@ -329,6 +443,19 @@ export class DashboardComponent {
   submitAddLdapHost() { return this.dashboardService.submitAddLdapHost(); }
   deleteLdapHost(host: string | LdapHost) { const id = typeof host === 'string' ? host : host.id; return this.dashboardService.deleteLdapHost(id); }
   toggleLdapHostStatus(host: LdapHost) { return this.dashboardService.toggleLdapHostStatus(host); }
+  downloadLdapCaCert() { return this.dashboardService.downloadLdapCaCert(); }
+  copyLdapParam(value: string, label: string) { return this.dashboardService.copyLdapParam(value, label); }
+  openAddServiceAccountModal() { return this.dashboardService.openAddServiceAccountModal(); }
+  closeAddServiceAccountModal() { return this.dashboardService.closeAddServiceAccountModal(); }
+  generateSvcAcctPassword() { return this.dashboardService.generateSvcAcctPassword(); }
+  toggleNewSvcAcctPwRevealed() { return this.dashboardService.toggleNewSvcAcctPwRevealed(); }
+  submitAddServiceAccount() { return this.dashboardService.submitAddServiceAccount(); }
+  toggleSvcAcctPwRevealed(id: string) { return this.dashboardService.toggleSvcAcctPwRevealed(id); }
+  toggleServiceAccountStatus(account: LdapServiceAccount) { return this.dashboardService.toggleServiceAccountStatus(account); }
+  deleteServiceAccount(id: string) { return this.dashboardService.deleteServiceAccount(id); }
+  copySvcAcctPassword(password: string) { return this.dashboardService.copySvcAcctPassword(password); }
+  copySvcAcctDn(dn: string) { return this.dashboardService.copySvcAcctDn(dn); }
+  loadLdapDiagPreset(type: 'service-account' | 'user' | 'admin' | 'invalid') { return this.dashboardService.loadLdapDiagPreset(type); }
   runRadiusAuthTest() { return this.dashboardService.runRadiusAuthTest(); }
   copyRadiusDiagLog() { return this.dashboardService.copyRadiusDiagLog(); }
   toggleRadiusSecretRevealed() { return this.dashboardService.toggleRadiusSecretRevealed(); }
@@ -340,6 +467,15 @@ export class DashboardComponent {
   submitAddRadiusAp() { return this.dashboardService.submitAddRadiusAp(); }
   deleteRadiusAp(ap: string | RadiusAccessPoint) { const id = typeof ap === 'string' ? ap : ap.id; return this.dashboardService.deleteRadiusAp(id); }
   toggleRadiusApStatus(ap: RadiusAccessPoint) { return this.dashboardService.toggleRadiusApStatus(ap); }
+  openEditRadiusApModal(ap: RadiusAccessPoint) { return this.dashboardService.openEditRadiusApModal(ap); }
+  regenerateNewRadiusClientSecret() { return this.dashboardService.regenerateNewRadiusClientSecret(); }
+  toggleNewRadiusSecretRevealed() { return this.dashboardService.toggleNewRadiusSecretRevealed(); }
+  copyNewRadiusSecret() { return this.dashboardService.copyNewRadiusSecret(); }
+  rotateRadiusClientSecret(id: string) { return this.dashboardService.rotateRadiusClientSecret(id); }
+  toggleRadiusClientSecretRevealed(id: string) { return this.dashboardService.toggleRadiusClientSecretRevealed(id); }
+  copyRadiusClientSecret(secret: string) { return this.dashboardService.copyRadiusClientSecret(secret); }
+  setRadiusActivityFilter(filter: 'all' | 'Access-Accept' | 'Access-Reject') { return this.dashboardService.setRadiusActivityFilter(filter); }
+  simulateRadiusAuth(success?: boolean) { return this.dashboardService.simulateRadiusAuth(success); }
   openPairDeviceModal() { return this.dashboardService.openPairDeviceModal(); }
   closePairDeviceModal() { return this.dashboardService.closePairDeviceModal(); }
   confirmPairDevice() { return this.dashboardService.confirmPairDevice(); }

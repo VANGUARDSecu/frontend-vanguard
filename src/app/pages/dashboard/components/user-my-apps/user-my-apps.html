@@ -49,7 +49,12 @@
             <div class="app-card" *ngFor="let app of filteredApps()">
               <div class="app-card-top">
                 <div class="app-icon-box">{{ app.icon }}</div>
-                <span class="proto-tag">{{ app.protocol }}</span>
+                <div class="app-card-badges">
+                  <span class="group-inherited-tag" *ngIf="app.inheritedViaGroup" [title]="'Assigned via ' + app.inheritedViaGroup">
+                    👥 {{ app.inheritedViaGroup }}
+                  </span>
+                  <span class="proto-tag">{{ app.protocol }}</span>
+                </div>
               </div>
               <h3 class="app-name">{{ app.name }}</h3>
               <p class="app-desc">{{ app.description }}</p>

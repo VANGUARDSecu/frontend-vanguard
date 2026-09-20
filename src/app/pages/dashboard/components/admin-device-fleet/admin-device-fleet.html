@@ -1,8 +1,8 @@
         <section class="dash-section" *ngIf="activeTab() === 'device-fleet'">
           <div class="section-header">
             <div class="section-title-wrap">
-              <h2 class="section-title">Endpoint Device Fleet & MDM Posture</h2>
-              <p class="section-subtitle">Real-time Zero-Trust compliance, hardware biometric enrollment, and remote wipe orchestration.</p>
+              <h2 class="section-title">Device Trust & Endpoint Compliance Policy Manager</h2>
+              <p class="section-subtitle">Real-time Zero-Trust endpoint posture verification, fleet inventory telemetry, and compliance policy enforcement.</p>
             </div>
           </div>
 
@@ -13,35 +13,96 @@
                 <span class="telemetry-title">Enrolled Endpoints</span>
                 <span class="telemetry-icon">📱</span>
               </div>
-              <div class="telemetry-value text-cyan">{{ fleetDevices().length }} <span class="telemetry-unit">devices</span></div>
-              <div class="telemetry-sub"><span class="text-green">↑ 100%</span> active sync</div>
+              <div class="telemetry-value text-cyan">{{ fleetMetrics().total }} <span class="telemetry-unit">devices</span></div>
+              <div class="telemetry-sub"><span class="text-green">↑ 100%</span> active MDM telemetry</div>
             </div>
 
             <div class="telemetry-card">
               <div class="telemetry-top">
-                <span class="telemetry-title">Biometrics Adoption</span>
+                <span class="telemetry-title">Zero-Trust Compliance</span>
+                <span class="telemetry-icon">🛡️</span>
+              </div>
+              <div class="telemetry-value text-green">{{ fleetMetrics().compliantPercent }}%</div>
+              <div class="telemetry-sub">{{ fleetMetrics().compliant }} compliant · {{ fleetMetrics().warning + fleetMetrics().revoked }} at risk</div>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-top">
+                <span class="telemetry-title">Hardware Biometrics</span>
                 <span class="telemetry-icon">👁️</span>
               </div>
-              <div class="telemetry-value text-green">100%</div>
+              <div class="telemetry-value text-accent">{{ fleetMetrics().biometricsPercent }}%</div>
               <div class="telemetry-sub">Face ID / Touch ID / Hello</div>
             </div>
 
             <div class="telemetry-card">
               <div class="telemetry-top">
-                <span class="telemetry-title">Zero-Trust Posture</span>
-                <span class="telemetry-icon">🛡️</span>
+                <span class="telemetry-title">Disk Encryption</span>
+                <span class="telemetry-icon">🔒</span>
               </div>
-              <div class="telemetry-value text-accent">100%</div>
-              <div class="telemetry-sub">Zero jailbroken / rooted</div>
+              <div class="telemetry-value text-cyan">{{ fleetMetrics().encryptedPercent }}%</div>
+              <div class="telemetry-sub">BitLocker / FileVault 2</div>
+            </div>
+          </div>
+
+          <!-- Search & Filter Controls Toolbar -->
+          <div class="filter-toolbar-card">
+            <div class="search-box-wrap">
+              <span class="search-input-icon">🔍</span>
+              <input
+                type="text"
+                class="search-input-field"
+                placeholder="Search by device name, owner, hardware model, or OS..."
+                [ngModel]="searchTerm()"
+                (ngModelChange)="searchTerm.set($event)"
+              />
+              <button
+                type="button"
+                class="clear-search-btn"
+                *ngIf="searchTerm()"
+                (click)="searchTerm.set('')"
+                title="Clear search"
+              >✕</button>
             </div>
 
-            <div class="telemetry-card">
-              <div class="telemetry-top">
-                <span class="telemetry-title">Push Number Matching</span>
-                <span class="telemetry-icon">🔢</span>
+            <div class="filter-selects-group">
+              <div class="select-wrapper">
+                <label class="select-label">Operating System</label>
+                <select
+                  class="filter-select"
+                  [ngModel]="osFilter()"
+                  (ngModelChange)="osFilter.set($event)"
+                >
+                  <option value="all">All Platforms</option>
+                  <option value="macos">macOS (Apple Silicon / Intel)</option>
+                  <option value="windows">Windows 11 / 10</option>
+                  <option value="ios">Apple iOS (iPhone / iPad)</option>
+                  <option value="android">Google Android</option>
+                </select>
               </div>
-              <div class="telemetry-value text-orange" style="font-size: 1.15rem; line-height: 1.8;">ENFORCED</div>
-              <div class="telemetry-sub">MFA Fatigue Defended</div>
+
+              <div class="select-wrapper">
+                <label class="select-label">Compliance Posture</label>
+                <select
+                  class="filter-select"
+                  [ngModel]="statusFilter()"
+                  (ngModelChange)="statusFilter.set($event)"
+                >
+                  <option value="all">All Postures</option>
+                  <option value="Compliant">Compliant</option>
+                  <option value="Warning">Warning / Needs Attention</option>
+                  <option value="Revoked">Revoked / Compromised</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                class="btn-reset-filters"
+                *ngIf="searchTerm() || osFilter() !== 'all' || statusFilter() !== 'all'"
+                (click)="resetFilters()"
+              >
+                Reset Filters
+              </button>
             </div>
           </div>
 
@@ -49,8 +110,9 @@
           <div class="activity-table-card mb-4">
             <div class="card-header-inner">
               <div class="title-with-badge">
-                <h3 class="card-inner-title">Managed Endpoints & Mobile Authenticator Instances ({{ fleetDevices().length }})</h3>
-                <span class="badge badge-success">Attestation Verified</span>
+                <h3 class="card-inner-title">Managed Endpoints & Device Inventory ({{ filteredFleetDevices().length }})</h3>
+                <span class="badge badge-success" *ngIf="filteredFleetDevices().length > 0">Live Attestation</span>
+                <span class="badge badge-cyan" *ngIf="searchTerm() || osFilter() !== 'all' || statusFilter() !== 'all'">Filtered</span>
               </div>
             </div>
             <div class="table-responsive">
@@ -68,20 +130,21 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let dev of fleetDevices()">
+                  <tr *ngFor="let dev of filteredFleetDevices()">
                     <td>
                       <div class="user-row-meta">
                         <div class="connector-icon-box">{{ dev.type.includes('Mobile') ? '📱' : '💻' }}</div>
                         <div class="user-row-info">
                           <span class="user-name-cell">{{ dev.name }}</span>
                           <span class="user-email-cell">{{ dev.model }}</span>
+                          <span class="text-xs text-orange" *ngIf="dev.ssoRevokedAt">⚠️ SSO Revoked</span>
                         </div>
                       </div>
                     </td>
                     <td>
                       <div>
                         <strong>{{ dev.ownerName }}</strong>
-                        <div class="text-sm text-muted">{{ dev.department }}</div>
+                        <div class="text-sm text-muted">{{ dev.department }} · {{ dev.ownerEmail }}</div>
                       </div>
                     </td>
                     <td><code>{{ dev.osVersion }}</code></td>
@@ -94,8 +157,8 @@
                         <span class="tag-pill" [class.tag-pass]="dev.edrActive" title="EDR Agent Active">
                           {{ dev.edrActive ? '🛡️ EDR' : '○ No EDR' }}
                         </span>
-                        <span class="tag-pill" [class.tag-pass]="!dev.jailbroken" title="Tamper / Root Status">
-                          {{ dev.jailbroken ? '🚨 Compromised' : '✓ Clean' }}
+                        <span class="tag-pill" [class.tag-pass]="!dev.jailbroken && !dev.isCompromised" title="Tamper / Root Status">
+                          {{ (dev.jailbroken || dev.isCompromised) ? '🚨 Compromised' : '✓ Clean' }}
                         </span>
                       </div>
                     </td>
@@ -109,34 +172,100 @@
                         {{ dev.complianceStatus }}
                       </span>
                     </td>
-                    <td class="text-sm text-muted">{{ dev.lastSync }}</td>
-                    <td>
-                      <div class="action-btn-group">
+                    <td class="text-sm text-muted">
+                      <div>{{ dev.lastSync }}</div>
+                      <div class="text-xs text-muted" *ngIf="dev.enrolledAt">Enrolled: {{ dev.enrolledAt | date:'shortDate' }}</div>
+                    </td>
+                    <td class="action-cell">
+                      <div class="device-action-dropdown-wrap">
                         <button
                           type="button"
-                          class="btn-action-icon"
-                          [title]="dev.complianceStatus === 'Compliant' ? 'Flag Compliance Warning' : 'Re-verify Compliance'"
-                          (click)="toggleFleetDeviceCompliance(dev)"
+                          class="btn-action-menu-trigger"
+                          (click)="toggleActionDropdown(dev.id, $event)"
+                          title="Device Security Actions"
                         >
-                          {{ dev.complianceStatus === 'Compliant' ? '⚠️' : '✅' }}
+                          ⚙️ Actions ▾
                         </button>
-                        <button
-                          type="button"
-                          class="btn-action-icon text-red"
-                          title="Remote Wipe Corporate Keys"
-                          (click)="openWipeDeviceModal(dev)"
+
+                        <!-- Dropdown Menu -->
+                        <div
+                          class="device-action-menu"
+                          *ngIf="openActionDropdownId() === dev.id"
+                          (click)="$event.stopPropagation()"
                         >
-                          🗑️
-                        </button>
+                          <button
+                            type="button"
+                            class="action-menu-item"
+                            (click)="openRevokeSsoModal(dev)"
+                          >
+                            <span class="menu-item-icon">🔒</span>
+                            <div class="menu-item-text">
+                              <span class="menu-item-title">Revoke SSO Sessions</span>
+                              <span class="menu-item-sub">Invalidate session tokens</span>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            class="action-menu-item text-orange"
+                            (click)="toggleFleetDeviceCompliance(dev)"
+                          >
+                            <span class="menu-item-icon">🔄</span>
+                            <div class="menu-item-text">
+                              <span class="menu-item-title">Toggle Compliance</span>
+                              <span class="menu-item-sub">Switch Compliant ↔ Warning</span>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            class="action-menu-item text-danger"
+                            (click)="openCompromisedModal(dev)"
+                          >
+                            <span class="menu-item-icon">🚨</span>
+                            <div class="menu-item-text">
+                              <span class="menu-item-title">Mark Compromised / Lost</span>
+                              <span class="menu-item-sub">Quarantine device immediately</span>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            class="action-menu-item text-danger"
+                            (click)="openWipeDeviceModal(dev)"
+                          >
+                            <span class="menu-item-icon">📱</span>
+                            <div class="menu-item-text">
+                              <span class="menu-item-title">Remote Wipe Keys</span>
+                              <span class="menu-item-sub">Purge corporate certificates</span>
+                            </div>
+                          </button>
+
+                          <div class="menu-divider"></div>
+
+                          <button
+                            type="button"
+                            class="action-menu-item text-danger"
+                            (click)="openRemoveDeviceModal(dev)"
+                          >
+                            <span class="menu-item-icon">🗑️</span>
+                            <div class="menu-item-text">
+                              <span class="menu-item-title">Remove from Directory</span>
+                              <span class="menu-item-sub">Unregister from inventory</span>
+                            </div>
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>
-                  <tr *ngIf="fleetDevices().length === 0">
+
+                  <tr *ngIf="filteredFleetDevices().length === 0">
                     <td colspan="8" class="empty-state-cell">
                       <div class="empty-state-wrap">
-                        <span class="empty-icon">📱</span>
-                        <h4 class="empty-title">No endpoint devices enrolled in fleet</h4>
-                        <p class="empty-desc">No corporate smartphones, biometric authenticators, or employee workstations have been enrolled yet.</p>
+                        <span class="empty-icon">🔍</span>
+                        <h4 class="empty-title">No endpoint devices match your criteria</h4>
+                        <p class="empty-desc">Try clearing your search query or broadening your platform and posture filters.</p>
+                        <button type="button" class="btn-ghost btn-sm mt-3" (click)="resetFilters()">Reset All Filters</button>
                       </div>
                     </td>
                   </tr>
@@ -145,37 +274,60 @@
             </div>
           </div>
 
-          <!-- Mobile Push Security Policy Matrix -->
+          <!-- Compliance Policy Enforcer Matrix -->
           <div class="activity-table-card">
             <div class="card-header-inner">
               <div class="title-with-badge">
-                <h3 class="card-inner-title">Mobile Push & Device Trust Security Policies</h3>
+                <h3 class="card-inner-title">Endpoint Security Compliance Policies</h3>
                 <span class="badge badge-cyan">Zero-Trust Baseline</span>
               </div>
-              <p class="text-muted text-sm">Automated policies enforced on all Vanguard Mobile Authenticator instances (iOS & Android).</p>
+              <p class="text-muted text-sm">Automated compliance requirements enforced across corporate workstations and mobile devices before granting access to enterprise SSO applications.</p>
             </div>
 
             <div class="security-cards-grid">
+              <!-- Policy 1: Disk Encryption -->
               <div class="security-card">
                 <div class="sec-card-header">
-                  <div class="sec-icon-box">🔢</div>
+                  <div class="sec-icon-box">🔒</div>
                   <div class="sec-header-meta">
-                    <h3 class="sec-title">Number Matching on Push</h3>
-                    <span class="badge" [class.badge-success]="mobilePolicy().enforceNumberMatching" [class.badge-orange]="!mobilePolicy().enforceNumberMatching">
-                      {{ mobilePolicy().enforceNumberMatching ? 'Active Enforcement' : 'Disabled' }}
+                    <h3 class="sec-title">Full Disk Encryption</h3>
+                    <span class="badge" [class.badge-success]="mobilePolicy().requireDiskEncryption" [class.badge-orange]="!mobilePolicy().requireDiskEncryption">
+                      {{ mobilePolicy().requireDiskEncryption ? 'Active Enforcement' : 'Disabled' }}
                     </span>
                   </div>
                 </div>
-                <p class="card-desc">Requires users to match a 2-digit challenge number presented on the login screen to mitigate MFA fatigue attacks.</p>
+                <p class="card-desc">Requires BitLocker (Windows), FileVault (macOS), or LUKS before releasing enterprise SSO assertion tokens.</p>
                 <button
                   type="button"
                   class="btn-ghost btn-sm mt-2"
-                  (click)="updateMobilePolicy('enforceNumberMatching', !mobilePolicy().enforceNumberMatching)"
+                  (click)="updateMobilePolicy('requireDiskEncryption', !mobilePolicy().requireDiskEncryption)"
                 >
-                  {{ mobilePolicy().enforceNumberMatching ? 'Disable Policy' : 'Enable Number Matching' }}
+                  {{ mobilePolicy().requireDiskEncryption ? 'Disable Policy' : 'Enforce Encryption' }}
                 </button>
               </div>
 
+              <!-- Policy 2: Minimum OS Version -->
+              <div class="security-card">
+                <div class="sec-card-header">
+                  <div class="sec-icon-box">⚙️</div>
+                  <div class="sec-header-meta">
+                    <h3 class="sec-title">Minimum OS Version</h3>
+                    <span class="badge" [class.badge-success]="mobilePolicy().enforceMinimumOs" [class.badge-orange]="!mobilePolicy().enforceMinimumOs">
+                      {{ mobilePolicy().enforceMinimumOs ? 'Active Enforcement' : 'Disabled' }}
+                    </span>
+                  </div>
+                </div>
+                <p class="card-desc">Enforces baseline OS security patches (macOS ≥ 14, Windows 11+, iOS ≥ 17, Android ≥ 14) to prevent unpatched vulnerabilities.</p>
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm mt-2"
+                  (click)="updateMobilePolicy('enforceMinimumOs', !mobilePolicy().enforceMinimumOs)"
+                >
+                  {{ mobilePolicy().enforceMinimumOs ? 'Disable Policy' : 'Enforce Baseline OS' }}
+                </button>
+              </div>
+
+              <!-- Policy 3: Mandatory Biometrics -->
               <div class="security-card">
                 <div class="sec-card-header">
                   <div class="sec-icon-box">👁️</div>
@@ -186,7 +338,7 @@
                     </span>
                   </div>
                 </div>
-                <p class="card-desc">Enforces Face ID, Touch ID, or Android BiometricPrompt via hardware Secure Enclave before approving any push authentication.</p>
+                <p class="card-desc">Enforces Face ID, Touch ID, or Windows Hello Secure Enclave validation before approving authentications.</p>
                 <button
                   type="button"
                   class="btn-ghost btn-sm mt-2"
@@ -196,17 +348,18 @@
                 </button>
               </div>
 
+              <!-- Policy 4: Auto-Quarantine Jailbroken / Rooted -->
               <div class="security-card">
                 <div class="sec-card-header">
                   <div class="sec-icon-box">🚫</div>
                   <div class="sec-header-meta">
-                    <h3 class="sec-title">Auto-Quarantine Rooted / Jailbroken</h3>
+                    <h3 class="sec-title">Block Jailbroken / Rooted Devices</h3>
                     <span class="badge" [class.badge-success]="mobilePolicy().blockJailbroken" [class.badge-orange]="!mobilePolicy().blockJailbroken">
                       {{ mobilePolicy().blockJailbroken ? 'Active Enforcement' : 'Disabled' }}
                     </span>
                   </div>
                 </div>
-                <p class="card-desc">Automatically blocks push tokens and network access on mobile devices with compromised OS kernels or debuggers.</p>
+                <p class="card-desc">Automatically blocks push tokens, session keys, and 802.1X access on devices with modified OS kernels or debuggers.</p>
                 <button
                   type="button"
                   class="btn-ghost btn-sm mt-2"
@@ -215,14 +368,132 @@
                   {{ mobilePolicy().blockJailbroken ? 'Disable Policy' : 'Enforce Quarantine' }}
                 </button>
               </div>
+
+              <!-- Policy 5: Number Matching Challenge -->
+              <div class="security-card">
+                <div class="sec-card-header">
+                  <div class="sec-icon-box">🔢</div>
+                  <div class="sec-header-meta">
+                    <h3 class="sec-title">Push Number Matching</h3>
+                    <span class="badge" [class.badge-success]="mobilePolicy().enforceNumberMatching" [class.badge-orange]="!mobilePolicy().enforceNumberMatching">
+                      {{ mobilePolicy().enforceNumberMatching ? 'Active Enforcement' : 'Disabled' }}
+                    </span>
+                  </div>
+                </div>
+                <p class="card-desc">Requires users to match a 2-digit challenge number presented on screen to defeat MFA push fatigue attacks.</p>
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm mt-2"
+                  (click)="updateMobilePolicy('enforceNumberMatching', !mobilePolicy().enforceNumberMatching)"
+                >
+                  {{ mobilePolicy().enforceNumberMatching ? 'Disable Policy' : 'Enable Number Matching' }}
+                </button>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- ==================================================================
-             ADMIN TAB 4: VAULT SETTINGS & KILLSWITCH
-             ================================================================== -->
+  <!-- ==================================================================
+       SECURITY ACTION MODALS
+       ================================================================== -->
 
+  <!-- Modal 1: Revoke SSO Sessions Modal -->
+  <div class="modal-backdrop" *ngIf="showRevokeSsoModal()">
+    <div class="modal-card modal-warning">
+      <div class="modal-header">
+        <h3 class="modal-title text-warning">🔒 Revoke Active SSO Sessions</h3>
+        <button type="button" class="modal-close-btn" (click)="closeRevokeSsoModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Are you sure you want to revoke all active SSO tokens and corporate browser sessions for
+          <strong>{{ selectedDeviceForRevokeSso()?.name }}</strong> ({{ selectedDeviceForRevokeSso()?.model }})?
+        </p>
+        <p class="modal-subtext text-muted">
+          Owner: <strong>{{ selectedDeviceForRevokeSso()?.ownerName }}</strong> ({{ selectedDeviceForRevokeSso()?.ownerEmail }}).
+          The user will be prompted to re-authenticate with primary credentials and biometrics on their next SaaS access.
+        </p>
+
+        <div class="form-success-text" *ngIf="revokeSsoSuccess()">
+          ✓ Active SSO sessions revoked successfully!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeRevokeSsoModal()">Cancel</button>
+        <button type="button" class="btn-warning-action" (click)="executeRevokeSso()">
+          Confirm Revoke Sessions
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Mark Compromised / Lost Modal -->
+  <div class="modal-backdrop" *ngIf="showCompromisedModal()">
+    <div class="modal-card modal-danger">
+      <div class="modal-header">
+        <h3 class="modal-title text-danger">🚨 Confirm Device Quarantine</h3>
+        <button type="button" class="modal-close-btn" (click)="closeCompromisedModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="danger-warning-callout">
+          <strong>⚠️ Immediate Quarantine Action:</strong>
+          Flagging this device will permanently revoke all access, invalidate RADIUS/802.1X certificates, and notify the security operations center.
+        </div>
+        <p class="modal-desc text-danger mt-3">
+          Are you sure you want to flag <strong>{{ selectedDeviceForCompromised()?.name }}</strong> as Compromised or Lost?
+        </p>
+        <p class="modal-subtext text-muted">
+          Hardware: {{ selectedDeviceForCompromised()?.model }} · OS: {{ selectedDeviceForCompromised()?.osVersion }}
+        </p>
+
+        <div class="form-success-text" *ngIf="compromisedSuccess()">
+          ✓ Device marked as compromised and quarantined!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeCompromisedModal()">Cancel</button>
+        <button type="button" class="btn-danger-killswitch" (click)="executeMarkCompromised()">
+          Quarantine & Flag Compromised
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Remove from Directory Modal -->
+  <div class="modal-backdrop" *ngIf="showRemoveDeviceModal()">
+    <div class="modal-card modal-danger">
+      <div class="modal-header">
+        <h3 class="modal-title text-danger">🗑️ Remove Device from Directory</h3>
+        <button type="button" class="modal-close-btn" (click)="closeRemoveDeviceModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Are you sure you want to un-enroll and remove <strong>{{ selectedDeviceForRemove()?.name }}</strong> from the enterprise inventory?
+        </p>
+        <p class="modal-subtext text-muted">
+          This will delete the endpoint record from the corporate device registry and un-link all assigned authentication factors.
+        </p>
+
+        <div class="form-success-text" *ngIf="removeDeviceSuccess()">
+          ✓ Device successfully removed from directory!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeRemoveDeviceModal()">Cancel</button>
+        <button type="button" class="btn-danger-killswitch" (click)="executeRemoveDevice()">
+          Confirm Device Removal
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Remote Wipe Modal -->
   <div class="modal-backdrop" *ngIf="showWipeDeviceModal()">
     <div class="modal-card modal-danger">
       <div class="modal-header">
@@ -251,4 +522,3 @@
       </div>
     </div>
   </div>
-

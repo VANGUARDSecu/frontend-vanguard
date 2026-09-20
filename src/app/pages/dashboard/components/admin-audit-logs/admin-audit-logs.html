@@ -1,119 +1,497 @@
         <section class="dash-section" *ngIf="activeTab() === 'audit-logs'">
           <div class="section-header">
             <div class="section-title-wrap">
-              <h2 class="section-title">Tenant-Wide Security Audit Stream</h2>
-              <p class="section-subtitle">Real-time cryptographic audit trail of all authentication events across SAML, OIDC, LDAP, and RADIUS.</p>
+              <h2 class="section-title">Tenant-Wide Security Audit Explorer</h2>
+              <p class="section-subtitle">Real-time cryptographic forensic trail of authentication events, directory changes, zero-trust policies, and threat anomalies.</p>
             </div>
-            <button type="button" class="btn-primary-action" (click)="exportAuditLogs()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>Export System Log (CSV)</span>
-            </button>
+            <div class="header-actions">
+              <button type="button" class="btn-primary-action" (click)="exportAuditLogs()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Export System Log (CSV)</span>
+              </button>
+            </div>
           </div>
 
-          <!-- Audit Filter Toolbar -->
-          <div class="directory-toolbar">
-            <div class="toolbar-search">
-              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input
-                type="text"
-                [ngModel]="auditSearchQuery()"
-                (ngModelChange)="auditSearchQuery.set($event)"
-                placeholder="Search by user email, target service, or IP address..."
-                class="filter-search-input"
-              />
+          <!-- Multi-Dimensional Audit Filter Toolbar -->
+          <div class="audit-explorer-toolbar">
+            <!-- Row 1: Global Search & Primary Dropdown Filters -->
+            <div class="toolbar-primary-row">
+              <div class="toolbar-search">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                  type="text"
+                  [ngModel]="auditSearchQuery()"
+                  (ngModelChange)="auditSearchQuery.set($event)"
+                  placeholder="Search by actor, target service, client IP, or request ID..."
+                  class="filter-search-input"
+                />
+              </div>
+
+              <!-- Event Type Dropdown Filter -->
+              <div class="filter-select-wrap">
+                <label class="filter-label">Event Type:</label>
+                <select
+                  class="filter-select"
+                  [ngModel]="auditEventTypeFilter()"
+                  (ngModelChange)="setAuditEventType($event)"
+                >
+                  <option value="all">All Event Types</option>
+                  <option value="SSO_LOGIN">SSO_LOGIN</option>
+                  <option value="RADIUS_AUTH">RADIUS_AUTH</option>
+                  <option value="LDAP_BIND">LDAP_BIND</option>
+                  <option value="USER_PROVISIONED">USER_PROVISIONED</option>
+                  <option value="PASSWORD_RESET">PASSWORD_RESET</option>
+                  <option value="POLICY_CHANGE">POLICY_CHANGE</option>
+                  <option value="SESSION_REVOKED">SESSION_REVOKED</option>
+                  <option value="MFA_CHALLENGE">MFA_CHALLENGE</option>
+                  <option value="VAULT_ACCESS">VAULT_ACCESS</option>
+                </select>
+              </div>
+
+              <!-- Date Range Dropdown Filter -->
+              <div class="filter-select-wrap">
+                <label class="filter-label">Time Window:</label>
+                <select
+                  class="filter-select"
+                  [ngModel]="auditDateRangeFilter()"
+                  (ngModelChange)="setAuditDateRange($event)"
+                >
+                  <option value="all">All Recorded Time</option>
+                  <option value="1h">Past 1 Hour</option>
+                  <option value="24h">Past 24 Hours</option>
+                  <option value="7d">Past 7 Days</option>
+                  <option value="30d">Past 30 Days</option>
+                </select>
+              </div>
             </div>
 
-            <div class="category-filter-bar mb-0">
-              <button
-                type="button"
-                class="cat-pill"
-                [class.active]="auditStatusFilter() === 'all'"
-                (click)="setAuditStatus('all')"
-              >
-                All Events
-              </button>
-              <button
-                type="button"
-                class="cat-pill"
-                [class.active]="auditStatusFilter() === 'success'"
-                (click)="setAuditStatus('success')"
-              >
-                Success Only
-              </button>
-              <button
-                type="button"
-                class="cat-pill"
-                [class.active]="auditStatusFilter() === 'challenge'"
-                (click)="setAuditStatus('challenge')"
-              >
-                MFA Challenges
-              </button>
-              <button
-                type="button"
-                class="cat-pill"
-                [class.active]="auditStatusFilter() === 'blocked'"
-                (click)="setAuditStatus('blocked')"
-              >
-                Threats Throttled
-              </button>
+            <!-- Row 2: Severity & Status Pills + Anomaly Toggle + Clear -->
+            <div class="toolbar-secondary-row">
+              <!-- Severity Pills -->
+              <div class="pill-group">
+                <span class="pill-group-title">Severity:</span>
+                <button
+                  type="button"
+                  class="cat-pill"
+                  [class.active]="auditSeverityFilter() === 'all'"
+                  (click)="setAuditSeverity('all')"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  class="cat-pill sev-pill-info"
+                  [class.active]="auditSeverityFilter() === 'INFO'"
+                  (click)="setAuditSeverity('INFO')"
+                >
+                  ● INFO
+                </button>
+                <button
+                  type="button"
+                  class="cat-pill sev-pill-warn"
+                  [class.active]="auditSeverityFilter() === 'WARN'"
+                  (click)="setAuditSeverity('WARN')"
+                >
+                  ▲ WARN
+                </button>
+                <button
+                  type="button"
+                  class="cat-pill sev-pill-alert"
+                  [class.active]="auditSeverityFilter() === 'SECURITY_ALERT'"
+                  (click)="setAuditSeverity('SECURITY_ALERT')"
+                >
+                  ✖ SECURITY_ALERT
+                </button>
+              </div>
+
+              <!-- Status Pills -->
+              <div class="pill-group">
+                <span class="pill-group-title">Status:</span>
+                <button
+                  type="button"
+                  class="cat-pill"
+                  [class.active]="auditStatusFilter() === 'all'"
+                  (click)="setAuditStatus('all')"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  class="cat-pill"
+                  [class.active]="auditStatusFilter() === 'success'"
+                  (click)="setAuditStatus('success')"
+                >
+                  Success
+                </button>
+                <button
+                  type="button"
+                  class="cat-pill"
+                  [class.active]="auditStatusFilter() === 'challenge'"
+                  (click)="setAuditStatus('challenge')"
+                >
+                  Challenged
+                </button>
+                <button
+                  type="button"
+                  class="cat-pill"
+                  [class.active]="auditStatusFilter() === 'blocked'"
+                  (click)="setAuditStatus('blocked')"
+                >
+                  Blocked
+                </button>
+              </div>
+
+              <!-- Quick Toggles -->
+              <div class="pill-group-actions">
+                <button
+                  type="button"
+                  class="anomaly-toggle-pill"
+                  [class.active]="auditThreatsOnlyFilter()"
+                  (click)="toggleAuditThreatsOnly()"
+                >
+                  <span class="pulse-dot" *ngIf="auditThreatsOnlyFilter()"></span>
+                  <span class="anomaly-icon">⚠️</span>
+                  <span>Anomalies Only</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-reset-filters"
+                  (click)="resetAuditFilters()"
+                  title="Reset all filters"
+                >
+                  ✕ Clear Filters
+                </button>
+              </div>
             </div>
           </div>
 
           <!-- System Log Event Table -->
           <div class="activity-table-card">
             <div class="table-responsive">
-              <table class="activity-table">
+              <table class="activity-table explorer-table">
                 <thead>
                   <tr>
-                    <th>Timestamp</th>
+                    <th style="width: 110px;">Severity</th>
+                    <th style="width: 95px;">Timestamp</th>
                     <th>Actor (Identity / Source)</th>
+                    <th style="width: 140px;">Event Type</th>
                     <th>Target Service</th>
-                    <th>Protocol</th>
+                    <th style="width: 120px;">Protocol</th>
                     <th>Client IP & Location</th>
-                    <th>Device</th>
-                    <th>Event Status</th>
-                    <th>Risk</th>
+                    <th style="width: 110px;">Status</th>
+                    <th style="width: 130px;">Threat Anomaly</th>
+                    <th style="width: 80px; text-align: center;">Forensics</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let log of filteredAuditEvents()">
-                    <td class="col-time">{{ log.timestamp }}</td>
-                    <td><strong class="col-actor">{{ log.actor }}</strong></td>
-                    <td>{{ log.target }}</td>
-                    <td><span class="table-proto-badge">{{ log.protocol }}</span></td>
-                    <td class="col-ip">{{ log.clientIp }} <span class="ip-loc">({{ log.location }})</span></td>
-                    <td class="col-device">{{ log.device }}</td>
+                  <tr
+                    *ngFor="let log of paginatedAuditEvents()"
+                    (click)="inspectEvent(log)"
+                    class="log-row-interactive"
+                    [class.row-selected]="selectedAuditEvent()?.id === log.id && showAuditInspector()"
+                    [class.row-threat-flagged]="!!log.threatIndicator"
+                  >
+                    <!-- Severity Chip -->
                     <td>
-                      <span class="badge" [class.badge-success]="log.status === 'success'" [class.badge-orange]="log.status === 'challenge'" [class.badge-danger]="log.status === 'blocked'">
-                        {{ log.status === 'success' ? '● SUCCESS' : log.status === 'challenge' ? '▲ CHALLENGED' : '✖ BLOCKED' }}
+                      <span
+                        class="sev-chip"
+                        [class.sev-info]="log.severity === 'INFO'"
+                        [class.sev-warn]="log.severity === 'WARN'"
+                        [class.sev-alert]="log.severity === 'SECURITY_ALERT'"
+                      >
+                        {{ log.severity }}
                       </span>
                     </td>
+
+                    <!-- Timestamp -->
+                    <td class="col-time">{{ log.timestamp }}</td>
+
+                    <!-- Actor Identity with Threat Dot -->
                     <td>
-                      <span class="risk-badge" [class.risk-low]="log.riskScore === 'Low'" [class.risk-med]="log.riskScore === 'Medium'" [class.risk-high]="log.riskScore === 'High'">
-                        {{ log.riskScore }}
+                      <div class="actor-cell-wrap">
+                        <strong class="col-actor">{{ log.actor }}</strong>
+                        <span class="threat-dot" *ngIf="log.threatIndicator" title="Flagged Security Anomaly"></span>
+                      </div>
+                    </td>
+
+                    <!-- Event Type Tag -->
+                    <td>
+                      <span class="event-type-badge">{{ log.eventType }}</span>
+                    </td>
+
+                    <!-- Target Service -->
+                    <td class="col-target">{{ log.target }}</td>
+
+                    <!-- Protocol Indicator -->
+                    <td><span class="table-proto-badge">{{ log.protocol }}</span></td>
+
+                    <!-- Client IP & Geographic Location -->
+                    <td class="col-ip">
+                      <div class="ip-geo-wrap">
+                        <span class="ip-addr">{{ log.clientIp }}</span>
+                        <span class="ip-loc">📍 {{ log.location }}</span>
+                      </div>
+                    </td>
+
+                    <!-- Event Status -->
+                    <td>
+                      <span
+                        class="badge"
+                        [class.badge-success]="log.status === 'success'"
+                        [class.badge-orange]="log.status === 'challenge'"
+                        [class.badge-danger]="log.status === 'blocked'"
+                      >
+                        {{ log.status === 'success' ? '● SUCCESS' : log.status === 'challenge' ? '▲ CHALLENGE' : '✖ BLOCKED' }}
                       </span>
+                    </td>
+
+                    <!-- Threat Indicator Highlight -->
+                    <td>
+                      <div *ngIf="log.threatIndicator" class="threat-flag-pill" [class.threat-critical]="log.threatIndicator.alertLevel === 'CRITICAL'">
+                        <span class="threat-icon">⚠️</span>
+                        <span class="threat-text">{{ log.threatIndicator.anomalyType }}</span>
+                      </div>
+                      <span *ngIf="!log.threatIndicator" class="text-dimmed">—</span>
+                    </td>
+
+                    <!-- Forensics Inspect Button -->
+                    <td style="text-align: center;">
+                      <button
+                        type="button"
+                        class="btn-inspect-action"
+                        (click)="$event.stopPropagation(); inspectEvent(log)"
+                        title="Inspect JSON Payload & Forensics"
+                      >
+                        <span>JSON</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inspect-icon">
+                          <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                      </button>
                     </td>
                   </tr>
+
+                  <!-- Empty State Cell -->
                   <tr *ngIf="filteredAuditEvents().length === 0">
-                    <td colspan="8" class="empty-state-cell">
+                    <td colspan="10" class="empty-state-cell">
                       <div class="empty-state-wrap">
-                        <span class="empty-icon">📋</span>
-                        <h4 class="empty-title">No security audit events recorded</h4>
-                        <p class="empty-desc">No authentication, access control, or administrative events have been logged yet or match the active filters.</p>
+                        <span class="empty-icon">🔍</span>
+                        <h4 class="empty-title">No matching security audit events</h4>
+                        <p class="empty-desc">No events match your active search query, event type, severity, or date range filters.</p>
+                        <button type="button" class="cat-pill active mt-3" (click)="resetAuditFilters()">
+                          Reset All Filters
+                        </button>
                       </div>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
+
+            <!-- Table Pagination Bar -->
+            <div class="audit-pagination-bar" *ngIf="filteredAuditEvents().length > 0">
+              <div class="pagination-summary">
+                Showing
+                <strong>{{ ((auditCurrentPage() - 1) * auditPageSize()) + 1 }}</strong>
+                to
+                <strong>{{ Math.min(auditCurrentPage() * auditPageSize(), filteredAuditEvents().length) }}</strong>
+                of
+                <strong>{{ filteredAuditEvents().length }}</strong>
+                recorded events
+              </div>
+
+              <div class="pagination-controls">
+                <div class="page-size-selector">
+                  <label>Show:</label>
+                  <select
+                    [ngModel]="auditPageSize()"
+                    (ngModelChange)="setAuditPageSize($event)"
+                    class="page-size-select"
+                  >
+                    <option [ngValue]="10">10 / page</option>
+                    <option [ngValue]="25">25 / page</option>
+                    <option [ngValue]="50">50 / page</option>
+                  </select>
+                </div>
+
+                <div class="page-nav-buttons">
+                  <button
+                    type="button"
+                    class="page-btn"
+                    [disabled]="auditCurrentPage() <= 1"
+                    (click)="setAuditPage(1)"
+                    title="First Page"
+                  >
+                    «
+                  </button>
+                  <button
+                    type="button"
+                    class="page-btn"
+                    [disabled]="auditCurrentPage() <= 1"
+                    (click)="setAuditPage(auditCurrentPage() - 1)"
+                    title="Previous Page"
+                  >
+                    ‹
+                  </button>
+
+                  <button
+                    type="button"
+                    *ngFor="let p of getPaginationRange()"
+                    class="page-btn page-num-btn"
+                    [class.active]="p === auditCurrentPage()"
+                    (click)="setAuditPage(p)"
+                  >
+                    {{ p }}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="page-btn"
+                    [disabled]="auditCurrentPage() >= auditTotalPages()"
+                    (click)="setAuditPage(auditCurrentPage() + 1)"
+                    title="Next Page"
+                  >
+                    ›
+                  </button>
+                  <button
+                    type="button"
+                    class="page-btn"
+                    [disabled]="auditCurrentPage() >= auditTotalPages()"
+                    (click)="setAuditPage(auditTotalPages())"
+                    title="Last Page"
+                  >
+                    »
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+
+          <!-- ====================================================================
+               SLIDE-OUT JSON PAYLOAD INSPECTOR DRAWER
+               ==================================================================== -->
+          <div class="drawer-backdrop" *ngIf="showAuditInspector()" (click)="closeInspector()"></div>
+
+          <aside class="inspector-drawer" *ngIf="showAuditInspector() && selectedAuditEvent()">
+            <div class="drawer-header">
+              <div class="drawer-header-left">
+                <div class="drawer-badge-row">
+                  <span
+                    class="sev-chip"
+                    [class.sev-info]="selectedAuditEvent()!.severity === 'INFO'"
+                    [class.sev-warn]="selectedAuditEvent()!.severity === 'WARN'"
+                    [class.sev-alert]="selectedAuditEvent()!.severity === 'SECURITY_ALERT'"
+                  >
+                    {{ selectedAuditEvent()!.severity }}
+                  </span>
+                  <span class="request-id-badge">
+                    <code>{{ selectedAuditEvent()!.requestId }}</code>
+                  </span>
+                </div>
+                <h3 class="drawer-title">{{ selectedAuditEvent()!.eventType }}</h3>
+                <p class="drawer-subtitle">{{ selectedAuditEvent()!.target }}</p>
+              </div>
+
+              <button type="button" class="drawer-close-btn" (click)="closeInspector()" title="Close Inspector (Esc)">
+                ✕
+              </button>
+            </div>
+
+            <div class="drawer-body">
+              <!-- Threat Anomaly Callout Box if flagged -->
+              <div class="anomaly-callout-card" *ngIf="selectedAuditEvent()!.threatIndicator">
+                <div class="callout-header">
+                  <span class="callout-icon">🚨</span>
+                  <strong>ANOMALY DETECTED: {{ selectedAuditEvent()!.threatIndicator!.anomalyType }}</strong>
+                  <span class="alert-level-tag">{{ selectedAuditEvent()!.threatIndicator!.alertLevel }} PRIORITY</span>
+                </div>
+                <p class="callout-desc">{{ selectedAuditEvent()!.threatIndicator!.description }}</p>
+              </div>
+
+              <!-- Forensics Metadata Card -->
+              <div class="drawer-card">
+                <h4 class="drawer-card-title">Event Forensics & Telemetry</h4>
+                <div class="telemetry-grid">
+                  <div class="telemetry-item">
+                    <span class="item-label">Actor Identity</span>
+                    <span class="item-value font-mono">{{ selectedAuditEvent()!.actor }}</span>
+                  </div>
+                  <div class="telemetry-item">
+                    <span class="item-label">Protocol</span>
+                    <span class="item-value">{{ selectedAuditEvent()!.protocol }}</span>
+                  </div>
+                  <div class="telemetry-item">
+                    <span class="item-label">Client IP Address</span>
+                    <span class="item-value font-mono">{{ selectedAuditEvent()!.clientIp }}</span>
+                  </div>
+                  <div class="telemetry-item">
+                    <span class="item-label">Geo-Location</span>
+                    <span class="item-value">📍 {{ selectedAuditEvent()!.location }}</span>
+                  </div>
+                  <div class="telemetry-item">
+                    <span class="item-label">Client Device</span>
+                    <span class="item-value">{{ selectedAuditEvent()!.device }}</span>
+                  </div>
+                  <div class="telemetry-item">
+                    <span class="item-label">TLS Cipher Suite</span>
+                    <span class="item-value font-mono">{{ selectedAuditEvent()!.tlsCipher || '—' }}</span>
+                  </div>
+                  <div class="telemetry-item">
+                    <span class="item-label">Local Timestamp</span>
+                    <span class="item-value">{{ selectedAuditEvent()!.timestamp }}</span>
+                  </div>
+                  <div class="telemetry-item">
+                    <span class="item-label">ISO UTC Timestamp</span>
+                    <span class="item-value font-mono">{{ selectedAuditEvent()!.isoTimestamp || selectedAuditEvent()!.timestamp }}</span>
+                  </div>
+                </div>
+
+                <div class="user-agent-box" *ngIf="selectedAuditEvent()!.userAgent">
+                  <span class="item-label">User-Agent Header:</span>
+                  <code class="ua-string">{{ selectedAuditEvent()!.userAgent }}</code>
+                </div>
+              </div>
+
+              <!-- Interactive Raw JSON Payload Inspector -->
+              <div class="drawer-card">
+                <div class="json-header-bar">
+                  <h4 class="drawer-card-title mb-0">Raw Audit Event JSON Payload</h4>
+                  <button
+                    type="button"
+                    class="btn-copy-json"
+                    (click)="copyEventJson(selectedAuditEvent()!)"
+                    [class.copied]="copiedPayload()"
+                  >
+                    <svg *ngIf="!copiedPayload()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="copy-icon">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <svg *ngIf="copiedPayload()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="copy-icon">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>{{ copiedPayload() ? 'Copied Payload!' : 'Copy JSON' }}</span>
+                  </button>
+                </div>
+
+                <div class="json-viewer-wrap">
+                  <pre class="json-pre"><code class="json-code">{{ formatJson(selectedAuditEvent()!) }}</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="drawer-footer">
+              <button type="button" class="btn-secondary-action" (click)="closeInspector()">
+                Close Inspector
+              </button>
+            </div>
+          </aside>
         </section>
 
         <!-- ==================================================================

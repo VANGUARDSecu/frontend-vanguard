@@ -3,6 +3,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { Component } from '@angular/core';
+import { of } from 'rxjs';
+import { vi } from 'vitest';
 import { DashboardComponent } from './dashboard.component';
 import { AuthService } from '../../services/auth.service';
 
@@ -53,7 +55,16 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     expect(names).toContain('Cloud RADIUS Gateway');
   });
 
-  it('should toggle view mode between admin and user', () => {
+  it('should toggle view mode between admin and user for admin user', () => {
+    authService.currentUser.set({
+      id: 'adm-1',
+      email: 'admin@vanguard.io',
+      firstName: 'Super',
+      lastName: 'Admin',
+      companyName: 'Vanguard',
+      role: 'admin',
+    });
+
     component.toggleViewMode('user');
     expect(component.viewMode()).toBe('user');
     expect(component.activeTab()).toBe('my-apps');
@@ -61,6 +72,20 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     component.toggleViewMode('admin');
     expect(component.viewMode()).toBe('admin');
     expect(component.activeTab()).toBe('overview');
+  });
+
+  it('should prevent non-admin directory user from switching to admin console (SCRUM-38)', () => {
+    authService.currentUser.set({
+      id: 'usr-1',
+      email: 'employee@vanguard.io',
+      firstName: 'Standard',
+      lastName: 'Employee',
+      companyName: 'Vanguard',
+      role: 'user',
+    });
+
+    component.toggleViewMode('admin');
+    expect(component.viewMode()).toBe('user');
   });
 
   it('should trigger session revocation feedback', () => {
@@ -259,6 +284,120 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     expect(component.showInviteModal()).toBe(false);
   });
 
+  it('should prevent duplicate user creation when active email already exists (SCRUM-40)', () => {
+    let existingActive = component.directoryUsers().find((u) => u.accountStatus === 'Active');
+    if (!existingActive) {
+      existingActive = {
+        id: 'usr-active-test',
+        name: 'Active User',
+        email: 'active.user@vanguard.security',
+        department: 'Engineering',
+        role: 'Security Analyst',
+        mfaStatus: 'Email OTP Only',
+        accountStatus: 'Active',
+        lastLogin: 'Just now',
+        initials: 'AU',
+      };
+      component.directoryUsers.update((users) => [existingActive!, ...users]);
+    }
+    expect(existingActive).toBeDefined();
+
+    component.openInviteModal();
+    component.inviteFirstName = 'Duplicate';
+    component.inviteLastName = 'Active';
+    component.inviteEmail = existingActive!.email;
+    component.submitInviteUser();
+
+    expect(component.inviteError()).toContain('An active employee account already exists');
+    expect(component.existingPendingUser()).toBeNull();
+  });
+
+  it('should detect duplicate pending invitation and allow 1-click renewal (SCRUM-40)', () => {
+    vi.spyOn(authService, 'sendInviteEmail').mockReturnValue(
+      of({ success: true, message: 'Invitation resent' })
+    );
+
+    // First invite creates a pending user
+    component.openInviteModal();
+    component.inviteFirstName = 'Pending';
+    component.inviteLastName = 'Person';
+    component.inviteEmail = 'pending.person@vanguard.security';
+    component.submitInviteUser();
+    expect(component.inviteSuccess()).toBe(true);
+    const initialUsersCount = component.directoryUsers().length;
+
+    // Reset modal fields and try to invite same email again
+    component.openInviteModal();
+    component.inviteFirstName = 'Pending';
+    component.inviteLastName = 'Person';
+    component.inviteEmail = 'pending.person@vanguard.security';
+    component.submitInviteUser();
+
+    expect(component.inviteError()).toContain('already pending');
+    expect(component.existingPendingUser()).not.toBeNull();
+    expect(component.existingPendingUser()?.email).toBe('pending.person@vanguard.security');
+
+    // Perform 1-click renewal
+    component.renewExistingPendingUser();
+    expect(component.showInviteModal()).toBe(false);
+    expect(component.directoryUsers().length).toBe(initialUsersCount); // No duplicate rows!
+    const renewed = component.directoryUsers().find((u) => u.email === 'pending.person@vanguard.security');
+    expect(renewed?.accountStatus).toBe('Pending');
+    expect(renewed?.expiresAt).toBeDefined();
+    expect(renewed?.lastLogin).toContain('Invite resent');
+  });
+
+  it('should resend invitation with fresh temporary password and renewed 48h expiration (SCRUM-40)', () => {
+    const sendSpy = vi.spyOn(authService, 'sendInviteEmail').mockReturnValue(
+      of({ success: true, message: 'Invite dispatched' })
+    );
+
+    const pendingUser = component.directoryUsers().find((u) => u.accountStatus === 'Pending') || {
+      id: 'usr-test-pending',
+      name: 'Test Expired User',
+      email: 'expired.user@vanguard.security',
+      department: 'Engineering',
+      role: 'Security Analyst',
+      mfaStatus: 'Email OTP Only' as const,
+      accountStatus: 'Expired' as const,
+      lastLogin: 'Never',
+      initials: 'TE',
+      temporaryPassword: 'OldPassword123!',
+      invitedAt: new Date(Date.now() - 50 * 3600 * 1000).toISOString(),
+      expiresAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    };
+
+    if (!component.directoryUsers().some((u) => u.id === pendingUser.id)) {
+      component.directoryUsers.update((users) => [pendingUser, ...users]);
+    }
+
+    const oldPassword = pendingUser.temporaryPassword;
+    component.resendInvitation(pendingUser);
+
+    expect(sendSpy).toHaveBeenCalled();
+    const updated = component.directoryUsers().find((u) => u.id === pendingUser.id);
+    expect(updated).toBeDefined();
+    expect(updated?.accountStatus).toBe('Pending');
+    expect(updated?.temporaryPassword).not.toBe(oldPassword);
+    expect(new Date(updated!.expiresAt!).getTime()).toBeGreaterThan(Date.now());
+    expect(component.adminActionNotice()).toContain('Invitation successfully re-sent');
+  });
+
+  it('should format invite expiry text correctly (SCRUM-40)', () => {
+    const now = Date.now();
+    const futureUser: any = {
+      expiresAt: new Date(now + 40 * 3600 * 1000).toISOString(),
+    };
+    const expiredUser: any = {
+      expiresAt: new Date(now - 1000).toISOString(),
+    };
+    const noExpiryUser: any = {};
+
+    expect(component.getInviteExpiryText(futureUser)).toContain('Expires in');
+    expect(component.getInviteExpiryText(expiredUser)).toBe('Expired');
+    expect(component.getInviteExpiryText(noExpiryUser)).toBe('Expires in 48h');
+  });
+
   it('should manage audit events and support status and protocol filtering', () => {
     component.dashboardService.logAuditEvent('Test Auth', 'Corporate-WiFi', 'RADIUS (1812)', 'challenge', 'Medium');
     component.dashboardService.logAuditEvent('Web Login', 'Portal', 'Web Portal', 'success', 'Low');
@@ -281,7 +420,92 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     component.auditSearchQuery.set('');
   });
 
-  it('should trigger audit log CSV export without error', () => {
+  it('should filter audit events by event type and severity (SCRUM-26)', () => {
+    component.dashboardService.logAuditEvent('Test Auth', 'Corporate-WiFi', 'RADIUS (1812)', 'success', 'Low', {
+      eventType: 'RADIUS_AUTH',
+      severity: 'INFO',
+    });
+    component.dashboardService.logAuditEvent('Brute force alert', 'Directory Gateway', 'Web Portal', 'blocked', 'High', {
+      eventType: 'SSO_LOGIN',
+      severity: 'SECURITY_ALERT',
+    });
+
+    component.setAuditEventType('RADIUS_AUTH');
+    expect(component.auditEventTypeFilter()).toBe('RADIUS_AUTH');
+    expect(component.filteredAuditEvents().every((e) => e.eventType === 'RADIUS_AUTH')).toBe(true);
+
+    component.setAuditEventType('all');
+    component.setAuditSeverity('SECURITY_ALERT');
+    expect(component.auditSeverityFilter()).toBe('SECURITY_ALERT');
+    expect(component.filteredAuditEvents().every((e) => e.severity === 'SECURITY_ALERT')).toBe(true);
+
+    component.resetAuditFilters();
+    expect(component.auditEventTypeFilter()).toBe('all');
+    expect(component.auditSeverityFilter()).toBe('all');
+    expect(component.auditStatusFilter()).toBe('all');
+    expect(component.auditProtocolFilter()).toBe('all');
+  });
+
+  it('should filter audit events by anomalies only and date range (SCRUM-26)', () => {
+    component.dashboardService.logAuditEvent('Test Auth', 'Corporate-WiFi', 'RADIUS (1812)', 'success', 'Low');
+    component.dashboardService.logAuditEvent('Brute force alert', 'Directory Gateway', 'Web Portal', 'blocked', 'High', {
+      threatIndicator: {
+        anomalyType: 'FAILED_LOGIN_BURST',
+        description: 'Rapid attempt bursts',
+        alertLevel: 'HIGH',
+      },
+    });
+
+    component.toggleAuditThreatsOnly();
+    expect(component.auditThreatsOnlyFilter()).toBe(true);
+    expect(component.filteredAuditEvents().every((e) => !!e.threatIndicator)).toBe(true);
+    expect(component.filteredAuditEvents().length).toBe(1);
+
+    component.toggleAuditThreatsOnly();
+    expect(component.auditThreatsOnlyFilter()).toBe(false);
+
+    component.setAuditDateRange('24h');
+    expect(component.auditDateRangeFilter()).toBe('24h');
+    expect(component.filteredAuditEvents().length).toBe(2);
+
+    component.resetAuditFilters();
+  });
+
+  it('should open and close audit inspector drawer with full forensics (SCRUM-26)', () => {
+    component.dashboardService.logAuditEvent('Test Auth', 'Corporate-WiFi', 'RADIUS (1812)', 'success', 'Low');
+    const events = component.tenantAuditEvents();
+    expect(events.length).toBeGreaterThan(0);
+
+    const targetEvt = events[0];
+    component.openAuditInspector(targetEvt);
+    expect(component.showAuditInspector()).toBe(true);
+    expect(component.selectedAuditEvent()?.id).toBe(targetEvt.id);
+    expect(component.selectedAuditEvent()?.requestId).toBeTruthy();
+
+    component.closeAuditInspector();
+    expect(component.showAuditInspector()).toBe(false);
+  });
+
+  it('should handle pagination controls and page sizing (SCRUM-26)', () => {
+    for (let i = 0; i < 7; i++) {
+      component.dashboardService.logAuditEvent(`Event ${i}`, 'Gateway', 'Web Portal', 'success', 'Low');
+    }
+    component.resetAuditFilters();
+    component.setAuditPageSize(5);
+    expect(component.auditPageSize()).toBe(5);
+    expect(component.paginatedAuditEvents().length).toBeLessThanOrEqual(5);
+
+    const totalPages = component.auditTotalPages();
+    expect(totalPages).toBeGreaterThanOrEqual(1);
+
+    component.setAuditPage(2);
+    expect(component.auditCurrentPage()).toBe(Math.min(2, totalPages));
+
+    component.setAuditPageSize(10);
+    expect(component.auditCurrentPage()).toBe(1);
+  });
+
+  it('should trigger audit log CSV export with enhanced columns without error (SCRUM-26)', () => {
     expect(() => component.exportAuditLogs()).not.toThrow();
     expect(component.adminActionNotice()).toContain('exported successfully');
   });
@@ -647,6 +871,111 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
   });
 
   // ==========================================
+  // SCRUM-23: Cloud RADIUS Client & Network Access Point Manager Tests
+  // ==========================================
+  it('should validate IPv4 address and CIDR subnet syntax for RADIUS clients', () => {
+    component.openAddRadiusApModal();
+    component.newRadiusApName = 'Branch AP';
+    component.newRadiusApIp = 'invalid-subnet-ip';
+    component.submitAddRadiusAp();
+
+    expect(component.addRadiusApError()).toContain('Invalid IPv4 address or CIDR subnet');
+
+    // Valid CIDR notation
+    component.newRadiusApIp = '192.168.1.0/24';
+    component.submitAddRadiusAp();
+    expect(component.addRadiusApSuccess()).toBe(true);
+    expect(component.radiusAccessPoints().some(ap => ap.ipAddress === '192.168.1.0/24')).toBe(true);
+  });
+
+  it('should generate high-entropy cryptographic secrets and allow reveal and copy', () => {
+    component.openAddRadiusApModal();
+    expect(component.newRadiusApSecret().length).toBeGreaterThanOrEqual(24);
+    expect(component.newRadiusApSecretRevealed()).toBe(false);
+
+    component.toggleNewRadiusSecretRevealed();
+    expect(component.newRadiusApSecretRevealed()).toBe(true);
+
+    const firstSecret = component.newRadiusApSecret();
+    component.regenerateNewRadiusClientSecret();
+    expect(component.newRadiusApSecret()).not.toBe(firstSecret);
+    expect(component.newRadiusApSecret().length).toBe(24);
+
+    expect(() => component.copyNewRadiusSecret()).not.toThrow();
+  });
+
+  it('should support editing RADIUS client details and rotating per-client secret', () => {
+    component.openAddRadiusApModal();
+    component.newRadiusApName = 'Main HQ Wi-Fi - UniFi AP';
+    component.newRadiusApType = 'Ubiquiti UniFi AP';
+    component.newRadiusApIp = '192.168.1.50';
+    component.newRadiusApDesc = 'Executive Floor Array';
+    component.newRadiusApProtocol = 'PEAP-MSCHAPv2';
+    component.submitAddRadiusAp();
+
+    const client = component.radiusAccessPoints().find(a => a.name === 'Main HQ Wi-Fi - UniFi AP');
+    expect(client).toBeTruthy();
+    expect(client?.description).toBe('Executive Floor Array');
+    expect(client?.authProtocol).toBe('PEAP-MSCHAPv2');
+
+    // Per-client secret reveal toggle
+    expect(client?.secretRevealed).toBeFalsy();
+    component.toggleRadiusClientSecretRevealed(client!.id);
+    const revealedClient = component.radiusAccessPoints().find(a => a.id === client!.id);
+    expect(revealedClient?.secretRevealed).toBe(true);
+
+    // Per-client secret rotation
+    const originalSecret = revealedClient!.sharedSecret;
+    component.rotateRadiusClientSecret(client!.id);
+    const rotatedClient = component.radiusAccessPoints().find(a => a.id === client!.id);
+    expect(rotatedClient?.sharedSecret).not.toBe(originalSecret);
+    expect(rotatedClient?.sharedSecret.length).toBe(24);
+
+    // Edit client
+    component.openEditRadiusApModal(rotatedClient!);
+    expect(component.editingRadiusApId).toBe(rotatedClient!.id);
+    expect(component.newRadiusApName).toBe('Main HQ Wi-Fi - UniFi AP');
+    component.newRadiusApName = 'Updated HQ Wi-Fi - UniFi AP 6';
+    component.submitAddRadiusAp();
+    const updatedClient = component.radiusAccessPoints().find(a => a.id === client!.id);
+    expect(updatedClient?.name).toBe('Updated HQ Wi-Fi - UniFi AP 6');
+
+    expect(() => component.copyRadiusClientSecret(updatedClient!.sharedSecret)).not.toThrow();
+  });
+
+  it('should manage recent 802.1X authentication activity stream and filtering', () => {
+    const initialEvents = component.radiusAuthActivity();
+    expect(initialEvents.length).toBeGreaterThanOrEqual(4);
+    expect(initialEvents[0].clientMac).toMatch(/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i);
+
+    // Simulate Access-Accept event
+    const prevCount = component.radiusAuthActivity().length;
+    component.simulateRadiusAuth(true);
+    expect(component.radiusAuthActivity().length).toBe(prevCount + 1);
+    const latestAccept = component.radiusAuthActivity()[0];
+    expect(latestAccept.status).toBe('Access-Accept');
+    expect(latestAccept.vlanId).toBeDefined();
+
+    // Simulate Access-Reject event
+    component.simulateRadiusAuth(false);
+    const latestReject = component.radiusAuthActivity()[0];
+    expect(latestReject.status).toBe('Access-Reject');
+    expect(latestReject.vlanId).toBeUndefined();
+
+    // Filter by Access-Accept
+    component.setRadiusActivityFilter('Access-Accept');
+    expect(component.filteredRadiusActivity().every(e => e.status === 'Access-Accept')).toBe(true);
+
+    // Filter by Access-Reject
+    component.setRadiusActivityFilter('Access-Reject');
+    expect(component.filteredRadiusActivity().every(e => e.status === 'Access-Reject')).toBe(true);
+
+    // Reset filter to all
+    component.setRadiusActivityFilter('all');
+    expect(component.filteredRadiusActivity().length).toBe(component.radiusAuthActivity().length);
+  });
+
+  // ==========================================
   // PHASE 6: Mobile Companion App & Biometrics Tests
   // ==========================================
   it('should initialize with personal and fleet devices and mobile security policies', () => {
@@ -721,4 +1050,435 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     component.updateMobilePolicy('enforceBiometrics', false);
     expect(component.mobilePolicy().enforceBiometrics).toBe(false);
   });
+
+  // ==========================================
+  // SCRUM-22: SAML 2.0 & OIDC Application Integration Wizard Tests
+  // ==========================================
+  describe('SCRUM-22: Application Integration Wizard & State Management', () => {
+    it('should initialize with pre-configured app catalog templates', () => {
+      const templates = component.dashboardService.appCatalogTemplates;
+      expect(templates.length).toBeGreaterThanOrEqual(7);
+      const ids = templates.map((t) => t.id);
+      expect(ids).toContain('aws-iam');
+      expect(ids).toContain('google-workspace');
+      expect(ids).toContain('salesforce');
+      expect(ids).toContain('github-enterprise');
+      expect(ids).toContain('slack');
+      expect(ids).toContain('custom-saml');
+      expect(ids).toContain('custom-oidc');
+    });
+
+    it('should filter catalog templates by search query and protocol filter', () => {
+      component.dashboardService.wizardCatalogSearch = 'aws';
+      expect(component.dashboardService.filteredCatalogTemplates().length).toBe(1);
+      expect(component.dashboardService.filteredCatalogTemplates()[0].id).toBe('aws-iam');
+
+      component.dashboardService.wizardCatalogSearch = '';
+      component.dashboardService.wizardCatalogFilter.set('OIDC');
+      const oidcTemplates = component.dashboardService.filteredCatalogTemplates();
+      expect(oidcTemplates.every((t) => t.protocol === 'OIDC')).toBe(true);
+
+      component.dashboardService.wizardCatalogFilter.set('all');
+      expect(component.dashboardService.filteredCatalogTemplates().length).toBe(
+        component.dashboardService.appCatalogTemplates.length
+      );
+    });
+
+    it('should select a catalog template and advance to step 2 with presets filled', () => {
+      component.dashboardService.openAddAppModal();
+      expect(component.dashboardService.wizardStep()).toBe(1);
+
+      const awsTpl = component.dashboardService.appCatalogTemplates.find((t) => t.id === 'aws-iam')!;
+      component.dashboardService.selectCatalogTemplate(awsTpl);
+
+      expect(component.dashboardService.wizardStep()).toBe(2);
+      expect(component.dashboardService.wizardSelectedTemplate()?.id).toBe('aws-iam');
+      expect(component.dashboardService.newAppName).toBe('AWS IAM Identity Center');
+      expect(component.dashboardService.newAppProtocol).toBe('SAML 2.0');
+      expect(component.dashboardService.newAppEntityId).toBe('https://signin.aws.amazon.com/saml');
+      expect(component.dashboardService.newAppAcsUrl).toBe('https://signin.aws.amazon.com/saml');
+      expect(component.dashboardService.wizardAttributeStatements().length).toBe(2);
+    });
+
+    it('should manage interactive attribute statements mapping rows', () => {
+      component.dashboardService.openAddAppModal();
+      component.dashboardService.addAttributeStatementRow('department', 'urn:oid:department');
+      const statements = component.dashboardService.wizardAttributeStatements();
+      expect(statements.some((s) => s.samlClaim === 'urn:oid:department')).toBe(true);
+
+      const idx = statements.findIndex((s) => s.samlClaim === 'urn:oid:department');
+      component.dashboardService.updateAttributeStatement(idx, 'samlClaim', 'custom:dept');
+      expect(component.dashboardService.wizardAttributeStatements()[idx].samlClaim).toBe('custom:dept');
+
+      component.dashboardService.removeAttributeStatementRow(idx);
+      expect(component.dashboardService.wizardAttributeStatements().some((s) => s.samlClaim === 'custom:dept')).toBe(false);
+    });
+
+    it('should manage OIDC client credentials, tag chips for redirect URIs, grant types, and scopes', () => {
+      component.dashboardService.openAddAppModal();
+      const oidcTpl = component.dashboardService.appCatalogTemplates.find((t) => t.id === 'custom-oidc')!;
+      component.dashboardService.selectCatalogTemplate(oidcTpl);
+
+      expect(component.dashboardService.newAppProtocol).toBe('OIDC');
+      expect(component.dashboardService.wizardClientId()).toContain('vg_client_');
+      expect(component.dashboardService.wizardClientSecret()).toContain('vg_sec_');
+
+      // Chip additions and removals
+      component.dashboardService.wizardNewRedirectUriInput = 'https://myapp.io/callback';
+      component.dashboardService.addRedirectUriChip();
+      expect(component.dashboardService.wizardRedirectUris()).toContain('https://myapp.io/callback');
+
+      const chipIdx = component.dashboardService.wizardRedirectUris().indexOf('https://myapp.io/callback');
+      component.dashboardService.removeRedirectUriChip(chipIdx);
+      expect(component.dashboardService.wizardRedirectUris()).not.toContain('https://myapp.io/callback');
+
+      // Grant types & scopes toggles
+      expect(component.dashboardService.wizardGrantTypes()).not.toContain('client_credentials');
+      component.dashboardService.toggleWizardGrantType('client_credentials');
+      expect(component.dashboardService.wizardGrantTypes()).toContain('client_credentials');
+
+      // 'groups' is present in custom-oidc defaultScopes; toggle off then on
+      expect(component.dashboardService.wizardScopes()).toContain('groups');
+      component.dashboardService.toggleWizardScope('groups');
+      expect(component.dashboardService.wizardScopes()).not.toContain('groups');
+      component.dashboardService.toggleWizardScope('groups');
+      expect(component.dashboardService.wizardScopes()).toContain('groups');
+    });
+
+    it('should enforce client-side validation when stepping through wizard', () => {
+      component.dashboardService.openAddAppModal();
+      component.dashboardService.wizardStep.set(2);
+      component.dashboardService.newAppName = '';
+      component.dashboardService.setWizardStep(3);
+      expect(component.dashboardService.addAppError()).toContain('Application Name is required');
+
+      component.dashboardService.newAppName = 'Custom App';
+      component.dashboardService.newAppProtocol = 'SAML 2.0';
+      component.dashboardService.newAppEntityId = '';
+      component.dashboardService.setWizardStep(3);
+      expect(component.dashboardService.addAppError()).toContain('Entity ID / Audience URI is required');
+
+      component.dashboardService.newAppEntityId = 'https://entity.id';
+      component.dashboardService.newAppAcsUrl = 'not-a-url';
+      component.dashboardService.setWizardStep(3);
+      expect(component.dashboardService.addAppError()).toContain('valid HTTP or HTTPS');
+    });
+
+    it('should support addApp(), updateApp(), and deleteApp() reactive actions', () => {
+      const initialSamlCount = component.dashboardService.federatedSamlConnectors().length;
+      const initialAppsCount = component.dashboardService.apps().length;
+
+      // addApp reactive action
+      component.dashboardService.addApp({
+        id: 'test-app-1',
+        name: 'Datadog Cloud Monitoring',
+        protocol: 'SAML 2.0',
+        entityId: 'https://datadog.com/sp',
+        acsUrl: 'https://app.datadoghq.com/sso/saml',
+        assignedGroups: ['Engineering'],
+      });
+
+      expect(component.dashboardService.federatedSamlConnectors().length).toBe(initialSamlCount + 1);
+      expect(component.dashboardService.apps().length).toBe(initialAppsCount + 1);
+      const app = component.dashboardService.federatedSamlConnectors().find((c) => c.id === 'test-app-1');
+      expect(app?.name).toBe('Datadog Cloud Monitoring');
+
+      // updateApp reactive action
+      component.dashboardService.updateApp('test-app-1', { name: 'Datadog Enterprise' });
+      const updatedApp = component.dashboardService.federatedSamlConnectors().find((c) => c.id === 'test-app-1');
+      expect(updatedApp?.name).toBe('Datadog Enterprise');
+
+      // deleteApp reactive action
+      component.dashboardService.deleteApp('test-app-1');
+      expect(component.dashboardService.federatedSamlConnectors().some((c) => c.id === 'test-app-1')).toBe(false);
+      expect(component.dashboardService.apps().some((a) => a.id === 'test-app-1')).toBe(false);
+    });
+  });
+
+  describe('SCRUM-24: Cloud LDAP Configuration & Bind Verification Console', () => {
+    it('should expose connection configuration parameters and trigger 1-click copy notice', () => {
+      expect(component.ldapServerHost()).toBe('ldap.vanguardsecurity.io');
+      expect(component.ldapPortLdaps()).toBe(636);
+      expect(component.ldapPortStartTls()).toBe(389);
+      expect(component.ldapBaseDn()).toBe('dc=vanguard,dc=security');
+      expect(component.ldapOrgDn()).toBe('o=Vanguard Security Enterprise,dc=vanguard,dc=security');
+      expect(component.ldapUsersOu()).toBe('ou=Users,dc=vanguard,dc=security');
+      expect(component.ldapGroupsOu()).toBe('ou=Groups,dc=vanguard,dc=security');
+      expect(component.ldapServicesOu()).toBe('ou=services,dc=vanguard,dc=security');
+
+      // Test copy parameter
+      component.copyLdapParam(component.ldapServerHost(), 'Server Host');
+      expect(component.copiedLdapParamNotice()).toContain('Server Host copied to clipboard');
+
+      // Test CA Cert download
+      expect(component.ldapCaCertPem()).toContain('-----BEGIN CERTIFICATE-----');
+      expect(component.ldapCaCertPem()).toContain('-----END CERTIFICATE-----');
+      expect(() => component.downloadLdapCaCert()).not.toThrow();
+    });
+
+    it('should manage Service Account Bind Credentials lifecycle', () => {
+      const initialCount = component.ldapServiceAccounts().length;
+      expect(initialCount).toBeGreaterThan(0);
+
+      // Open Modal
+      component.openAddServiceAccountModal();
+      expect(component.showAddServiceAccountModal()).toBe(true);
+      expect(component.newSvcAcctPassword().length).toBe(32);
+
+      // Validation check
+      component.newSvcAcctName = '';
+      component.newSvcAcctUid = '';
+      component.submitAddServiceAccount();
+      expect(component.addServiceAccountError()).toContain('Service Account Name and UID are required');
+
+      // Regenerate password
+      const firstPw = component.newSvcAcctPassword();
+      component.generateSvcAcctPassword();
+      const secondPw = component.newSvcAcctPassword();
+      expect(secondPw.length).toBe(32);
+      expect(secondPw).not.toBe(firstPw);
+
+      // Provision new service account
+      component.newSvcAcctName = 'QNAP TS-464 Backup Target';
+      component.newSvcAcctUid = 'svc_qnap_ts464';
+      component.newSvcAcctType = 'QNAP QTS';
+      component.newSvcAcctIpRestriction = '10.200.5.0/24';
+      component.submitAddServiceAccount();
+
+      expect(component.addServiceAccountSuccess()).toBe(true);
+      expect(component.ldapServiceAccounts().length).toBe(initialCount + 1);
+
+      const created = component.ldapServiceAccounts().find((a) => a.bindDn.includes('svc_qnap_ts464'));
+      expect(created).toBeDefined();
+      expect(created?.bindDn).toBe('uid=svc_qnap_ts464,ou=services,dc=vanguard,dc=security');
+      expect(created?.status).toBe('Active');
+
+      // Password reveal toggle
+      const initialRevealed = created?.passwordRevealed ?? false;
+      component.toggleSvcAcctPwRevealed(created!.id);
+      const afterToggle = component.ldapServiceAccounts().find((a) => a.id === created!.id);
+      expect(afterToggle?.passwordRevealed).toBe(!initialRevealed);
+
+      // Status toggle (Active -> Revoked -> Active)
+      component.toggleServiceAccountStatus(afterToggle!);
+      const revoked = component.ldapServiceAccounts().find((a) => a.id === created!.id);
+      expect(revoked?.status).toBe('Revoked');
+      component.toggleServiceAccountStatus(revoked!);
+      const reactivated = component.ldapServiceAccounts().find((a) => a.id === created!.id);
+      expect(reactivated?.status).toBe('Active');
+
+      // Delete service account
+      component.deleteServiceAccount(created!.id);
+      expect(component.ldapServiceAccounts().some((a) => a.id === created!.id)).toBe(false);
+
+      // Close modal
+      component.closeAddServiceAccountModal();
+      expect(component.showAddServiceAccountModal()).toBe(false);
+    });
+
+    it('should support presets and return code inspection in bind connectivity sandbox', () => {
+      // Load service-account preset
+      component.loadLdapDiagPreset('service-account');
+      expect(component.ldapDiagBindDn).toContain('ou=services');
+      expect(component.ldapDiagFilter).toContain('objectClass=posixAccount');
+
+      // Load invalid auth preset
+      component.loadLdapDiagPreset('invalid');
+      expect(component.ldapDiagBindDn).toContain('uid=svc_invalid');
+      expect(component.ldapDiagBindPassword).toBe('WrongPassword123!');
+
+      // Run bind test with invalid auth
+      component.runLdapBindTest();
+      expect(component.ldapDiagRunning()).toBe(true);
+
+      // Simulate async completion or check immediate test result state
+      const invalidResult = component.ldapTestResult();
+      expect(invalidResult).toBeDefined();
+      expect(invalidResult?.resultCode).toBe(49);
+      expect(invalidResult?.resultName).toBe('LDAP_INVALID_CREDENTIALS');
+      expect(invalidResult?.status).toBe('error');
+
+      // Load valid user preset and test success
+      component.loadLdapDiagPreset('user');
+      component.runLdapBindTest();
+      const validResult = component.ldapTestResult();
+      expect(validResult).toBeDefined();
+      expect(validResult?.resultCode).toBe(0);
+      expect(validResult?.resultName).toBe('LDAP_SUCCESS');
+      expect(validResult?.status).toBe('success');
+      expect(validResult?.latencyMs).toBeGreaterThan(0);
+      expect(validResult?.cipher).toContain('TLS_AES_256_GCM_SHA384');
+    });
+  });
+
+  describe('SCRUM-25: User Groups & Group-to-App Permission Matrix', () => {
+    it('should initialize default user groups with expected policy configurations', () => {
+      const groups = component.directoryGroups();
+      expect(groups.length).toBeGreaterThanOrEqual(4);
+
+      const devops = groups.find((g) => g.id === 'grp-devops');
+      expect(devops).toBeDefined();
+      expect(devops?.name).toBe('DevOps & Cloud Infrastructure');
+      expect(devops?.department).toBe('Engineering');
+      expect(devops?.appIds).toContain('aws-iam');
+      expect(devops?.policy.requireMfa).toBe(true);
+      expect(devops?.policy.mfaType).toBe('hardware_totp');
+
+      const secops = groups.find((g) => g.id === 'grp-secops');
+      expect(secops?.policy.sessionDurationHours).toBe(2);
+    });
+
+    it('should filter groups by search query (name, department, email)', () => {
+      component.dashboardService.directoryGroupSearch.set('DevOps');
+      expect(component.filteredDirectoryGroups().length).toBe(1);
+      expect(component.filteredDirectoryGroups()[0].id).toBe('grp-devops');
+
+      component.dashboardService.directoryGroupSearch.set('Security Ops');
+      expect(component.filteredDirectoryGroups().some((g) => g.id === 'grp-secops')).toBe(true);
+
+      component.dashboardService.directoryGroupSearch.set('nonexistent-query-xyz');
+      expect(component.filteredDirectoryGroups().length).toBe(0);
+
+      component.dashboardService.directoryGroupSearch.set('');
+      expect(component.filteredDirectoryGroups().length).toBe(component.directoryGroups().length);
+    });
+
+    it('should toggle directory subtabs and group modal subtabs', () => {
+      component.setDirectoryActiveSubTab('groups');
+      expect(component.directoryActiveSubTab()).toBe('groups');
+
+      component.setDirectoryActiveSubTab('users');
+      expect(component.directoryActiveSubTab()).toBe('users');
+
+      component.openCreateGroupModal();
+      expect(component.showGroupModal()).toBe(true);
+      expect(component.groupModalActiveTab()).toBe('details');
+
+      component.setGroupModalActiveTab('members');
+      expect(component.groupModalActiveTab()).toBe('members');
+
+      component.setGroupModalActiveTab('apps');
+      expect(component.groupModalActiveTab()).toBe('apps');
+
+      component.setGroupModalActiveTab('policies');
+      expect(component.groupModalActiveTab()).toBe('policies');
+
+      component.closeGroupModal();
+      expect(component.showGroupModal()).toBe(false);
+    });
+
+    it('should validate form and create a new enterprise user group', () => {
+      component.openCreateGroupModal();
+
+      // Empty validation
+      component.groupFormName = '';
+      component.saveGroup();
+      expect(component.groupFormError()).toContain('Group name is required');
+
+      component.groupFormName = 'QA & Test Automation';
+      component.groupFormEmail = 'invalid-email';
+      component.saveGroup();
+      expect(component.groupFormError()).toContain('valid group email');
+
+      const initialCount = component.directoryGroups().length;
+      component.groupFormEmail = 'qa-team@vanguard.security';
+      component.groupFormDescription = 'Quality engineers responsible for automated E2E testing.';
+      component.groupFormDepartment = 'Engineering';
+      component.toggleGroupFormApp('github');
+      component.toggleGroupFormApp('jira');
+
+      component.saveGroup();
+      expect(component.groupFormSuccess()).toBe(true);
+      expect(component.directoryGroups().length).toBe(initialCount + 1);
+
+      const created = component.directoryGroups().find((g) => g.name === 'QA & Test Automation');
+      expect(created).toBeDefined();
+      expect(created?.email).toBe('qa-team@vanguard.security');
+      expect(created?.appIds).toContain('github');
+      expect(created?.appIds).toContain('jira');
+    });
+
+    it('should edit an existing group, toggle member and app assignments, and persist updates', () => {
+      const group = component.directoryGroups()[0];
+      component.openEditGroupModal(group);
+      expect(component.editingGroup()?.id).toBe(group.id);
+      expect(component.groupFormName).toBe(group.name);
+
+      // Toggle member and app
+      component.toggleGroupFormMember('usr-test-123');
+      expect(component.groupFormMemberIds()).toContain('usr-test-123');
+      component.toggleGroupFormMember('usr-test-123');
+      expect(component.groupFormMemberIds()).not.toContain('usr-test-123');
+
+      component.toggleGroupFormApp('figma');
+      expect(component.groupFormAppIds()).toContain('figma');
+
+      // Update name and description
+      component.groupFormName = group.name + ' Updated';
+      component.groupFormDescription = 'Updated description';
+      component.saveGroup();
+
+      const updated = component.directoryGroups().find((g) => g.id === group.id);
+      expect(updated?.name).toContain('Updated');
+      expect(updated?.appIds).toContain('figma');
+    });
+
+    it('should automatically grant inherited app access to users who are members of the group', () => {
+      authService.currentUser.set({
+        id: 'usr-member-1',
+        email: 's.connor@vanguard.security',
+        firstName: 'Sarah',
+        lastName: 'Connor',
+        role: 'user',
+        companyName: 'Vanguard Security Systems',
+        phone: '+1 555 0199',
+      });
+
+      // Set test user
+      component.dashboardService.directoryUsers.set([
+        {
+          id: 'usr-member-1',
+          name: 'Sarah Connor',
+          email: 's.connor@vanguard.security',
+          department: 'Engineering',
+          role: 'Directory Member',
+          mfaStatus: 'Enrolled (TOTP)',
+          accountStatus: 'Active',
+          lastLogin: 'Today',
+          initials: 'SC',
+        },
+      ]);
+
+      // Create group containing usr-member-1 with datadog and github
+      component.openCreateGroupModal();
+      component.groupFormName = 'Site Reliability Engineering';
+      component.groupFormEmail = 'sre@vanguard.security';
+      component.toggleGroupFormMember('usr-member-1');
+      component.toggleGroupFormApp('datadog');
+      component.toggleGroupFormApp('github');
+      component.saveGroup();
+
+      // Check user groups
+      const user = component.dashboardService.directoryUsers()[0];
+      const userGroups = component.dashboardService.getUserGroups(user);
+      expect(userGroups.some((g) => g.name === 'Site Reliability Engineering')).toBe(true);
+
+      // Check that apps were inherited
+      const userApps = component.dashboardService.apps();
+      const inheritedDatadog = userApps.find((a) => a.id === 'datadog');
+      expect(inheritedDatadog).toBeDefined();
+      expect(inheritedDatadog?.inheritedViaGroup).toBe('Site Reliability Engineering');
+    });
+
+    it('should delete a group and synchronize member permissions', () => {
+      const initialCount = component.directoryGroups().length;
+      const targetGroup = component.directoryGroups()[0];
+
+      component.deleteGroup(targetGroup.id);
+      expect(component.directoryGroups().length).toBe(initialCount - 1);
+      expect(component.directoryGroups().some((g) => g.id === targetGroup.id)).toBe(false);
+    });
+  });
 });
+
+

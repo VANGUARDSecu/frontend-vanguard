@@ -17,6 +17,7 @@ import {
   VlanMapping,
   EnrolledDevice,
   MobilePolicyConfig,
+  DirectoryGroup,
 } from '../../models/dashboard.models';
 
 @Component({
@@ -45,6 +46,20 @@ export class AdminDirectory {
   readonly inviteEmailStatus = this.dashboardService.inviteEmailStatus;
   readonly inviteEmailMessage = this.dashboardService.inviteEmailMessage;
 
+  // SCRUM-25: User Groups & App Permission Matrix
+  readonly directoryActiveSubTab = this.dashboardService.directoryActiveSubTab;
+  readonly directoryGroups = this.dashboardService.directoryGroups;
+  readonly directoryGroupSearch = this.dashboardService.directoryGroupSearch;
+  readonly filteredDirectoryGroups = this.dashboardService.filteredDirectoryGroups;
+  readonly showGroupModal = this.dashboardService.showGroupModal;
+  readonly editingGroup = this.dashboardService.editingGroup;
+  readonly groupModalActiveTab = this.dashboardService.groupModalActiveTab;
+  readonly groupFormMemberIds = this.dashboardService.groupFormMemberIds;
+  readonly groupFormAppIds = this.dashboardService.groupFormAppIds;
+  readonly groupFormSuccess = this.dashboardService.groupFormSuccess;
+  readonly groupFormError = this.dashboardService.groupFormError;
+  readonly appCatalogTemplates = this.dashboardService.appCatalogTemplates;
+
   get inviteFirstName() { return this.dashboardService.inviteFirstName; }
   set inviteFirstName(v: string) { this.dashboardService.inviteFirstName = v; }
   get inviteLastName() { return this.dashboardService.inviteLastName; }
@@ -58,6 +73,27 @@ export class AdminDirectory {
   get inviteRole() { return this.dashboardService.inviteRole; }
   set inviteRole(v: any) { this.dashboardService.inviteRole = v; }
 
+  // Group Form Getters & Setters
+  get groupFormName() { return this.dashboardService.groupFormName; }
+  set groupFormName(v: string) { this.dashboardService.groupFormName = v; }
+  get groupFormDescription() { return this.dashboardService.groupFormDescription; }
+  set groupFormDescription(v: string) { this.dashboardService.groupFormDescription = v; }
+  get groupFormDepartment() { return this.dashboardService.groupFormDepartment; }
+  set groupFormDepartment(v: string) { this.dashboardService.groupFormDepartment = v; }
+  get groupFormEmail() { return this.dashboardService.groupFormEmail; }
+  set groupFormEmail(v: string) { this.dashboardService.groupFormEmail = v; }
+
+  get groupFormRequireMfa(): boolean { return this.dashboardService.groupFormRequireMfa(); }
+  set groupFormRequireMfa(v: boolean) { this.dashboardService.groupFormRequireMfa.set(v); }
+
+  get groupFormMfaType(): 'any' | 'hardware_totp' { return this.dashboardService.groupFormMfaType(); }
+  set groupFormMfaType(v: 'any' | 'hardware_totp') { this.dashboardService.groupFormMfaType.set(v); }
+
+  get groupFormSessionDuration(): number { return this.dashboardService.groupFormSessionDuration(); }
+  set groupFormSessionDuration(v: number) { this.dashboardService.groupFormSessionDuration.set(Number(v)); }
+
+  readonly existingPendingUser = this.dashboardService.existingPendingUser;
+
   setDirectoryDepartment(dept: string) { this.dashboardService.setDirectoryDepartment(dept); }
   setDirectoryStatus(status: string) { this.dashboardService.setDirectoryStatus(status); }
   suspendUser(user: DirectoryUser) { this.dashboardService.suspendUser(user); }
@@ -70,5 +106,22 @@ export class AdminDirectory {
   submitInviteUser() { this.dashboardService.submitInviteUser(); }
   generateRandomPassword() { return this.dashboardService.generateRandomPassword(); }
   copyTemporaryPassword() { this.dashboardService.copyTemporaryPassword(); }
+  resendInvitation(user: DirectoryUser) { this.dashboardService.resendInvitation(user); }
+  renewExistingPendingUser() { this.dashboardService.renewExistingPendingUser(); }
+  getInviteExpiryText(user: DirectoryUser) { return this.dashboardService.getInviteExpiryText(user); }
+
+  // Group Management Methods
+  setDirectoryActiveSubTab(tab: 'users' | 'groups') { this.dashboardService.setDirectoryActiveSubTab(tab); }
+  setGroupModalActiveTab(tab: 'details' | 'members' | 'apps' | 'policies') { this.dashboardService.setGroupModalActiveTab(tab); }
+  openCreateGroupModal() { this.dashboardService.openCreateGroupModal(); }
+  openEditGroupModal(group: DirectoryGroup) { this.dashboardService.openEditGroupModal(group); }
+  closeGroupModal() { this.dashboardService.closeGroupModal(); }
+  toggleGroupFormMember(userId: string) { this.dashboardService.toggleGroupFormMember(userId); }
+  toggleGroupFormApp(appId: string) { this.dashboardService.toggleGroupFormApp(appId); }
+  saveGroup() { this.dashboardService.saveGroup(); }
+  deleteGroup(groupId: string) { this.dashboardService.deleteGroup(groupId); }
+  getGroupMembers(group: DirectoryGroup): DirectoryUser[] { return this.dashboardService.getGroupMembers(group); }
+  getUserGroups(user: DirectoryUser): DirectoryGroup[] { return this.dashboardService.getUserGroups(user); }
+  getGroupApps(group: DirectoryGroup) { return this.dashboardService.getGroupApps(group); }
 
 }

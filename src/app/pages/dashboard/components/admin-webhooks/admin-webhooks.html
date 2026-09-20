@@ -1,0 +1,890 @@
+<section class="dash-section">
+  <!-- Section Header -->
+  <div class="section-header">
+    <div class="section-title-wrap">
+      <div class="header-badge-row">
+        <span class="cyber-badge-cyan">EVENT-DRIVEN ARCHITECTURE</span>
+        <span class="cyber-badge-purple">HMAC-SHA256 SIGNED</span>
+      </div>
+      <h2 class="section-title">Webhooks & Event API</h2>
+      <p class="section-subtitle">
+        Configure outbound real-time webhook endpoints, inspect HTTP request/response payloads, and emit synthetic test security events.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <div class="tab-pill-group">
+        <button
+          type="button"
+          class="tab-pill-btn"
+          [class.active]="activeSubTab() === 'endpoints'"
+          (click)="setSubTab('endpoints')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="pill-icon">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+          <span>Endpoints</span>
+          <span class="pill-counter">{{ webhookEndpoints().length }}</span>
+        </button>
+        <button
+          type="button"
+          class="tab-pill-btn"
+          [class.active]="activeSubTab() === 'deliveries'"
+          (click)="setSubTab('deliveries')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="pill-icon">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          <span>Delivery History</span>
+          <span class="pill-counter">{{ webhookDeliveries().length }}</span>
+        </button>
+      </div>
+
+      <button type="button" class="btn-primary-action" (click)="openCreateWebhook()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Register Webhook</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Real-Time Metrics Row -->
+  <div class="webhook-metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon-wrap icon-cyan">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Registered Endpoints</span>
+        <div class="metric-value-row">
+          <span class="metric-val">{{ webhookMetrics().totalEndpoints }}</span>
+          <span class="metric-badge green" *ngIf="webhookMetrics().activeEndpoints > 0">
+            {{ webhookMetrics().activeEndpoints }} Active
+          </span>
+          <span class="metric-badge muted" *ngIf="webhookMetrics().activeEndpoints === 0">0 Active</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-wrap icon-emerald">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Delivery Success Rate</span>
+        <div class="metric-value-row">
+          <span class="metric-val">{{ webhookMetrics().successRate }}%</span>
+          <span class="metric-badge green" *ngIf="webhookMetrics().successRate >= 95">Optimal</span>
+          <span class="metric-badge amber" *ngIf="webhookMetrics().successRate < 95 && webhookMetrics().successRate >= 80">Degraded</span>
+          <span class="metric-badge red" *ngIf="webhookMetrics().successRate < 80">Warning</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-wrap icon-purple">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Total Dispatches</span>
+        <div class="metric-value-row">
+          <span class="metric-val">{{ webhookMetrics().totalDeliveries }}</span>
+          <span class="metric-sublabel">logged events</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-wrap icon-amber">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Average Latency</span>
+        <div class="metric-value-row">
+          <span class="metric-val">{{ webhookMetrics().avgLatency }}</span>
+          <span class="metric-unit">ms</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBTAB 1: ENDPOINTS LIST -->
+  <div class="webhook-content-area" *ngIf="activeSubTab() === 'endpoints'">
+    <!-- Toolbar -->
+    <div class="webhook-toolbar">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="text"
+          placeholder="Filter by endpoint URL or description..."
+          [ngModel]="webhookSearchQuery()"
+          (ngModelChange)="webhookSearchQuery.set($event)"
+          class="cyber-input"
+        />
+      </div>
+
+      <div class="filter-controls">
+        <label class="filter-label">Filter Event:</label>
+        <select
+          class="cyber-select"
+          [ngModel]="webhookEventFilter()"
+          (ngModelChange)="webhookEventFilter.set($event)"
+        >
+          <option value="all">All Events</option>
+          <option value="user.created">user.created</option>
+          <option value="user.deleted">user.deleted</option>
+          <option value="auth.success">auth.success</option>
+          <option value="auth.failed">auth.failed</option>
+          <option value="mfa.denied">mfa.denied</option>
+          <option value="policy.violated">policy.violated</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state-card" *ngIf="filteredWebhookEndpoints().length === 0">
+      <div class="empty-icon-shield">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+        </svg>
+      </div>
+      <h3 class="empty-title">No Webhook Endpoints Configured</h3>
+      <p class="empty-desc">
+        No webhook listener endpoints match your current filter. Register your SIEM, SOAR, or logging receiver (e.g. Datadog, Slack, Splunk, Webhook.site) to stream real-time identity and security events.
+      </p>
+      <button type="button" class="btn-primary-action" (click)="openCreateWebhook()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Register First Webhook</span>
+      </button>
+    </div>
+
+    <!-- Endpoints Table -->
+    <div class="cyber-table-card" *ngIf="filteredWebhookEndpoints().length > 0">
+      <table class="cyber-table">
+        <thead>
+          <tr>
+            <th>Endpoint Destination</th>
+            <th>Subscribed Events</th>
+            <th>Signing Secret</th>
+            <th>Status</th>
+            <th>Last Dispatch</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ep of filteredWebhookEndpoints()" [class.disabled-row]="!ep.isActive">
+            <!-- URL & Description -->
+            <td class="col-destination">
+              <div class="url-wrap">
+                <span class="url-text" [title]="ep.url">{{ ep.url }}</span>
+                <span class="url-desc" *ngIf="ep.description">{{ ep.description }}</span>
+              </div>
+            </td>
+
+            <!-- Subscribed Events -->
+            <td class="col-events">
+              <div class="event-tags-wrap">
+                <span
+                  *ngFor="let evt of ep.events"
+                  class="cyber-event-badge"
+                  [ngClass]="getEventBadgeClass(evt)"
+                >
+                  {{ evt }}
+                </span>
+              </div>
+            </td>
+
+            <!-- Signing Secret with Reveal/Copy -->
+            <td class="col-secret">
+              <div class="secret-control-row">
+                <code class="secret-code">
+                  {{ isSecretRevealed(ep.id) ? ep.signingSecret : maskSecret(ep.signingSecret) }}
+                </code>
+                <button
+                  type="button"
+                  class="icon-action-btn"
+                  [title]="isSecretRevealed(ep.id) ? 'Hide Secret' : 'Reveal Secret'"
+                  (click)="toggleSecretVisibility(ep.id)"
+                >
+                  <svg *ngIf="!isSecretRevealed(ep.id)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg *ngIf="isSecretRevealed(ep.id)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="icon-action-btn"
+                  [class.copied]="copiedSecretId() === ep.id"
+                  title="Copy Signing Secret"
+                  (click)="copySecret(ep.signingSecret, ep.id)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  <span class="copy-tooltip" *ngIf="copiedSecretId() === ep.id">Copied!</span>
+                </button>
+              </div>
+            </td>
+
+            <!-- Active / Inactive Status Switch -->
+            <td class="col-status">
+              <label class="cyber-switch" [title]="ep.isActive ? 'Active - Receiving Events' : 'Disabled - Muted'">
+                <input
+                  type="checkbox"
+                  [checked]="ep.isActive"
+                  (change)="toggleActive(ep.id)"
+                />
+                <span class="slider"></span>
+              </label>
+              <span class="status-indicator-text" [class.active]="ep.isActive">
+                {{ ep.isActive ? 'Active' : 'Disabled' }}
+              </span>
+            </td>
+
+            <!-- Last Delivery -->
+            <td class="col-last-delivery">
+              <div *ngIf="ep.lastDeliveryAt; else noDeliveries">
+                <span
+                  class="http-code-badge"
+                  [class.code-200]="ep.lastStatusCode === 200"
+                  [class.code-error]="ep.lastStatusCode && ep.lastStatusCode >= 400"
+                >
+                  {{ ep.lastStatusCode }}
+                </span>
+                <span class="delivery-time">{{ ep.lastDeliveryAt | date:'HH:mm:ss' }}</span>
+              </div>
+              <ng-template #noDeliveries>
+                <span class="text-muted-subtle">No dispatches yet</span>
+              </ng-template>
+            </td>
+
+            <!-- Row Actions -->
+            <td class="col-actions text-right">
+              <div class="row-actions-group">
+                <button
+                  type="button"
+                  class="btn-table-action test-action"
+                  title="Emit Test Event"
+                  (click)="openTestModal(ep)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                  <span>Test</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="icon-action-btn"
+                  title="Edit Endpoint"
+                  (click)="openEditWebhook(ep)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  class="icon-action-btn btn-danger-icon"
+                  title="Delete Endpoint"
+                  (click)="deleteWebhook(ep.id)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SUBTAB 2: DELIVERY HISTORY & RETRY CONSOLE -->
+  <div class="webhook-content-area" *ngIf="activeSubTab() === 'deliveries'">
+    <!-- History Toolbar -->
+    <div class="webhook-toolbar">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search deliveries by ID, URL, or event type..."
+          [ngModel]="webhookSearchQuery()"
+          (ngModelChange)="webhookSearchQuery.set($event)"
+          class="cyber-input"
+        />
+      </div>
+
+      <div class="filter-controls">
+        <label class="filter-label">Status:</label>
+        <select
+          class="cyber-select"
+          [ngModel]="webhookDeliveryStatusFilter()"
+          (ngModelChange)="webhookDeliveryStatusFilter.set($event)"
+        >
+          <option value="all">All Dispatches</option>
+          <option value="success">Delivered (2xx)</option>
+          <option value="failed">Failed (4xx/5xx)</option>
+        </select>
+
+        <button
+          *ngIf="webhookDeliveries().length > 0"
+          type="button"
+          class="btn-secondary-action btn-danger-action"
+          (click)="clearHistory()"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>Clear Logs</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state-card" *ngIf="filteredWebhookDeliveries().length === 0">
+      <div class="empty-icon-shield">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+      </div>
+      <h3 class="empty-title">No Webhook Dispatches Recorded</h3>
+      <p class="empty-desc">
+        No webhook deliveries have been executed or recorded yet. Trigger a synthetic test event from the Endpoints tab to inspect outbound HTTP payloads and response latency.
+      </p>
+      <button type="button" class="btn-secondary-action" (click)="setSubTab('endpoints')">
+        <span>Go to Endpoints</span>
+      </button>
+    </div>
+
+    <!-- Deliveries Table -->
+    <div class="cyber-table-card" *ngIf="filteredWebhookDeliveries().length > 0">
+      <table class="cyber-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Event</th>
+            <th>Destination Endpoint</th>
+            <th>Latency</th>
+            <th>Attempt</th>
+            <th>Timestamp</th>
+            <th class="text-right">Inspection & Retry</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let del of filteredWebhookDeliveries()">
+            <!-- Status Badge -->
+            <td class="col-status-badge">
+              <span
+                class="delivery-badge"
+                [class.success]="del.status === 'success'"
+                [class.failed]="del.status === 'failed'"
+              >
+                <span class="badge-dot"></span>
+                {{ del.statusCode }} {{ del.status === 'success' ? 'OK' : 'FAIL' }}
+              </span>
+            </td>
+
+            <!-- Event -->
+            <td>
+              <span class="cyber-event-badge" [ngClass]="getEventBadgeClass(del.event)">
+                {{ del.event }}
+              </span>
+            </td>
+
+            <!-- Destination URL -->
+            <td class="col-destination">
+              <span class="url-text" [title]="del.url">{{ del.url }}</span>
+            </td>
+
+            <!-- Latency -->
+            <td>
+              <span class="latency-pill" [class.fast]="del.latencyMs < 100" [class.slow]="del.latencyMs >= 100">
+                {{ del.latencyMs }}ms
+              </span>
+            </td>
+
+            <!-- Attempt -->
+            <td>
+              <span class="attempt-counter">#{{ del.attempts }}</span>
+            </td>
+
+            <!-- Timestamp -->
+            <td class="col-time">
+              <span class="time-text">{{ del.timestamp | date:'MMM dd, HH:mm:ss' }}</span>
+            </td>
+
+            <!-- Actions -->
+            <td class="col-actions text-right">
+              <div class="row-actions-group">
+                <button
+                  type="button"
+                  class="btn-table-action"
+                  title="Inspect Request & Response"
+                  (click)="openDeliveryDetails(del)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <span>Inspect</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-table-action retry-action"
+                  title="Retry Delivery"
+                  (click)="retryDelivery(del.id)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                  <span>Retry</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL 1: REGISTER / EDIT WEBHOOK ENDPOINT -->
+  <div class="modal-backdrop" *ngIf="showWebhookModal()" (click)="closeWebhookModal()">
+    <div class="cyber-modal modal-lg" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-icon icon-cyan">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+        </div>
+        <div class="modal-header-info">
+          <h3 class="modal-title">
+            {{ editingWebhook() ? 'Edit Webhook Endpoint' : 'Register Webhook Endpoint' }}
+          </h3>
+          <p class="modal-desc">
+            Vanguard dispatches HMAC-SHA256 authenticated HTTP POST requests when subscribed events occur.
+          </p>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="closeWebhookModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Error Alert -->
+        <div class="alert-banner alert-danger" *ngIf="webhookFormError()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ webhookFormError() }}</span>
+        </div>
+
+        <!-- Target Destination URL -->
+        <div class="form-group">
+          <label class="form-label">
+            Target Destination URL <span class="required">*</span>
+          </label>
+          <div class="input-with-icon">
+            <span class="input-prefix">POST</span>
+            <input
+              type="url"
+              class="form-control"
+              placeholder="https://api.yourdomain.com/vanguard-webhook"
+              [ngModel]="webhookUrl()"
+              (ngModelChange)="webhookUrl.set($event)"
+            />
+          </div>
+          <span class="field-hint">Must be an HTTPS or HTTP reachable endpoint accepting JSON payloads.</span>
+        </div>
+
+        <!-- Description -->
+        <div class="form-group">
+          <label class="form-label">Description / Friendly Name</label>
+          <input
+            type="text"
+            class="form-control"
+            placeholder="e.g. Datadog Security SIEM, Incident Response Slack Bot"
+            [ngModel]="webhookDescription()"
+            (ngModelChange)="webhookDescription.set($event)"
+          />
+        </div>
+
+        <!-- Cryptographic Signing Secret -->
+        <div class="form-group">
+          <div class="label-row-between">
+            <label class="form-label">
+              Cryptographic Signing Secret
+            </label>
+            <button type="button" class="btn-link-action" (click)="regenerateSecret()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+              <span>Regenerate Secret</span>
+            </button>
+          </div>
+          <div class="secret-input-wrap">
+            <input
+              type="text"
+              class="form-control mono-input"
+              [ngModel]="webhookSecret()"
+              (ngModelChange)="webhookSecret.set($event)"
+            />
+          </div>
+          <span class="field-hint">
+            Vanguard computes <code>X-Vanguard-Signature-256: sha256=...</code> using HMAC-SHA256 for authenticating payload integrity.
+          </span>
+        </div>
+
+        <!-- Event Subscription Matrix -->
+        <div class="form-group">
+          <label class="form-label">
+            Event Subscriptions <span class="required">*</span>
+          </label>
+          <p class="field-hint mb-2">Select which security and directory events will trigger this webhook:</p>
+
+          <div class="events-selection-matrix">
+            <div
+              *ngFor="let ev of availableEvents"
+              class="event-card-selectable"
+              [class.selected]="isEventSelected(ev.type)"
+              (click)="toggleEvent(ev.type)"
+            >
+              <div class="event-checkbox">
+                <input
+                  type="checkbox"
+                  [checked]="isEventSelected(ev.type)"
+                  (click)="$event.stopPropagation()"
+                  (change)="toggleEvent(ev.type)"
+                />
+              </div>
+              <div class="event-card-content">
+                <div class="event-name-row">
+                  <span class="cyber-event-badge" [ngClass]="ev.badgeColor">{{ ev.label }}</span>
+                </div>
+                <p class="event-card-desc">{{ ev.desc }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary-action" (click)="closeWebhookModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="saveWebhook()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span>{{ editingWebhook() ? 'Save Changes' : 'Register Webhook' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: INTERACTIVE TEST EVENT EMITTER -->
+  <div class="modal-backdrop" *ngIf="showTestWebhookModal()" (click)="closeTestWebhookModal()">
+    <div class="cyber-modal modal-xl" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-icon icon-amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="modal-header-info">
+          <h3 class="modal-title">Interactive Webhook Test Emitter</h3>
+          <p class="modal-desc">
+            Synthesize and dispatch an authentic Vanguard event payload to verify signature handling and receiver response.
+          </p>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="closeTestWebhookModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body modal-grid-layout">
+        <!-- Left Column: Emitter Configuration -->
+        <div class="emitter-config-panel">
+          <!-- Target URL Display -->
+          <div class="form-group">
+            <label class="form-label">Destination Endpoint</label>
+            <div class="endpoint-preview-box">
+              <span class="badge-post">POST</span>
+              <span class="preview-url">{{ selectedWebhookForTest()?.url }}</span>
+            </div>
+          </div>
+
+          <!-- Select Event Type -->
+          <div class="form-group">
+            <label class="form-label">Select Event Type to Emit</label>
+            <select
+              class="form-control"
+              [ngModel]="testEventType()"
+              (ngModelChange)="onTestEventTypeChange($event)"
+            >
+              <option *ngFor="let ev of availableEvents" [value]="ev.type">
+                {{ ev.label }} — {{ ev.desc }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Synthetic JSON Payload -->
+          <div class="form-group">
+            <div class="label-row-between">
+              <label class="form-label">Payload Preview (JSON)</label>
+              <button
+                type="button"
+                class="btn-link-action"
+                (click)="copyPayload(testEventCustomPayload())"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>{{ copiedPayload() ? 'Copied!' : 'Copy JSON' }}</span>
+              </button>
+            </div>
+            <textarea
+              class="form-control mono-editor"
+              rows="12"
+              [ngModel]="testEventCustomPayload()"
+              (ngModelChange)="testEventCustomPayload.set($event)"
+            ></textarea>
+          </div>
+
+          <div class="action-btn-row">
+            <button
+              type="button"
+              class="btn-primary-action btn-full"
+              [disabled]="testEventSending()"
+              (click)="sendTestEvent()"
+            >
+              <svg *ngIf="!testEventSending()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              <span *ngIf="testEventSending()" class="spinner-inline"></span>
+              <span>{{ testEventSending() ? 'Dispatching Test Ping...' : 'Dispatch Test Event Now' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Column: Live Dispatch Result Inspector -->
+        <div class="emitter-result-panel">
+          <label class="form-label">Real-Time Dispatch Feedback</label>
+
+          <div *ngIf="testEventResult() as res" class="result-details-card">
+            <!-- Status Header -->
+            <div class="result-status-row">
+              <span
+                class="result-badge"
+                [class.badge-success]="res.statusCode >= 200 && res.statusCode < 300"
+                [class.badge-danger]="res.statusCode >= 400"
+              >
+                HTTP {{ res.statusCode }} {{ res.statusText }}
+              </span>
+              <span class="latency-badge-lg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                {{ res.latencyMs }} ms
+              </span>
+            </div>
+
+            <!-- Response Headers -->
+            <div class="result-section">
+              <span class="section-micro-label">Response Headers</span>
+              <div class="code-view-box">
+                <div *ngFor="let item of res.headers | keyvalue" class="header-line">
+                  <span class="header-key">{{ item.key }}:</span>
+                  <span class="header-val">{{ item.value }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Response Body -->
+            <div class="result-section">
+              <span class="section-micro-label">Response Body</span>
+              <pre class="code-view-box body-box"><code>{{ res.responseBody }}</code></pre>
+            </div>
+          </div>
+
+          <div *ngIf="!testEventResult()" class="result-empty-placeholder">
+            <div class="radar-scan-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="12" x2="19" y2="5"></line>
+              </svg>
+            </div>
+            <h4>Ready to Emit</h4>
+            <p>Click "Dispatch Test Event Now" to transmit the synthesized event payload and capture live network metrics.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary-action" (click)="closeTestWebhookModal()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: DELIVERY INSPECTOR DRAWER -->
+  <div class="modal-backdrop" *ngIf="selectedDeliveryDetails() as del" (click)="closeDeliveryDetails()">
+    <div class="cyber-modal modal-lg" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-icon icon-purple">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <div class="modal-header-info">
+          <div class="modal-tag-row">
+            <span class="delivery-badge" [class.success]="del.status === 'success'" [class.failed]="del.status === 'failed'">
+              {{ del.statusCode }} {{ del.status === 'success' ? 'Delivered' : 'Failed' }}
+            </span>
+            <span class="cyber-event-badge" [ngClass]="getEventBadgeClass(del.event)">{{ del.event }}</span>
+          </div>
+          <h3 class="modal-title">Delivery Inspector: {{ del.id }}</h3>
+          <p class="modal-desc">{{ del.url }} • {{ del.timestamp | date:'medium' }}</p>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="closeDeliveryDetails()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Overview Grid -->
+        <div class="inspector-summary-bar">
+          <div class="bar-col">
+            <span class="bar-label">Roundtrip Latency</span>
+            <span class="bar-val">{{ del.latencyMs }} ms</span>
+          </div>
+          <div class="bar-col">
+            <span class="bar-label">Delivery Attempt</span>
+            <span class="bar-val">#{{ del.attempts }}</span>
+          </div>
+          <div class="bar-col">
+            <span class="bar-label">X-Vanguard-Signature-256</span>
+            <span class="bar-val mono" [title]="del.signature">{{ del.signature }}</span>
+          </div>
+        </div>
+
+        <!-- Request Section -->
+        <div class="inspector-section">
+          <div class="section-label-bar">
+            <h4>Outbound HTTP Request</h4>
+            <button
+              type="button"
+              class="btn-link-action"
+              (click)="copyPayload(formatJson(del.requestPayload))"
+            >
+              <span>{{ copiedPayload() ? 'Copied Payload!' : 'Copy Request Body' }}</span>
+            </button>
+          </div>
+
+          <div class="headers-collapse mb-2" *ngIf="del.requestHeaders">
+            <span class="code-subtitle">Request Headers:</span>
+            <div class="code-view-box">
+              <div *ngFor="let item of del.requestHeaders | keyvalue" class="header-line">
+                <span class="header-key">{{ item.key }}:</span>
+                <span class="header-val">{{ item.value }}</span>
+              </div>
+            </div>
+          </div>
+
+          <span class="code-subtitle">Payload (JSON):</span>
+          <pre class="code-view-box body-box"><code>{{ formatJson(del.requestPayload) }}</code></pre>
+        </div>
+
+        <!-- Response Section -->
+        <div class="inspector-section mt-4">
+          <div class="section-label-bar">
+            <h4>Receiver Response</h4>
+            <span class="status-indicator-text" [class.active]="del.status === 'success'">
+              HTTP {{ del.statusCode }}
+            </span>
+          </div>
+
+          <div class="headers-collapse mb-2" *ngIf="del.responseHeaders">
+            <span class="code-subtitle">Response Headers:</span>
+            <div class="code-view-box">
+              <div *ngFor="let item of del.responseHeaders | keyvalue" class="header-line">
+                <span class="header-key">{{ item.key }}:</span>
+                <span class="header-val">{{ item.value }}</span>
+              </div>
+            </div>
+          </div>
+
+          <span class="code-subtitle">Response Body:</span>
+          <pre class="code-view-box body-box"><code>{{ del.responseBody }}</code></pre>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn-primary-action"
+          (click)="retryDelivery(del.id)"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>Retry This Delivery</span>
+        </button>
+        <button type="button" class="btn-secondary-action" (click)="closeDeliveryDetails()">Close</button>
+      </div>
+    </div>
+  </div>
+</section>
+
