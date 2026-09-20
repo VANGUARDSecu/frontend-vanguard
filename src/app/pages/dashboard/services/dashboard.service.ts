@@ -17,6 +17,8 @@ import {
   VlanMapping,
   EnrolledDevice,
   MobilePolicyConfig,
+  AppCatalogTemplate,
+  AttributeStatementMapping,
 } from '../models/dashboard.models';
 
 @Injectable({
@@ -239,15 +241,166 @@ export class DashboardService {
     this.loadStored<OidcClient[]>('vanguard_oidc_clients', [])
   );
 
-  // Modals for Phase 4
+  // App Catalog Templates for SCRUM-22 Wizard
+  readonly appCatalogTemplates: AppCatalogTemplate[] = [
+    {
+      id: 'aws-iam',
+      name: 'AWS IAM Identity Center',
+      icon: '☁️',
+      protocol: 'SAML 2.0',
+      category: 'cloud',
+      description: 'Enterprise SSO access into AWS Management Console and CLI accounts via SAML 2.0.',
+      defaultEntityId: 'https://signin.aws.amazon.com/saml',
+      defaultAcsUrl: 'https://signin.aws.amazon.com/saml',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
+      defaultAttributeStatements: [
+        { userAttribute: 'email', samlClaim: 'https://aws.amazon.com/SAML/Attributes/RoleSessionName' },
+        { userAttribute: 'roles', samlClaim: 'https://aws.amazon.com/SAML/Attributes/Role' },
+      ],
+    },
+    {
+      id: 'google-workspace',
+      name: 'Google Workspace',
+      icon: '🌐',
+      protocol: 'SAML 2.0',
+      category: 'collaboration',
+      description: 'Federated SAML Single Sign-On for Gmail, Google Drive, and Google Cloud services.',
+      defaultEntityId: 'google.com/a/vanguard.security',
+      defaultAcsUrl: 'https://www.google.com/a/vanguard.security/acs',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+      defaultAttributeStatements: [
+        { userAttribute: 'email', samlClaim: 'email' },
+        { userAttribute: 'displayName', samlClaim: 'fullName' },
+      ],
+    },
+    {
+      id: 'salesforce',
+      name: 'Salesforce CRM',
+      icon: '💼',
+      protocol: 'SAML 2.0',
+      category: 'cloud',
+      description: 'Federated CRM Single Sign-On with automatic employee role mapping.',
+      defaultEntityId: 'https://saml.salesforce.com',
+      defaultAcsUrl: 'https://login.salesforce.com?so=vanguard',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+      defaultAttributeStatements: [
+        { userAttribute: 'email', samlClaim: 'User.Email' },
+        { userAttribute: 'username', samlClaim: 'User.Username' },
+      ],
+    },
+    {
+      id: 'github-enterprise',
+      name: 'GitHub Enterprise Cloud',
+      icon: '🐙',
+      protocol: 'SAML 2.0',
+      category: 'developer',
+      description: 'SAML Single Sign-On and SSH key authorization for GitHub organizations.',
+      defaultEntityId: 'https://github.com/orgs/vanguard/saml/metadata',
+      defaultAcsUrl: 'https://github.com/orgs/vanguard/saml/consume',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
+      defaultAttributeStatements: [
+        { userAttribute: 'email', samlClaim: 'emails' },
+        { userAttribute: 'roles', samlClaim: 'administrator' },
+      ],
+    },
+    {
+      id: 'slack',
+      name: 'Slack Enterprise Grid',
+      icon: '💬',
+      protocol: 'SAML 2.0',
+      category: 'collaboration',
+      description: 'SAML 2.0 federation for team messaging, channels, and enterprise workspaces.',
+      defaultEntityId: 'https://slack.com',
+      defaultAcsUrl: 'https://vanguard.slack.com/sso/saml',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+      defaultAttributeStatements: [
+        { userAttribute: 'email', samlClaim: 'User.Email' },
+        { userAttribute: 'displayName', samlClaim: 'first_name' },
+      ],
+    },
+    {
+      id: 'custom-saml',
+      name: 'Custom SAML 2.0 App',
+      icon: '🛡️',
+      protocol: 'SAML 2.0',
+      category: 'custom',
+      description: 'Integrate any custom enterprise Service Provider via standard SAML 2.0 XML assertions.',
+      defaultEntityId: 'https://custom-app.enterprise.io/saml/sp',
+      defaultAcsUrl: 'https://custom-app.enterprise.io/saml/acs',
+      defaultNameIdFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+      defaultAttributeStatements: [
+        { userAttribute: 'email', samlClaim: 'email' },
+        { userAttribute: 'displayName', samlClaim: 'name' },
+      ],
+    },
+    {
+      id: 'custom-oidc',
+      name: 'Custom OIDC / OAuth 2.0 App',
+      icon: '⚡',
+      protocol: 'OIDC',
+      category: 'custom',
+      description: 'Modern SPA, mobile, or backend API using OpenID Connect RS256 JWT tokens & PKCE.',
+      defaultRedirectUris: ['http://localhost:4200/callback'],
+      defaultGrantTypes: ['authorization_code', 'refresh_token'],
+      defaultScopes: ['openid', 'profile', 'email', 'groups'],
+    },
+  ];
+
+  // SCRUM-22: Application Integration Wizard State (Multi-step)
   readonly showAddAppModal = signal<boolean>(false);
+  readonly wizardStep = signal<1 | 2 | 3>(1);
+  readonly wizardSelectedTemplate = signal<AppCatalogTemplate | null>(null);
+  readonly wizardCatalogFilter = signal<'all' | 'SAML 2.0' | 'OIDC'>('all');
+  wizardCatalogSearch = '';
+
   newAppName = '';
   newAppProtocol: 'SAML 2.0' | 'OIDC' = 'SAML 2.0';
   newAppEntityId = '';
   newAppAcsUrl = '';
   newAppDepartment = 'Engineering';
+
+  // SAML 2.0 Wizard Fields
+  readonly wizardSloUrl = signal<string>('');
+  readonly wizardNameIdFormat = signal<string>('urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
+  readonly wizardSignResponse = signal<boolean>(true);
+  readonly wizardSignAssertion = signal<boolean>(true);
+  readonly wizardAttributeStatements = signal<AttributeStatementMapping[]>([
+    { userAttribute: 'email', samlClaim: 'email' },
+    { userAttribute: 'displayName', samlClaim: 'name' },
+    { userAttribute: 'roles', samlClaim: 'roles' },
+  ]);
+
+  // OIDC Wizard Fields
+  readonly wizardClientId = signal<string>('');
+  readonly wizardClientSecret = signal<string>('');
+  readonly wizardSecretRevealed = signal<boolean>(false);
+  readonly wizardRedirectUris = signal<string[]>(['http://localhost:4200/callback']);
+  wizardNewRedirectUriInput = '';
+  readonly wizardGrantTypes = signal<('authorization_code' | 'client_credentials' | 'refresh_token')[]>([
+    'authorization_code',
+    'refresh_token',
+  ]);
+  readonly wizardScopes = signal<string[]>(['openid', 'profile', 'email', 'groups']);
+
+  readonly wizardCopiedSecret = signal<boolean>(false);
+  readonly wizardCopiedClientId = signal<boolean>(false);
+  readonly wizardCopiedCert = signal<boolean>(false);
+
   readonly addAppSuccess = signal<boolean>(false);
   readonly addAppError = signal<string | null>(null);
+
+  readonly filteredCatalogTemplates = computed(() => {
+    const filter = this.wizardCatalogFilter();
+    const search = this.wizardCatalogSearch.toLowerCase().trim();
+    return this.appCatalogTemplates.filter((t) => {
+      const matchProto = filter === 'all' || t.protocol === filter;
+      const matchSearch =
+        !search ||
+        t.name.toLowerCase().includes(search) ||
+        t.description.toLowerCase().includes(search);
+      return matchProto && matchSearch;
+    });
+  });
 
   readonly showRotateCertModal = signal<boolean>(false);
   readonly rotateCertSuccess = signal<boolean>(false);
@@ -920,11 +1073,29 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
 
   openAddAppModal(): void {
     this.showAddAppModal.set(true);
+    this.wizardStep.set(1);
+    this.wizardSelectedTemplate.set(null);
+    this.wizardCatalogFilter.set('all');
+    this.wizardCatalogSearch = '';
     this.newAppName = '';
     this.newAppProtocol = 'SAML 2.0';
     this.newAppEntityId = '';
     this.newAppAcsUrl = '';
     this.newAppDepartment = 'Engineering';
+    this.wizardSloUrl.set('');
+    this.wizardNameIdFormat.set('urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
+    this.wizardSignResponse.set(true);
+    this.wizardSignAssertion.set(true);
+    this.wizardAttributeStatements.set([
+      { userAttribute: 'email', samlClaim: 'email' },
+      { userAttribute: 'displayName', samlClaim: 'name' },
+      { userAttribute: 'roles', samlClaim: 'roles' },
+    ]);
+    this.generateNewOidcCredentials();
+    this.wizardRedirectUris.set(['http://localhost:4200/callback']);
+    this.wizardNewRedirectUriInput = '';
+    this.wizardGrantTypes.set(['authorization_code', 'refresh_token']);
+    this.wizardScopes.set(['openid', 'profile', 'email', 'groups']);
     this.addAppSuccess.set(false);
     this.addAppError.set(null);
   }
@@ -933,57 +1104,319 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     this.showAddAppModal.set(false);
   }
 
+  setWizardStep(step: 1 | 2 | 3): void {
+    this.addAppError.set(null);
+    if (step > 1 && !this.newAppName.trim() && this.wizardStep() === 2) {
+      this.addAppError.set('Application Name is required.');
+      return;
+    }
+    if (step === 3) {
+      // Validate step 2 inputs before proceeding to step 3
+      if (!this.newAppName.trim()) {
+        this.addAppError.set('Application Name is required.');
+        return;
+      }
+      if (this.newAppProtocol === 'SAML 2.0') {
+        if (!this.newAppEntityId.trim()) {
+          this.addAppError.set('SP Entity ID / Audience URI is required.');
+          return;
+        }
+        if (!this.newAppAcsUrl.trim() || (!this.newAppAcsUrl.startsWith('http://') && !this.newAppAcsUrl.startsWith('https://'))) {
+          this.addAppError.set('Assertion Consumer Service (ACS) URL must be a valid HTTP or HTTPS endpoint.');
+          return;
+        }
+        if (this.wizardSloUrl().trim() && (!this.wizardSloUrl().startsWith('http://') && !this.wizardSloUrl().startsWith('https://'))) {
+          this.addAppError.set('Single Logout (SLO) URL must be a valid HTTP or HTTPS endpoint if provided.');
+          return;
+        }
+      } else {
+        if (!this.wizardClientId().trim()) {
+          this.addAppError.set('Client ID is required.');
+          return;
+        }
+        if (this.wizardRedirectUris().length === 0) {
+          this.addAppError.set('At least one Allowed Redirect URI is required.');
+          return;
+        }
+        if (this.wizardGrantTypes().length === 0) {
+          this.addAppError.set('Select at least one OAuth 2.0 Grant Type.');
+          return;
+        }
+        if (this.wizardScopes().length === 0) {
+          this.addAppError.set('Select at least one allowed OIDC scope.');
+          return;
+        }
+      }
+    }
+    this.wizardStep.set(step);
+  }
+
+  selectCatalogTemplate(tpl: AppCatalogTemplate): void {
+    this.wizardSelectedTemplate.set(tpl);
+    this.newAppName = tpl.name;
+    this.newAppProtocol = tpl.protocol;
+    this.addAppError.set(null);
+
+    if (tpl.protocol === 'SAML 2.0') {
+      this.newAppEntityId = tpl.defaultEntityId || '';
+      this.newAppAcsUrl = tpl.defaultAcsUrl || '';
+      this.wizardSloUrl.set(tpl.defaultSloUrl || '');
+      this.wizardNameIdFormat.set(tpl.defaultNameIdFormat || 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
+      this.wizardAttributeStatements.set(
+        tpl.defaultAttributeStatements ? tpl.defaultAttributeStatements.map((a) => ({ ...a })) : []
+      );
+    } else {
+      this.generateNewOidcCredentials();
+      this.wizardRedirectUris.set(tpl.defaultRedirectUris ? [...tpl.defaultRedirectUris] : ['http://localhost:4200/callback']);
+      this.wizardGrantTypes.set(tpl.defaultGrantTypes ? [...tpl.defaultGrantTypes] : ['authorization_code']);
+      this.wizardScopes.set(tpl.defaultScopes ? [...tpl.defaultScopes] : ['openid', 'profile', 'email', 'groups']);
+    }
+
+    this.wizardStep.set(2);
+  }
+
+  generateNewOidcCredentials(): void {
+    const hex1 = Math.random().toString(36).substring(2, 8);
+    const hex2 = Math.random().toString(36).substring(2, 10);
+    const hexSecret = Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12);
+    this.wizardClientId.set(`vg_client_${hex1}_${hex2}`);
+    this.wizardClientSecret.set(`vg_sec_${hexSecret}`);
+    this.wizardSecretRevealed.set(false);
+  }
+
+  toggleWizardSecretRevealed(): void {
+    this.wizardSecretRevealed.update((v) => !v);
+  }
+
+  copyWizardClientSecret(): void {
+    if (!this.isBrowser || !navigator?.clipboard?.writeText) return;
+    navigator.clipboard.writeText(this.wizardClientSecret()).then(() => {
+      this.wizardCopiedSecret.set(true);
+      setTimeout(() => this.wizardCopiedSecret.set(false), 2000);
+      this.showAdminNotice('OIDC Client Secret copied to clipboard.');
+    });
+  }
+
+  copyWizardClientId(): void {
+    if (!this.isBrowser || !navigator?.clipboard?.writeText) return;
+    navigator.clipboard.writeText(this.wizardClientId()).then(() => {
+      this.wizardCopiedClientId.set(true);
+      setTimeout(() => this.wizardCopiedClientId.set(false), 2000);
+      this.showAdminNotice('OIDC Client ID copied to clipboard.');
+    });
+  }
+
+  copyX509CertToClipboard(): void {
+    if (!this.isBrowser || !navigator?.clipboard?.writeText) return;
+    const cert = `-----BEGIN CERTIFICATE-----\nMIIDXTCCAkWgAwIBAgIJAP3v2z2h1r1hMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV\nBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRYwFAYDVQQKDA1WYW5ndWFyZCBJ\nZFAxDTALBgNVBAMMBElkUDAeFw0yNjA5MjAwMDAwMDBaFw0yNzA5MjAwMDAwMDBa\nMEUxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRYwFAYDVQQKDA1W\nYW5ndWFyZCBJZFAxDTALBgNVBAMMBElkUDCCASIwDQYJKoZIhvcNAQEBBQADggEP\nADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...==\n-----END CERTIFICATE-----`;
+    navigator.clipboard.writeText(cert).then(() => {
+      this.wizardCopiedCert.set(true);
+      setTimeout(() => this.wizardCopiedCert.set(false), 2000);
+      this.showAdminNotice('X.509 Public Certificate copied to clipboard.');
+    });
+  }
+
+  addRedirectUriChip(): void {
+    const val = this.wizardNewRedirectUriInput.trim();
+    if (!val) return;
+    if (!val.startsWith('http://') && !val.startsWith('https://') && !val.startsWith('exp://')) {
+      this.addAppError.set('Redirect URI must start with http://, https://, or custom scheme.');
+      return;
+    }
+    this.addAppError.set(null);
+    if (!this.wizardRedirectUris().includes(val)) {
+      this.wizardRedirectUris.update((uris) => [...uris, val]);
+    }
+    this.wizardNewRedirectUriInput = '';
+  }
+
+  removeRedirectUriChip(index: number): void {
+    this.wizardRedirectUris.update((uris) => uris.filter((_, i) => i !== index));
+  }
+
+  toggleWizardGrantType(grant: 'authorization_code' | 'client_credentials' | 'refresh_token'): void {
+    this.wizardGrantTypes.update((grants) => {
+      if (grants.includes(grant)) {
+        return grants.filter((g) => g !== grant);
+      } else {
+        return [...grants, grant];
+      }
+    });
+  }
+
+  toggleWizardScope(scope: string): void {
+    this.wizardScopes.update((scopes) => {
+      if (scopes.includes(scope)) {
+        return scopes.filter((s) => s !== scope);
+      } else {
+        return [...scopes, scope];
+      }
+    });
+  }
+
+  addAttributeStatementRow(userAttr = 'email', samlClaim = ''): void {
+    this.wizardAttributeStatements.update((rows) => [
+      ...rows,
+      { userAttribute: userAttr, samlClaim: samlClaim },
+    ]);
+  }
+
+  removeAttributeStatementRow(index: number): void {
+    this.wizardAttributeStatements.update((rows) => rows.filter((_, i) => i !== index));
+  }
+
+  updateAttributeStatement(index: number, field: 'userAttribute' | 'samlClaim', val: string): void {
+    this.wizardAttributeStatements.update((rows) =>
+      rows.map((row, i) => (i === index ? { ...row, [field]: val } : row))
+    );
+  }
+
+  // Reactive Actions: addApp, updateApp, deleteApp (AC Requirement)
+  addApp(appData: Partial<SamlConnector & OidcClient>): void {
+    const isSaml = (appData.protocol || this.newAppProtocol) === 'SAML 2.0';
+    const appId = appData.id || ('app-' + Date.now());
+    const name = appData.name || this.newAppName.trim();
+    const icon = appData.icon || this.wizardSelectedTemplate()?.icon || (isSaml ? '🌐' : '⚡');
+    const department = this.newAppDepartment || 'Engineering';
+
+    if (isSaml) {
+      const newSaml: SamlConnector = {
+        id: appId,
+        name,
+        icon,
+        protocol: 'SAML 2.0',
+        entityId: appData.entityId || this.newAppEntityId.trim(),
+        acsUrl: appData.acsUrl || this.newAppAcsUrl.trim(),
+        sloUrl: appData.sloUrl || this.wizardSloUrl().trim() || undefined,
+        nameIdFormat: appData.nameIdFormat || this.wizardNameIdFormat(),
+        signResponse: appData.signResponse ?? this.wizardSignResponse(),
+        signAssertion: appData.signAssertion ?? this.wizardSignAssertion(),
+        attributeStatements: appData.attributeStatements || [...this.wizardAttributeStatements()],
+        catalogTemplateId: this.wizardSelectedTemplate()?.id,
+        status: 'Active',
+        assignedGroups: appData.assignedGroups || [department],
+        lastSsoEvent: 'Just configured',
+      };
+      this.federatedSamlConnectors.update((conns) => [newSaml, ...conns.filter((c) => c.id !== newSaml.id)]);
+      this.saveStored('vanguard_saml_connectors', this.federatedSamlConnectors());
+    } else {
+      const newOidc: OidcClient = {
+        id: appId,
+        name,
+        clientId: appData.clientId || this.wizardClientId(),
+        clientSecret: appData.clientSecret || this.wizardClientSecret(),
+        redirectUris: appData.redirectUris || [...this.wizardRedirectUris()],
+        grantTypes: appData.grantTypes || [...this.wizardGrantTypes()],
+        allowedScopes: appData.allowedScopes || [...this.wizardScopes()],
+        assignedGroups: appData.assignedGroups || [department],
+        status: 'Active',
+        createdAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      };
+      this.oidcClients.update((clients) => [newOidc, ...clients.filter((c) => c.id !== newOidc.id)]);
+      this.saveStored('vanguard_oidc_clients', this.oidcClients());
+
+      // Also create a representation in federatedSamlConnectors for unified overview
+      const oidcConnector: SamlConnector = {
+        id: appId,
+        name,
+        icon,
+        protocol: 'OIDC',
+        entityId: newOidc.clientId,
+        acsUrl: newOidc.redirectUris[0] || 'http://localhost:4200/callback',
+        nameIdFormat: 'OIDC Subject (sub)',
+        signResponse: false,
+        signAssertion: true,
+        catalogTemplateId: this.wizardSelectedTemplate()?.id,
+        status: 'Active',
+        assignedGroups: [department],
+        lastSsoEvent: 'Just configured',
+      };
+      this.federatedSamlConnectors.update((conns) => [oidcConnector, ...conns.filter((c) => c.id !== oidcConnector.id)]);
+      this.saveStored('vanguard_saml_connectors', this.federatedSamlConnectors());
+    }
+
+    // Mirror to User Portal SaaS apps so assigned employees see it
+    const userApp: SaaSApp = {
+      id: appId,
+      name,
+      category: isSaml ? 'cloud' : 'developer',
+      description: `Federated ${isSaml ? 'SAML 2.0' : 'OIDC'} integration configured by ${this.organizationName()} admin.`,
+      icon,
+      protocol: isSaml ? 'SAML 2.0' : 'OIDC',
+      launchUrl: isSaml ? (appData.acsUrl || this.newAppAcsUrl.trim()) : (appData.redirectUris?.[0] || this.wizardRedirectUris()[0] || '#'),
+      assigned: true,
+    };
+    this.apps.update((prev) => [userApp, ...prev.filter((a) => a.id !== userApp.id)]);
+    this.saveStored('vanguard_user_apps', this.apps());
+
+    this.logAuditEvent(
+      `Integrated federated application wizard: ${name} (${isSaml ? 'SAML 2.0' : 'OIDC'})`,
+      'Federation Catalog',
+      isSaml ? 'SAML 2.0' : 'OIDC',
+      'success',
+      'Low'
+    );
+  }
+
+  updateApp(id: string, updates: Partial<SamlConnector | OidcClient>): void {
+    this.federatedSamlConnectors.update((conns) =>
+      conns.map((c) => (c.id === id ? ({ ...c, ...updates } as SamlConnector) : c))
+    );
+    this.saveStored('vanguard_saml_connectors', this.federatedSamlConnectors());
+
+    this.oidcClients.update((clients) =>
+      clients.map((cl) => (cl.id === id ? ({ ...cl, ...updates } as OidcClient) : cl))
+    );
+    this.saveStored('vanguard_oidc_clients', this.oidcClients());
+
+    if (updates.name) {
+      this.apps.update((apps) =>
+        apps.map((a) => (a.id === id ? { ...a, name: updates.name! } : a))
+      );
+      this.saveStored('vanguard_user_apps', this.apps());
+    }
+
+    this.showAdminNotice(`Updated application configuration.`);
+  }
+
+  deleteApp(id: string): void {
+    this.deleteAppConnector(id);
+  }
+
   submitAddAppConnector(): void {
     this.addAppError.set(null);
-    if (!this.newAppName.trim() || !this.newAppEntityId.trim() || !this.newAppAcsUrl.trim()) {
+    if (!this.newAppName.trim() || (this.newAppProtocol === 'SAML 2.0' && (!this.newAppEntityId.trim() || !this.newAppAcsUrl.trim()))) {
       this.addAppError.set('Please fill out all required fields.');
       return;
     }
 
-    if (!this.newAppAcsUrl.startsWith('http://') && !this.newAppAcsUrl.startsWith('https://')) {
-      this.addAppError.set('ACS / Redirect URL must be a valid HTTP or HTTPS endpoint.');
-      return;
+    if (this.newAppProtocol === 'SAML 2.0') {
+      if (!this.newAppAcsUrl.startsWith('http://') && !this.newAppAcsUrl.startsWith('https://')) {
+        this.addAppError.set('ACS / Redirect URL must be a valid HTTP or HTTPS endpoint.');
+        return;
+      }
+      if (this.wizardSloUrl().trim() && !this.wizardSloUrl().startsWith('http://') && !this.wizardSloUrl().startsWith('https://')) {
+        this.addAppError.set('Single Logout (SLO) URL must be a valid HTTP or HTTPS endpoint.');
+        return;
+      }
+    } else {
+      if (!this.wizardClientId().trim()) {
+        this.addAppError.set('Client ID is required.');
+        return;
+      }
+      if (this.wizardRedirectUris().length === 0) {
+        this.addAppError.set('At least one Allowed Redirect URI is required.');
+        return;
+      }
     }
 
-    const newConn: SamlConnector = {
-      id: 'conn-' + Date.now(),
-      name: this.newAppName.trim(),
-      icon: this.newAppProtocol === 'SAML 2.0' ? '🌐' : '⚡',
-      protocol: this.newAppProtocol,
-      entityId: this.newAppEntityId.trim(),
-      acsUrl: this.newAppAcsUrl.trim(),
-      nameIdFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
-      signResponse: true,
-      signAssertion: true,
-      status: 'Active',
-      assignedGroups: [this.newAppDepartment],
-      lastSsoEvent: 'Just configured',
-    };
-
-    this.federatedSamlConnectors.update((conns) => [newConn, ...conns]);
-    this.saveStored('vanguard_saml_connectors', this.federatedSamlConnectors());
-
-    // Also add to User Portal apps so employees see it immediately
-    const userSaaSApp: SaaSApp = {
-      id: newConn.id,
-      name: newConn.name,
-      category: 'developer',
-      description: `Federated ${newConn.protocol} integration configured by ${this.organizationName()} admin.`,
-      icon: newConn.icon,
-      protocol: newConn.protocol,
-      launchUrl: newConn.acsUrl,
-      assigned: true,
-    };
-    this.apps.update((prev) => [userSaaSApp, ...prev.filter(a => a.id !== userSaaSApp.id)]);
-    this.saveStored('vanguard_user_apps', this.apps());
-
-    this.logAuditEvent(`Configured federated application connector: ${newConn.name}`, 'Federation Catalog', newConn.protocol, 'success', 'Low');
-
+    this.addApp({});
     this.addAppSuccess.set(true);
+
     setTimeout(() => {
       this.showAddAppModal.set(false);
       this.addAppSuccess.set(false);
-      this.showAdminNotice(`Federated integration for ${newConn.name} configured successfully.`);
+      this.showAdminNotice(`Federated application ${this.newAppName} configured successfully.`);
     }, 1200);
   }
 
@@ -991,6 +1424,9 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     const app = this.federatedSamlConnectors().find((c) => c.id === id);
     this.federatedSamlConnectors.update((conns) => conns.filter((c) => c.id !== id));
     this.saveStored('vanguard_saml_connectors', this.federatedSamlConnectors());
+
+    this.oidcClients.update((clients) => clients.filter((c) => c.id !== id));
+    this.saveStored('vanguard_oidc_clients', this.oidcClients());
 
     // Also remove from User Portal apps
     this.apps.update((prev) => prev.filter((a) => a.id !== id));

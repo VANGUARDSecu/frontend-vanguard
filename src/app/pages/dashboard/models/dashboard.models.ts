@@ -64,6 +64,28 @@ export interface TenantAuditEvent {
   riskScore: 'Low' | 'Medium' | 'High';
 }
 
+export interface AttributeStatementMapping {
+  userAttribute: string;
+  samlClaim: string;
+}
+
+export interface AppCatalogTemplate {
+  id: string;
+  name: string;
+  icon: string;
+  protocol: 'SAML 2.0' | 'OIDC';
+  category: 'cloud' | 'developer' | 'collaboration' | 'custom';
+  description: string;
+  defaultEntityId?: string;
+  defaultAcsUrl?: string;
+  defaultSloUrl?: string;
+  defaultNameIdFormat?: string;
+  defaultAttributeStatements?: AttributeStatementMapping[];
+  defaultRedirectUris?: string[];
+  defaultGrantTypes?: ('authorization_code' | 'client_credentials' | 'refresh_token')[];
+  defaultScopes?: string[];
+}
+
 export interface SamlConnector {
   id: string;
   name: string;
@@ -71,9 +93,12 @@ export interface SamlConnector {
   protocol: 'SAML 2.0' | 'OIDC';
   entityId: string;
   acsUrl: string;
+  sloUrl?: string;
   nameIdFormat: string;
   signResponse: boolean;
   signAssertion: boolean;
+  attributeStatements?: AttributeStatementMapping[];
+  catalogTemplateId?: string;
   status: 'Active' | 'Draft' | 'Inactive';
   assignedGroups: string[];
   lastSsoEvent?: string;
@@ -88,6 +113,9 @@ export interface OidcClient {
   redirectUris: string[];
   grantTypes: ('authorization_code' | 'client_credentials' | 'refresh_token')[];
   allowedScopes: string[];
+  assignedGroups?: string[];
+  description?: string;
+  status?: 'Active' | 'Draft' | 'Inactive';
   createdAt: string;
 }
 

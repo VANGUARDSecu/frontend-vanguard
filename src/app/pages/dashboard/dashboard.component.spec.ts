@@ -721,4 +721,148 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     component.updateMobilePolicy('enforceBiometrics', false);
     expect(component.mobilePolicy().enforceBiometrics).toBe(false);
   });
+
+  // ==========================================
+  // SCRUM-22: SAML 2.0 & OIDC Application Integration Wizard Tests
+  // ==========================================
+  describe('SCRUM-22: Application Integration Wizard & State Management', () => {
+    it('should initialize with pre-configured app catalog templates', () => {
+      const templates = component.dashboardService.appCatalogTemplates;
+      expect(templates.length).toBeGreaterThanOrEqual(7);
+      const ids = templates.map((t) => t.id);
+      expect(ids).toContain('aws-iam');
+      expect(ids).toContain('google-workspace');
+      expect(ids).toContain('salesforce');
+      expect(ids).toContain('github-enterprise');
+      expect(ids).toContain('slack');
+      expect(ids).toContain('custom-saml');
+      expect(ids).toContain('custom-oidc');
+    });
+
+    it('should filter catalog templates by search query and protocol filter', () => {
+      component.dashboardService.wizardCatalogSearch = 'aws';
+      expect(component.dashboardService.filteredCatalogTemplates().length).toBe(1);
+      expect(component.dashboardService.filteredCatalogTemplates()[0].id).toBe('aws-iam');
+
+      component.dashboardService.wizardCatalogSearch = '';
+      component.dashboardService.wizardCatalogFilter.set('OIDC');
+      const oidcTemplates = component.dashboardService.filteredCatalogTemplates();
+      expect(oidcTemplates.every((t) => t.protocol === 'OIDC')).toBe(true);
+
+      component.dashboardService.wizardCatalogFilter.set('all');
+      expect(component.dashboardService.filteredCatalogTemplates().length).toBe(
+        component.dashboardService.appCatalogTemplates.length
+      );
+    });
+
+    it('should select a catalog template and advance to step 2 with presets filled', () => {
+      component.dashboardService.openAddAppModal();
+      expect(component.dashboardService.wizardStep()).toBe(1);
+
+      const awsTpl = component.dashboardService.appCatalogTemplates.find((t) => t.id === 'aws-iam')!;
+      component.dashboardService.selectCatalogTemplate(awsTpl);
+
+      expect(component.dashboardService.wizardStep()).toBe(2);
+      expect(component.dashboardService.wizardSelectedTemplate()?.id).toBe('aws-iam');
+      expect(component.dashboardService.newAppName).toBe('AWS IAM Identity Center');
+      expect(component.dashboardService.newAppProtocol).toBe('SAML 2.0');
+      expect(component.dashboardService.newAppEntityId).toBe('https://signin.aws.amazon.com/saml');
+      expect(component.dashboardService.newAppAcsUrl).toBe('https://signin.aws.amazon.com/saml');
+      expect(component.dashboardService.wizardAttributeStatements().length).toBe(2);
+    });
+
+    it('should manage interactive attribute statements mapping rows', () => {
+      component.dashboardService.openAddAppModal();
+      component.dashboardService.addAttributeStatementRow('department', 'urn:oid:department');
+      const statements = component.dashboardService.wizardAttributeStatements();
+      expect(statements.some((s) => s.samlClaim === 'urn:oid:department')).toBe(true);
+
+      const idx = statements.findIndex((s) => s.samlClaim === 'urn:oid:department');
+      component.dashboardService.updateAttributeStatement(idx, 'samlClaim', 'custom:dept');
+      expect(component.dashboardService.wizardAttributeStatements()[idx].samlClaim).toBe('custom:dept');
+
+      component.dashboardService.removeAttributeStatementRow(idx);
+      expect(component.dashboardService.wizardAttributeStatements().some((s) => s.samlClaim === 'custom:dept')).toBe(false);
+    });
+
+    it('should manage OIDC client credentials, tag chips for redirect URIs, grant types, and scopes', () => {
+      component.dashboardService.openAddAppModal();
+      const oidcTpl = component.dashboardService.appCatalogTemplates.find((t) => t.id === 'custom-oidc')!;
+      component.dashboardService.selectCatalogTemplate(oidcTpl);
+
+      expect(component.dashboardService.newAppProtocol).toBe('OIDC');
+      expect(component.dashboardService.wizardClientId()).toContain('vg_client_');
+      expect(component.dashboardService.wizardClientSecret()).toContain('vg_sec_');
+
+      // Chip additions and removals
+      component.dashboardService.wizardNewRedirectUriInput = 'https://myapp.io/callback';
+      component.dashboardService.addRedirectUriChip();
+      expect(component.dashboardService.wizardRedirectUris()).toContain('https://myapp.io/callback');
+
+      const chipIdx = component.dashboardService.wizardRedirectUris().indexOf('https://myapp.io/callback');
+      component.dashboardService.removeRedirectUriChip(chipIdx);
+      expect(component.dashboardService.wizardRedirectUris()).not.toContain('https://myapp.io/callback');
+
+      // Grant types & scopes toggles
+      expect(component.dashboardService.wizardGrantTypes()).not.toContain('client_credentials');
+      component.dashboardService.toggleWizardGrantType('client_credentials');
+      expect(component.dashboardService.wizardGrantTypes()).toContain('client_credentials');
+
+      // 'groups' is present in custom-oidc defaultScopes; toggle off then on
+      expect(component.dashboardService.wizardScopes()).toContain('groups');
+      component.dashboardService.toggleWizardScope('groups');
+      expect(component.dashboardService.wizardScopes()).not.toContain('groups');
+      component.dashboardService.toggleWizardScope('groups');
+      expect(component.dashboardService.wizardScopes()).toContain('groups');
+    });
+
+    it('should enforce client-side validation when stepping through wizard', () => {
+      component.dashboardService.openAddAppModal();
+      component.dashboardService.wizardStep.set(2);
+      component.dashboardService.newAppName = '';
+      component.dashboardService.setWizardStep(3);
+      expect(component.dashboardService.addAppError()).toContain('Application Name is required');
+
+      component.dashboardService.newAppName = 'Custom App';
+      component.dashboardService.newAppProtocol = 'SAML 2.0';
+      component.dashboardService.newAppEntityId = '';
+      component.dashboardService.setWizardStep(3);
+      expect(component.dashboardService.addAppError()).toContain('Entity ID / Audience URI is required');
+
+      component.dashboardService.newAppEntityId = 'https://entity.id';
+      component.dashboardService.newAppAcsUrl = 'not-a-url';
+      component.dashboardService.setWizardStep(3);
+      expect(component.dashboardService.addAppError()).toContain('valid HTTP or HTTPS');
+    });
+
+    it('should support addApp(), updateApp(), and deleteApp() reactive actions', () => {
+      const initialSamlCount = component.dashboardService.federatedSamlConnectors().length;
+      const initialAppsCount = component.dashboardService.apps().length;
+
+      // addApp reactive action
+      component.dashboardService.addApp({
+        id: 'test-app-1',
+        name: 'Datadog Cloud Monitoring',
+        protocol: 'SAML 2.0',
+        entityId: 'https://datadog.com/sp',
+        acsUrl: 'https://app.datadoghq.com/sso/saml',
+        assignedGroups: ['Engineering'],
+      });
+
+      expect(component.dashboardService.federatedSamlConnectors().length).toBe(initialSamlCount + 1);
+      expect(component.dashboardService.apps().length).toBe(initialAppsCount + 1);
+      const app = component.dashboardService.federatedSamlConnectors().find((c) => c.id === 'test-app-1');
+      expect(app?.name).toBe('Datadog Cloud Monitoring');
+
+      // updateApp reactive action
+      component.dashboardService.updateApp('test-app-1', { name: 'Datadog Enterprise' });
+      const updatedApp = component.dashboardService.federatedSamlConnectors().find((c) => c.id === 'test-app-1');
+      expect(updatedApp?.name).toBe('Datadog Enterprise');
+
+      // deleteApp reactive action
+      component.dashboardService.deleteApp('test-app-1');
+      expect(component.dashboardService.federatedSamlConnectors().some((c) => c.id === 'test-app-1')).toBe(false);
+      expect(component.dashboardService.apps().some((a) => a.id === 'test-app-1')).toBe(false);
+    });
+  });
 });
