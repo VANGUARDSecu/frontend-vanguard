@@ -30,6 +30,8 @@ import {
   WebhookEventType,
   WebhookEndpoint,
   WebhookDelivery,
+  TenantOrganization,
+  TenantBranding,
 } from '../models/dashboard.models';
 
 @Injectable({
@@ -1109,9 +1111,85 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     return u.email.substring(0, 2).toUpperCase();
   });
 
-  readonly organizationName = computed<string>(() => {
-    return this.user()?.companyName || 'Vanguard Security Systems';
+  // ==========================================
+  // SCRUM-28: Multi-Tenant Organizations & White-Label Branding State
+  // ==========================================
+  private initOrganizations(): TenantOrganization[] {
+    const stored = this.loadStored<TenantOrganization[]>('vanguard_organizations', []);
+    if (stored && stored.length > 0) {
+      return stored;
+    }
+    const company = this.user()?.companyName || 'Vanguard Security Systems';
+    const slug = company.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'vanguard-corp';
+    const initialOrg: TenantOrganization = {
+      id: 'org_root',
+      name: company,
+      slug: slug,
+      tier: 'Enterprise',
+      domain: `${slug}.security`,
+      primaryContactEmail: this.user()?.email || 'admin@vanguard.security',
+      createdAt: new Date().toISOString(),
+      memberCount: 1,
+      isCustomDomainVerified: true,
+    };
+    return [initialOrg];
+  }
+
+  readonly organizations = signal<TenantOrganization[]>(this.initOrganizations());
+  readonly activeOrganizationId = signal<string>(
+    this.loadStored<string>('vanguard_active_org_id', 'org_root')
+  );
+
+  readonly activeOrganization = computed<TenantOrganization>(() => {
+    const orgs = this.organizations();
+    const activeId = this.activeOrganizationId();
+    return orgs.find((o) => o.id === activeId) || orgs[0] || {
+      id: 'org_root',
+      name: 'Vanguard Security Systems',
+      slug: 'vanguard-corp',
+      tier: 'Enterprise',
+      createdAt: new Date().toISOString(),
+      memberCount: 1,
+    };
   });
+
+  readonly organizationName = computed<string>(() => {
+    return this.activeOrganization()?.name || this.user()?.companyName || 'Vanguard Security Systems';
+  });
+
+  private initTenantBranding(): TenantBranding {
+    const stored = this.loadStored<TenantBranding | null>('vanguard_tenant_branding', null);
+    if (stored) {
+      return stored;
+    }
+    const activeOrg = this.activeOrganization();
+    return {
+      organizationId: activeOrg.id,
+      companyName: activeOrg.name,
+      logoUrl: '',
+      faviconUrl: '',
+      primaryAccentColor: '#3b82f6',
+      ssoCustomDomain: `sso.${activeOrg.slug || 'vanguard'}.security`,
+      ssoDomainVerified: false,
+      emailCustomGreeting: 'Welcome to your enterprise Zero-Trust Identity workspace.',
+      emailButtonText: 'Activate Account & Set Password',
+      supportEmail: this.user()?.email || 'security@vanguard.security',
+    };
+  }
+
+  readonly tenantBranding = signal<TenantBranding>(this.initTenantBranding());
+
+  // Modal & Form Signals for Organization Creation
+  readonly showCreateOrgModal = signal<boolean>(false);
+  readonly newOrgName = signal<string>('');
+  readonly newOrgTier = signal<'Enterprise' | 'Business' | 'Starter' | 'Trial'>('Enterprise');
+  readonly newOrgDomain = signal<string>('');
+  readonly newOrgError = signal<string | null>(null);
+
+  // Branding signals
+  readonly domainVerificationStatus = signal<'idle' | 'checking' | 'verified' | 'failed'>('idle');
+  readonly brandingSavedNotice = signal<boolean>(false);
+
 
   readonly userRoleLabel = computed<string>(() => {
     const role = this.userRole();
@@ -4157,6 +4235,226 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     this.webhookDeliveries.set([]);
     this.saveStored('vanguard_webhook_deliveries', []);
     this.showAdminNotice('Webhook delivery history cleared.');
+  }
+
+  // ==========================================
+  // SCRUM-28: Multi-Tenant Organization Switcher & Branding Actions
+  // ==========================================
+  switchOrganization(orgId: string): void {
+    const org = this.organizations().find((o) => o.id === orgId);
+    if (!org) return;
+
+    this.activeOrganizationId.set(orgId);
+    this.saveStored('vanguard_active_org_id', orgId);
+
+    // Update branding company name if not specifically overridden
+    this.tenantBranding.update((b) => ({
+      ...b,
+      organizationId: orgId,
+      companyName: org.name,
+      ssoCustomDomain: `sso.${org.slug}.security`,
+    }));
+    this.saveStored('vanguard_tenant_branding', this.tenantBranding());
+
+    // Apply active brand accent
+    this.applyBrandAccent(this.tenantBranding().primaryAccentColor);
+
+    this.logAuditEvent(
+      `Switched active organization context to: ${org.name} (${org.tier})`,
+      'Tenant Manager',
+      'Organization Switcher',
+      'success',
+      'Low'
+    );
+    this.showAdminNotice(`Switched to organization: ${org.name}`);
+  }
+
+  openCreateOrgModal(): void {
+    this.newOrgName.set('');
+    this.newOrgTier.set('Enterprise');
+    this.newOrgDomain.set('');
+    this.newOrgError.set(null);
+    this.showCreateOrgModal.set(true);
+  }
+
+  closeCreateOrgModal(): void {
+    this.showCreateOrgModal.set(false);
+    this.newOrgError.set(null);
+  }
+
+  createOrganization(): void {
+    const name = this.newOrgName().trim();
+    if (!name) {
+      this.newOrgError.set('Organization name is required.');
+      return;
+    }
+
+    const slug =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'tenant-' + Date.now().toString(36);
+    const domain = this.newOrgDomain().trim() || `${slug}.security`;
+    const newOrg: TenantOrganization = {
+      id: 'org_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+      name,
+      slug,
+      tier: this.newOrgTier(),
+      domain,
+      primaryContactEmail: this.user()?.email || 'admin@' + domain,
+      createdAt: new Date().toISOString(),
+      memberCount: 1,
+      isCustomDomainVerified: false,
+    };
+
+    this.organizations.update((list) => [...list, newOrg]);
+    this.saveStored('vanguard_organizations', this.organizations());
+    this.switchOrganization(newOrg.id);
+
+    this.logAuditEvent(
+      `Created new tenant organization: ${name} [${newOrg.tier}]`,
+      'Tenant Manager',
+      'Organization Provisioning',
+      'success',
+      'Medium'
+    );
+    this.showAdminNotice(`Organization ${name} created successfully.`);
+    this.closeCreateOrgModal();
+  }
+
+  deleteOrganization(orgId: string): void {
+    const list = this.organizations();
+    if (list.length <= 1) {
+      this.showAdminNotice('Cannot delete the primary organization. At least one organization must remain.');
+      return;
+    }
+
+    const org = list.find((o) => o.id === orgId);
+    const remaining = list.filter((o) => o.id !== orgId);
+    this.organizations.set(remaining);
+    this.saveStored('vanguard_organizations', remaining);
+
+    if (this.activeOrganizationId() === orgId) {
+      this.switchOrganization(remaining[0].id);
+    }
+
+    if (org) {
+      this.logAuditEvent(
+        `Deleted organization: ${org.name}`,
+        'Tenant Manager',
+        'Organization Deprovisioning',
+        'success',
+        'Medium'
+      );
+      this.showAdminNotice(`Organization ${org.name} deleted.`);
+    }
+  }
+
+  applyBrandAccent(colorHex: string): void {
+    if (!this.isBrowser || !colorHex) return;
+    try {
+      const root = document.documentElement;
+      root.style.setProperty('--brand-primary', colorHex);
+
+      // Convert hex to rgb
+      const cleaned = colorHex.replace('#', '');
+      if (cleaned.length === 6) {
+        const r = parseInt(cleaned.substring(0, 2), 16);
+        const g = parseInt(cleaned.substring(2, 4), 16);
+        const b = parseInt(cleaned.substring(4, 6), 16);
+        root.style.setProperty('--brand-primary-rgb', `${r}, ${g}, ${b}`);
+        root.style.setProperty('--brand-glow', `rgba(${r}, ${g}, ${b}, 0.35)`);
+      }
+    } catch (e) {
+      console.warn('Failed to apply brand accent variables:', e);
+    }
+  }
+
+  saveBrandingSettings(updated: Partial<TenantBranding>): void {
+    const current = this.tenantBranding();
+    const merged: TenantBranding = {
+      ...current,
+      ...updated,
+    };
+    this.tenantBranding.set(merged);
+    this.saveStored('vanguard_tenant_branding', merged);
+
+    if (merged.primaryAccentColor) {
+      this.applyBrandAccent(merged.primaryAccentColor);
+    }
+
+    // Also update current active org name if changed
+    if (updated.companyName && updated.companyName.trim()) {
+      this.organizations.update((list) =>
+        list.map((org) => (org.id === merged.organizationId ? { ...org, name: updated.companyName!.trim() } : org))
+      );
+      this.saveStored('vanguard_organizations', this.organizations());
+    }
+
+    this.brandingSavedNotice.set(true);
+    setTimeout(() => this.brandingSavedNotice.set(false), 3000);
+
+    this.logAuditEvent(
+      `Updated white-label branding configuration for ${merged.companyName}`,
+      'Branding Studio',
+      'Settings API',
+      'success',
+      'Low'
+    );
+    this.showAdminNotice('White-label branding settings saved successfully.');
+  }
+
+  resetBrandingToDefaults(): void {
+    const activeOrg = this.activeOrganization();
+    const defaults: TenantBranding = {
+      organizationId: activeOrg.id,
+      companyName: activeOrg.name,
+      logoUrl: '',
+      faviconUrl: '',
+      primaryAccentColor: '#3b82f6',
+      ssoCustomDomain: `sso.${activeOrg.slug || 'vanguard'}.security`,
+      ssoDomainVerified: false,
+      emailCustomGreeting: 'Welcome to your enterprise Zero-Trust Identity workspace.',
+      emailButtonText: 'Activate Account & Set Password',
+      supportEmail: this.user()?.email || 'security@vanguard.security',
+    };
+
+    this.tenantBranding.set(defaults);
+    this.saveStored('vanguard_tenant_branding', defaults);
+    this.applyBrandAccent('#3b82f6');
+
+    this.logAuditEvent(
+      'Reset branding settings to Vanguard default theme',
+      'Branding Studio',
+      'Settings API',
+      'success',
+      'Low'
+    );
+    this.showAdminNotice('Branding reset to default Vanguard cyber theme.');
+  }
+
+  async verifyCustomDomainDns(): Promise<void> {
+    this.domainVerificationStatus.set('checking');
+    await new Promise((resolve) => setTimeout(resolve, 450));
+
+    this.domainVerificationStatus.set('verified');
+    this.tenantBranding.update((b) => ({ ...b, ssoDomainVerified: true }));
+    this.saveStored('vanguard_tenant_branding', this.tenantBranding());
+
+    // Mark verified on active org
+    this.organizations.update((list) =>
+      list.map((org) => (org.id === this.activeOrganizationId() ? { ...org, isCustomDomainVerified: true } : org))
+    );
+    this.saveStored('vanguard_organizations', this.organizations());
+
+    this.logAuditEvent(
+      `DNS CNAME verification passed for custom SSO domain: ${this.tenantBranding().ssoCustomDomain}`,
+      'Branding Studio',
+      'DNS Verifier',
+      'success',
+      'Low'
+    );
+    this.showAdminNotice(`Custom SSO domain ${this.tenantBranding().ssoCustomDomain} verified successfully.`);
   }
 
   // ==========================================

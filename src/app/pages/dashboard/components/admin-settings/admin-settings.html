@@ -1,81 +1,624 @@
-        <section class="dash-section" *ngIf="activeTab() === 'settings'">
-          <div class="section-header">
-            <div class="section-title-wrap">
-              <h2 class="section-title">Zero-Trust Vault Governance & Policies</h2>
-              <p class="section-subtitle">Tenant-wide security configurations, session timeouts, and emergency termination.</p>
-            </div>
-          </div>
+<section class="dash-section" *ngIf="activeTab() === 'settings'">
+  <!-- Section Header -->
+  <div class="section-header">
+    <div class="section-title-wrap">
+      <div class="header-badge-row">
+        <span class="cyber-badge-cyan">MULTI-TENANT ARCHITECTURE</span>
+        <span class="cyber-badge-purple">WHITE-LABEL READY</span>
+      </div>
+      <h2 class="section-title">Vault Settings & Branding Studio</h2>
+      <p class="section-subtitle">
+        Configure tenant security governance policies, customize white-label branding, vanity SSO domains, and manage multi-organization partitions.
+      </p>
+    </div>
 
-          <div class="security-cards-grid">
-            <!-- Organization Vault Profile -->
-            <div class="security-card">
-              <div class="sec-card-header">
-                <div class="sec-icon-box">🏛️</div>
-                <div class="sec-header-meta">
-                  <h3 class="sec-title">Tenant Organization Profile</h3>
-                  <span class="badge badge-success">Production Tenant</span>
-                </div>
-              </div>
-              <div class="policy-item">
-                <span class="policy-label">Organization Name:</span>
-                <span class="policy-value">{{ organizationName() }}</span>
-              </div>
-              <div class="policy-item">
-                <span class="policy-label">Directory Vault Domain:</span>
-                <span class="policy-value"><code>vanguard.security</code></span>
-              </div>
-              <div class="policy-item">
-                <span class="policy-label">SAML 2.0 Entity ID:</span>
-                <span class="policy-value"><code>urn:vanguard:security:idp</code></span>
-              </div>
-            </div>
+    <!-- Subtab Navigation Switcher -->
+    <div class="header-actions">
+      <div class="tab-pill-group">
+        <button
+          type="button"
+          class="tab-pill-btn"
+          [class.active]="settingsSubTab() === 'governance'"
+          (click)="setSubTab('governance')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="pill-icon">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span>Security & Governance</span>
+        </button>
 
-            <!-- Global Security Policies -->
-            <div class="security-card">
-              <div class="sec-card-header">
-                <div class="sec-icon-box">🛡️</div>
-                <div class="sec-header-meta">
-                  <h3 class="sec-title">Security & Access Rules</h3>
-                  <span class="badge badge-accent">OWASP Hardened</span>
-                </div>
-              </div>
-              
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <strong>Mandatory MFA Enforcement</strong>
-                  <p>Require 2-Step Verification for all employee logins across Web, LDAP, and RADIUS.</p>
-                </div>
-                <button type="button" class="btn-toggle" [class.active]="enforceMfaAll()" (click)="toggleEnforceMfa()">
-                  {{ enforceMfaAll() ? 'ON' : 'OFF' }}
-                </button>
-              </div>
+        <button
+          type="button"
+          class="tab-pill-btn"
+          [class.active]="settingsSubTab() === 'branding'"
+          (click)="setSubTab('branding')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="pill-icon">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2a7 7 0 0 0 7 7c0 3-2 5-5 5h-2a2 2 0 0 0-2 2v2"></path>
+          </svg>
+          <span>Branding Studio</span>
+        </button>
 
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <strong>Automated Tor & High-Risk IP Blocking</strong>
-                  <p>Instantly throttle and challenge connections originating from known malicious subnets.</p>
-                </div>
-                <button type="button" class="btn-toggle" [class.active]="blockHighRiskIps()" (click)="toggleBlockHighRiskIps()">
-                  {{ blockHighRiskIps() ? 'ON' : 'OFF' }}
-                </button>
-              </div>
-            </div>
+        <button
+          type="button"
+          class="tab-pill-btn"
+          [class.active]="settingsSubTab() === 'tenants'"
+          (click)="setSubTab('tenants')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="pill-icon">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <span>Organizations</span>
+          <span class="pill-counter">{{ organizations().length }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
-            <!-- Emergency Killswitch Card -->
-            <div class="security-card full-span danger-card">
-              <div class="sec-card-header">
-                <div class="sec-icon-box danger-icon-box">⚠️</div>
-                <div class="sec-header-meta">
-                  <h3 class="sec-title text-danger">Global Emergency Session Killswitch</h3>
-                  <span class="badge badge-danger">High Impact Danger Zone</span>
-                </div>
-              </div>
-              <p class="sec-desc">
-                In the event of an active security incident or compromised corporate credentials, executing the Global Killswitch will <strong>immediately terminate all active sessions, invalidate JWTs, revoke SAML assertions, and disconnect active RADIUS/LDAP binds</strong> across the entire directory.
-              </p>
-              <button type="button" class="btn-danger-killswitch" (click)="openGlobalKillswitchModal()">
-                <span>Execute Global Emergency Killswitch</span>
+  <!-- ====================================================================
+       SUBTAB 1: ZERO-TRUST GOVERNANCE & POLICIES
+       ==================================================================== -->
+  <div class="security-cards-grid" *ngIf="settingsSubTab() === 'governance'">
+    <!-- Organization Vault Profile -->
+    <div class="security-card">
+      <div class="sec-card-header">
+        <div class="sec-icon-box">🏛️</div>
+        <div class="sec-header-meta">
+          <h3 class="sec-title">Tenant Organization Profile</h3>
+          <span class="badge badge-success">{{ activeOrganization().tier }} Tenant</span>
+        </div>
+      </div>
+      <div class="policy-item">
+        <span class="policy-label">Active Organization:</span>
+        <span class="policy-value"><strong>{{ activeOrganization().name }}</strong></span>
+      </div>
+      <div class="policy-item">
+        <span class="policy-label">Tenant Slug:</span>
+        <span class="policy-value"><code>{{ activeOrganization().slug }}</code></span>
+      </div>
+      <div class="policy-item">
+        <span class="policy-label">Directory Vault Domain:</span>
+        <span class="policy-value"><code>{{ activeOrganization().domain || activeOrganization().slug + '.security' }}</code></span>
+      </div>
+      <div class="policy-item">
+        <span class="policy-label">SAML 2.0 Entity ID:</span>
+        <span class="policy-value"><code>urn:vanguard:{{ activeOrganization().slug }}:idp</code></span>
+      </div>
+      <div class="policy-item">
+        <span class="policy-label">Primary Admin Contact:</span>
+        <span class="policy-value">{{ activeOrganization().primaryContactEmail || user()?.email }}</span>
+      </div>
+    </div>
+
+    <!-- Global Security Policies -->
+    <div class="security-card">
+      <div class="sec-card-header">
+        <div class="sec-icon-box">🛡️</div>
+        <div class="sec-header-meta">
+          <h3 class="sec-title">Security & Access Rules</h3>
+          <span class="badge badge-accent">OWASP Hardened</span>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <strong>Mandatory MFA Enforcement</strong>
+          <p>Require 2-Step Verification for all employee logins across Web, LDAP, and RADIUS.</p>
+        </div>
+        <button
+          type="button"
+          class="btn-toggle"
+          [class.active]="enforceMfaAll()"
+          (click)="toggleEnforceMfa()"
+        >
+          {{ enforceMfaAll() ? 'ON' : 'OFF' }}
+        </button>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <strong>Automated Tor & High-Risk IP Blocking</strong>
+          <p>Instantly throttle and challenge connections originating from known malicious subnets.</p>
+        </div>
+        <button
+          type="button"
+          class="btn-toggle"
+          [class.active]="blockHighRiskIps()"
+          (click)="toggleBlockHighRiskIps()"
+        >
+          {{ blockHighRiskIps() ? 'ON' : 'OFF' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Emergency Killswitch Card -->
+    <div class="security-card full-span danger-card">
+      <div class="sec-card-header">
+        <div class="sec-icon-box danger-icon-box">⚠️</div>
+        <div class="sec-header-meta">
+          <h3 class="sec-title text-danger">Global Emergency Session Killswitch</h3>
+          <span class="badge badge-danger">High Impact Danger Zone</span>
+        </div>
+      </div>
+      <p class="sec-desc">
+        In the event of an active security incident or compromised corporate credentials, executing the Global Killswitch will <strong>immediately terminate all active sessions, invalidate JWTs, revoke SAML assertions, and disconnect active RADIUS/LDAP binds</strong> across the entire directory.
+      </p>
+      <button type="button" class="btn-danger-killswitch" (click)="openGlobalKillswitchModal()">
+        <span>Execute Global Emergency Killswitch</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       SUBTAB 2: WHITE-LABEL BRANDING STUDIO
+       ==================================================================== -->
+  <div class="branding-studio-container" *ngIf="settingsSubTab() === 'branding'">
+    <!-- Success Alert Notice -->
+    <div class="alert-banner alert-success" *ngIf="brandingSavedNotice()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      <span>Branding customizations saved and applied in real time across the portal!</span>
+    </div>
+
+    <div class="branding-grid-layout">
+      <!-- Left Column: Branding Controls -->
+      <div class="branding-controls-card">
+        <div class="card-inner-header">
+          <h3 class="card-title">Brand Identity & Color Palette</h3>
+          <p class="card-desc">
+            Personalize the portal, email invitations, and login gateways to reflect {{ activeOrganization().name }}'s corporate identity.
+          </p>
+        </div>
+
+        <!-- Company Display Name -->
+        <div class="form-group">
+          <label class="form-label">Corporate Display Name</label>
+          <input
+            type="text"
+            class="form-control"
+            [ngModel]="brandCompanyName()"
+            (ngModelChange)="brandCompanyName.set($event)"
+            placeholder="e.g. Acme Cybersecurity Corp"
+          />
+        </div>
+
+        <!-- Logo Upload -->
+        <div class="form-group">
+          <label class="form-label">Company Logo (PNG / SVG / WEBP)</label>
+          <div class="logo-uploader-box">
+            <div class="logo-preview-area" *ngIf="brandLogoUrl()">
+              <img [src]="brandLogoUrl()" alt="Brand Logo Preview" class="uploaded-logo-preview" />
+              <button type="button" class="btn-remove-logo" (click)="removeLogo()" title="Remove Logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
               </button>
             </div>
+
+            <div class="logo-upload-prompt" *ngIf="!brandLogoUrl()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="upload-icon">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <div class="upload-text-wrap">
+                <label for="logo-file-input" class="upload-trigger-label">Upload Brand Logo</label>
+                <span class="upload-hint">PNG, SVG or JPEG under 2MB</span>
+              </div>
+              <input
+                id="logo-file-input"
+                type="file"
+                accept="image/png,image/svg+xml,image/jpeg,image/webp"
+                (change)="onLogoFileSelected($event)"
+                class="hidden-file-input"
+              />
+            </div>
           </div>
-        </section>
+          <span class="alert-danger-text" *ngIf="logoUploadError()">{{ logoUploadError() }}</span>
+        </div>
+
+        <!-- Primary Accent Color Picker -->
+        <div class="form-group">
+          <label class="form-label">Primary Brand Accent Color</label>
+          <div class="color-presets-row">
+            <button
+              *ngFor="let p of colorPresets"
+              type="button"
+              class="color-preset-btn"
+              [style.background]="p.hex"
+              [class.active]="brandAccentColor().toLowerCase() === p.hex.toLowerCase()"
+              (click)="selectPresetColor(p.hex)"
+              [title]="p.name"
+            >
+              <svg *ngIf="brandAccentColor().toLowerCase() === p.hex.toLowerCase()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </button>
+            <div class="custom-color-picker-wrap">
+              <input
+                type="color"
+                [ngModel]="brandAccentColor()"
+                (ngModelChange)="onCustomColorChange($event)"
+                class="color-picker-input"
+                title="Pick Custom Color"
+              />
+            </div>
+          </div>
+          <div class="color-hex-row">
+            <span class="color-hex-label">Active Hex:</span>
+            <code class="color-hex-code">{{ brandAccentColor() }}</code>
+          </div>
+        </div>
+
+        <!-- Custom Vanity SSO Domain -->
+        <div class="form-group">
+          <label class="form-label">Custom Vanity SSO Domain (CNAME)</label>
+          <div class="input-with-icon">
+            <span class="input-prefix">https://</span>
+            <input
+              type="text"
+              class="form-control"
+              placeholder="sso.yourcompany.com"
+              [ngModel]="brandCustomDomain()"
+              (ngModelChange)="brandCustomDomain.set($event)"
+            />
+          </div>
+
+          <!-- DNS Configuration Guide -->
+          <div class="dns-guide-box">
+            <div class="dns-guide-header">
+              <span class="dns-guide-title">Required DNS CNAME Record</span>
+              <button
+                type="button"
+                class="btn-verify-dns"
+                [disabled]="domainVerificationStatus() === 'checking'"
+                (click)="verifyDns()"
+              >
+                <span *ngIf="domainVerificationStatus() === 'checking'" class="spinner-inline"></span>
+                <span>{{ domainVerificationStatus() === 'checking' ? 'Querying DNS...' : 'Verify DNS CNAME' }}</span>
+              </button>
+            </div>
+            <div class="dns-record-row">
+              <div class="dns-field">
+                <span class="dns-tag">TYPE</span>
+                <code>CNAME</code>
+              </div>
+              <div class="dns-field">
+                <span class="dns-tag">HOST</span>
+                <code>sso</code>
+              </div>
+              <div class="dns-field">
+                <span class="dns-tag">POINTS TO</span>
+                <code>auth.vanguard.security</code>
+              </div>
+              <div class="dns-field">
+                <span class="dns-tag">STATUS</span>
+                <span
+                  class="dns-status-pill"
+                  [class.verified]="domainVerificationStatus() === 'verified' || tenantBranding().ssoDomainVerified"
+                  [class.pending]="domainVerificationStatus() !== 'verified' && !tenantBranding().ssoDomainVerified"
+                >
+                  {{ (domainVerificationStatus() === 'verified' || tenantBranding().ssoDomainVerified) ? 'Verified' : 'Pending' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Support Email -->
+        <div class="form-group">
+          <label class="form-label">Tenant Support / Helpdesk Email</label>
+          <input
+            type="email"
+            class="form-control"
+            placeholder="security@yourcompany.com"
+            [ngModel]="brandSupportEmail()"
+            (ngModelChange)="brandSupportEmail.set($event)"
+          />
+        </div>
+
+        <!-- Form Actions -->
+        <div class="branding-actions-row">
+          <button type="button" class="btn-primary-action" (click)="saveBranding()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            <span>Save Branding Changes</span>
+          </button>
+          <button type="button" class="btn-secondary-action" (click)="resetBranding()">
+            <span>Restore Vanguard Theme</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Column: Live Previews -->
+      <div class="branding-previews-card">
+        <div class="card-inner-header">
+          <h3 class="card-title">Live Preview Studio</h3>
+          <p class="card-desc">Real-time simulation of employee invitation emails and branded login portals.</p>
+        </div>
+
+        <!-- 1. Email Invitation Preview -->
+        <div class="preview-block">
+          <span class="preview-block-label">Employee Onboarding Email Preview</span>
+          <div class="mock-email-window">
+            <div class="email-chrome-bar">
+              <div class="window-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="email-subject-line">
+                Invitation: Set up your {{ brandCompanyName() || activeOrganization().name }} Security Account
+              </div>
+            </div>
+            <div class="email-body-content">
+              <!-- Brand Header -->
+              <div class="email-brand-header">
+                <img
+                  *ngIf="brandLogoUrl()"
+                  [src]="brandLogoUrl()"
+                  alt="Brand Logo"
+                  class="email-brand-logo"
+                />
+                <h4 class="email-brand-name">{{ brandCompanyName() || activeOrganization().name }}</h4>
+              </div>
+
+              <!-- Greeting -->
+              <h3 class="email-heading">Welcome to the Team</h3>
+              <p class="email-text">
+                {{ brandGreeting() }} You have been invited as an employee to join the secure directory.
+              </p>
+
+              <!-- Account Info Card -->
+              <div class="email-info-card">
+                <div class="info-line">
+                  <span class="info-k">Email:</span>
+                  <span class="info-v">{{ user()?.email || 'employee@company.com' }}</span>
+                </div>
+                <div class="info-line">
+                  <span class="info-k">Organization:</span>
+                  <span class="info-v">{{ brandCompanyName() || activeOrganization().name }}</span>
+                </div>
+                <div class="info-line">
+                  <span class="info-k">Domain:</span>
+                  <span class="info-v">{{ brandCustomDomain() || 'sso.vanguard.security' }}</span>
+                </div>
+              </div>
+
+              <!-- Branded CTA Button -->
+              <div class="email-cta-row">
+                <button
+                  type="button"
+                  class="mock-cta-button"
+                  [style.background]="brandAccentColor()"
+                >
+                  {{ brandButtonText() || 'Activate Account & Set Password' }}
+                </button>
+              </div>
+
+              <div class="email-footer-note">
+                <p>Protected by Vanguard Zero-Trust Identity Gateway. Questions? Contact <strong>{{ brandSupportEmail() || 'security@vanguard.security' }}</strong>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Portal Header Swatch Preview -->
+        <div class="preview-block">
+          <span class="preview-block-label">Live Navigation Bar Preview</span>
+          <div class="mock-portal-header" [style.borderTopColor]="brandAccentColor()">
+            <div class="mock-header-brand">
+              <img
+                *ngIf="brandLogoUrl()"
+                [src]="brandLogoUrl()"
+                alt="Brand Logo"
+                class="mock-nav-logo"
+              />
+              <span class="mock-nav-title">{{ brandCompanyName() || activeOrganization().name }}</span>
+            </div>
+            <div class="mock-header-actions">
+              <span class="mock-nav-pill" [style.background]="brandAccentColor()">
+                {{ activeOrganization().tier }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       SUBTAB 3: MULTI-TENANT ORGANIZATIONS
+       ==================================================================== -->
+  <div class="organizations-tab-container" *ngIf="settingsSubTab() === 'tenants'">
+    <div class="subtab-toolbar">
+      <div class="toolbar-info">
+        <h3 class="toolbar-title">Tenant Organizations</h3>
+        <p class="toolbar-desc">
+          Manage isolated organization tenants. Switching organization switches the active administrative scope.
+        </p>
+      </div>
+      <button type="button" class="btn-primary-action" (click)="openCreateOrg()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Register Organization</span>
+      </button>
+    </div>
+
+    <div class="cyber-table-card">
+      <table class="cyber-table">
+        <thead>
+          <tr>
+            <th>Organization Name</th>
+            <th>Slug</th>
+            <th>Subscription Tier</th>
+            <th>Custom Domain</th>
+            <th>Members</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let org of organizations()" [class.active-org-row]="org.id === activeOrganization().id">
+            <!-- Name & Active Status -->
+            <td>
+              <div class="org-cell-name">
+                <div class="org-avatar-box">
+                  {{ org.name.substring(0, 1).toUpperCase() }}
+                </div>
+                <div class="org-name-col">
+                  <span class="org-primary-name">{{ org.name }}</span>
+                  <span class="org-active-badge" *ngIf="org.id === activeOrganization().id">Active Tenant</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- Slug -->
+            <td>
+              <code>{{ org.slug }}</code>
+            </td>
+
+            <!-- Tier -->
+            <td>
+              <span
+                class="tier-badge"
+                [class.tier-enterprise]="org.tier === 'Enterprise'"
+                [class.tier-business]="org.tier === 'Business'"
+              >
+                {{ org.tier }}
+              </span>
+            </td>
+
+            <!-- Domain -->
+            <td>
+              <span class="domain-text">{{ org.domain || org.slug + '.security' }}</span>
+            </td>
+
+            <!-- Member Count -->
+            <td>
+              <span class="member-count-pill">{{ org.memberCount || 1 }} active</span>
+            </td>
+
+            <!-- Actions -->
+            <td class="text-right">
+              <div class="row-actions-group">
+                <button
+                  *ngIf="org.id !== activeOrganization().id"
+                  type="button"
+                  class="btn-table-action"
+                  (click)="switchOrg(org.id)"
+                  title="Switch to this organization"
+                >
+                  <span>Switch</span>
+                </button>
+                <span *ngIf="org.id === activeOrganization().id" class="active-status-text">Active Context</span>
+
+                <button
+                  *ngIf="organizations().length > 1"
+                  type="button"
+                  class="icon-action-btn btn-danger-icon"
+                  title="Delete Organization"
+                  (click)="deleteOrg(org.id)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAL: REGISTER NEW TENANT ORGANIZATION
+       ==================================================================== -->
+  <div class="modal-backdrop" *ngIf="showCreateOrgModal()" (click)="closeCreateOrg()">
+    <div class="cyber-modal modal-md" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-icon icon-cyan">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+        </div>
+        <div class="modal-header-info">
+          <h3 class="modal-title">Register New Tenant Organization</h3>
+          <p class="modal-desc">
+            Partition your directory into a new isolated organizational workspace with custom branding and policies.
+          </p>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="closeCreateOrg()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="alert-banner alert-danger" *ngIf="newOrgError()">
+          <span>{{ newOrgError() }}</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Organization Legal Name <span class="required">*</span></label>
+          <input
+            type="text"
+            class="form-control"
+            placeholder="e.g. Initech Corporation, Cyber Defense Labs"
+            [ngModel]="newOrgName()"
+            (ngModelChange)="newOrgName.set($event)"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Subscription Tier</label>
+          <select
+            class="form-control"
+            [ngModel]="newOrgTier()"
+            (ngModelChange)="newOrgTier.set($event)"
+          >
+            <option value="Enterprise">Enterprise (Full Protocol Suite)</option>
+            <option value="Business">Business (SSO + RADIUS)</option>
+            <option value="Starter">Starter (Basic Web SSO)</option>
+            <option value="Trial">Trial (14-Day Evaluation)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Primary Organization Domain (Optional)</label>
+          <input
+            type="text"
+            class="form-control"
+            placeholder="e.g. initech.com"
+            [ngModel]="newOrgDomain()"
+            (ngModelChange)="newOrgDomain.set($event)"
+          />
+          <span class="field-hint">Used for automated CNAME mapping and directory email claim matching.</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary-action" (click)="closeCreateOrg()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="createOrg()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Create & Switch to Organization</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>

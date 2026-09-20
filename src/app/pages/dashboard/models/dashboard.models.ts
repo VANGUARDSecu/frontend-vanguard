@@ -336,4 +336,28 @@ export interface WebhookDelivery {
   retryCount?: number;
 }
 
+export interface TenantOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  tier: 'Enterprise' | 'Business' | 'Starter' | 'Trial';
+  domain?: string;
+  logoUrl?: string;
+  primaryContactEmail?: string;
+  createdAt: string;
+  memberCount: number;
+  isCustomDomainVerified?: boolean;
+}
 
+export interface TenantBranding {
+  organizationId: string;
+  companyName: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  primaryAccentColor: string;
+  ssoCustomDomain: string;
+  ssoDomainVerified: boolean;
+  emailCustomGreeting?: string;
+  emailButtonText?: string;
+  supportEmail?: string;
+}
