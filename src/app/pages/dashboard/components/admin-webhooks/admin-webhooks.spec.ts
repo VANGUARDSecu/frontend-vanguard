@@ -216,3 +216,4 @@ describe('AdminWebhooks Component (SCRUM-27)', () => {
     expect(component.isSecretRevealed(testId)).toBe(false);
   });
 });
+
