@@ -364,4 +364,52 @@ export class SupabaseService {
       return null;
     }
   }
+
+  // =========================================================================
+  // Managed Endpoint Devices Operations
+  // =========================================================================
+  async getUserDevices(tenantId?: string): Promise<any[]> {
+    try {
+      let query = this.client.from('user_devices').select('*').order('enrolled_at', { ascending: false });
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.warn('Supabase: getUserDevices notice:', error.message);
+        return [];
+      }
+      return data || [];
+    } catch (e) {
+      console.warn('Supabase: getUserDevices exception:', e);
+      return [];
+    }
+  }
+
+  async upsertUserDevice(device: any): Promise<any> {
+    try {
+      const { data, error } = await this.client
+        .from('user_devices')
+        .upsert(device, { onConflict: 'id' })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      console.warn('Supabase: upsertUserDevice exception:', e);
+      return null;
+    }
+  }
+
+  async deleteUserDevice(deviceId: string): Promise<boolean> {
+    try {
+      const { error } = await this.client.from('user_devices').delete().eq('id', deviceId);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.warn('Supabase: deleteUserDevice exception:', e);
+      return false;
+    }
+  }
 }
+

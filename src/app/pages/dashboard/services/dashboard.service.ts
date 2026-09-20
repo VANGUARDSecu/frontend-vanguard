@@ -425,6 +425,7 @@ export class DashboardService {
 
     const newEvt: TenantAuditEvent = {
       id: 'log-' + Date.now(),
+      action,
       timestamp: timeStr,
       isoTimestamp: isoStr,
       actor,
@@ -955,12 +956,105 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   readonly copiedRadiusLog = signal<boolean>(false);
 
   // ==========================================
-  // PHASE 6: Mobile Companion App & Biometrics State (Dynamic)
-  // ==========================================
+  private resolveDisplayName(): string {
+    const u = this.user?.();
+    if (!u) return 'Security Analyst';
+    if (u.firstName && u.lastName) return `${u.firstName} ${u.lastName}`;
+    if (u.firstName) return u.firstName;
+    return u.email ? u.email.split('@')[0] : 'Security Analyst';
+  }
+
+  private initFleetDevices(): EnrolledDevice[] {
+    const stored = this.loadStored<EnrolledDevice[]>('vanguard_fleet_devices', []);
+    if (stored && stored.length > 0) {
+      return stored;
+    }
+    const name = this.resolveDisplayName();
+    const email = this.user()?.email || 'admin@vanguard.security';
+    const dept = 'Engineering';
+
+    const baseDevices: EnrolledDevice[] = [
+      {
+        id: 'dev-fleet-1',
+        name: `${name}'s MacBook Pro 16"`,
+        model: 'Apple MacBook Pro (M3 Max)',
+        type: 'macOS Workstation',
+        osVersion: 'macOS Sequoia 15.1',
+        ownerName: name,
+        ownerEmail: email,
+        department: dept,
+        biometricType: 'Touch ID',
+        diskEncrypted: true,
+        jailbroken: false,
+        edrActive: true,
+        complianceStatus: 'Compliant',
+        enrolledAt: '2026-09-01T09:00:00Z',
+        lastSync: '2 minutes ago',
+      },
+      {
+        id: 'dev-fleet-2',
+        name: `${name}'s iPhone 16 Pro`,
+        model: 'Apple iPhone 16 Pro (A3293)',
+        type: 'Mobile iOS',
+        osVersion: 'iOS 18.2',
+        ownerName: name,
+        ownerEmail: email,
+        department: dept,
+        biometricType: 'Face ID',
+        diskEncrypted: true,
+        jailbroken: false,
+        edrActive: true,
+        complianceStatus: 'Compliant',
+        enrolledAt: '2026-09-02T11:15:00Z',
+        lastSync: '5 minutes ago',
+      },
+    ];
+
+    const users = this.directoryUsers();
+    const colleague = users.find((u) => u.email !== email);
+    if (colleague) {
+      baseDevices.push({
+        id: 'dev-fleet-3',
+        name: `${colleague.name}'s ThinkPad X1 Carbon`,
+        model: 'Lenovo ThinkPad X1 Gen 12',
+        type: 'Windows Workstation',
+        osVersion: 'Windows 11 Pro 24H2',
+        ownerName: colleague.name,
+        ownerEmail: colleague.email,
+        department: colleague.department || 'Security Ops',
+        biometricType: 'Windows Hello',
+        diskEncrypted: true,
+        jailbroken: false,
+        edrActive: true,
+        complianceStatus: 'Compliant',
+        enrolledAt: '2026-09-05T08:30:00Z',
+        lastSync: '18 minutes ago',
+      });
+      baseDevices.push({
+        id: 'dev-fleet-4',
+        name: `${colleague.name}'s Pixel 9 Pro`,
+        model: 'Google Pixel 9 Pro',
+        type: 'Mobile Android',
+        osVersion: 'Android 15 (AP2A)',
+        ownerName: colleague.name,
+        ownerEmail: colleague.email,
+        department: colleague.department || 'Security Ops',
+        biometricType: 'Fingerprint',
+        diskEncrypted: true,
+        jailbroken: false,
+        edrActive: false,
+        complianceStatus: 'Warning',
+        enrolledAt: '2026-09-08T14:40:00Z',
+        lastSync: '1 hour ago',
+      });
+    }
+
+    return baseDevices;
+  }
+
   readonly userDevices = signal<EnrolledDevice[]>(
     this.loadStored<EnrolledDevice[]>('vanguard_user_devices', [])
   );
-
   readonly fleetDevices = signal<EnrolledDevice[]>(
     this.loadStored<EnrolledDevice[]>('vanguard_fleet_devices', [])
   );
@@ -971,6 +1065,8 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
       enforceBiometrics: true,
       blockJailbroken: true,
       inactivityLockoutMinutes: 5,
+      requireDiskEncryption: true,
+      enforceMinimumOs: true,
     })
   );
 
@@ -992,6 +1088,19 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   readonly showWipeDeviceModal = signal<boolean>(false);
   readonly selectedDeviceForWipe = signal<EnrolledDevice | null>(null);
   readonly wipeDeviceSuccess = signal<boolean>(false);
+
+  // SCRUM-29: Security Actions Modals
+  readonly showRevokeSsoModal = signal<boolean>(false);
+  readonly selectedDeviceForRevokeSso = signal<EnrolledDevice | null>(null);
+  readonly revokeSsoSuccess = signal<boolean>(false);
+
+  readonly showCompromisedModal = signal<boolean>(false);
+  readonly selectedDeviceForCompromised = signal<EnrolledDevice | null>(null);
+  readonly compromisedSuccess = signal<boolean>(false);
+
+  readonly showRemoveDeviceModal = signal<boolean>(false);
+  readonly selectedDeviceForRemove = signal<EnrolledDevice | null>(null);
+  readonly removeDeviceSuccess = signal<boolean>(false);
 
   // ==========================================
   // PHASE 2: User Portal - "My Apps" SSO State (Dynamic)
@@ -1396,6 +1505,35 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
         }));
         this.webhookDeliveries.set(mappedDeliveries);
         this.saveStored('vanguard_webhook_deliveries', mappedDeliveries);
+      }
+
+      // 5. Synchronize Endpoint Devices from Supabase
+      const cloudDevices = await this.supabaseService.getUserDevices();
+      if (cloudDevices && cloudDevices.length > 0) {
+        const mappedDevices: EnrolledDevice[] = cloudDevices.map((dev) => ({
+          id: dev.id,
+          name: dev.name,
+          model: dev.model || '',
+          type: dev.type || 'macOS Workstation',
+          osVersion: dev.os_version || '',
+          ownerName: dev.owner_name || this.displayName(),
+          ownerEmail: dev.owner_email || this.user()?.email || 'admin@vanguard.security',
+          department: dev.department || 'Engineering',
+          biometricType: dev.biometric_type || 'Touch ID',
+          diskEncrypted: dev.disk_encrypted ?? true,
+          jailbroken: dev.jailbroken ?? false,
+          edrActive: dev.edr_active ?? true,
+          complianceStatus: dev.compliance_status || 'Compliant',
+          enrolledAt: dev.enrolled_at || 'Recently',
+          lastSync: dev.last_sync || 'Recently',
+          ssoRevokedAt: dev.sso_revoked_at || undefined,
+          isCompromised: dev.is_compromised ?? false,
+        }));
+        this.fleetDevices.set(mappedDevices);
+        this.saveStored('vanguard_fleet_devices', mappedDevices);
+        const currentUserEmail = this.user()?.email || '';
+        this.userDevices.set(mappedDevices.filter((d) => d.ownerEmail === currentUserEmail));
+        this.saveStored('vanguard_user_devices', this.userDevices());
       }
     } catch (err) {
       console.warn('Supabase: Background synchronization failed, defaulting to local cache:', err);
@@ -3751,7 +3889,160 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   updateMobilePolicy(key: keyof MobilePolicyConfig, val: boolean): void {
     this.mobilePolicy.update((pol) => ({ ...pol, [key]: val }));
     this.saveStored('vanguard_mobile_policy', this.mobilePolicy());
-    this.showAdminNotice(`Mobile security policy updated.`);
+    this.logAuditEvent(
+      `Updated endpoint compliance policy "${String(key)}" to ${val ? 'Enforced' : 'Disabled'}`,
+      'Endpoint Trust Manager',
+      'Policy Modification',
+      'success',
+      'Medium'
+    );
+    this.showAdminNotice(`Endpoint security policy "${String(key)}" updated.`);
+  }
+
+  // ==========================================
+  // SCRUM-29: Device Security Actions
+  // ==========================================
+  openRevokeSsoModal(device: EnrolledDevice): void {
+    this.selectedDeviceForRevokeSso.set(device);
+    this.revokeSsoSuccess.set(false);
+    this.showRevokeSsoModal.set(true);
+  }
+
+  closeRevokeSsoModal(): void {
+    this.showRevokeSsoModal.set(false);
+    this.selectedDeviceForRevokeSso.set(null);
+  }
+
+  executeRevokeSso(): void {
+    const dev = this.selectedDeviceForRevokeSso();
+    if (!dev) return;
+
+    this.revokeSsoSuccess.set(true);
+    setTimeout(() => {
+      const updatedTime = new Date().toISOString();
+      this.fleetDevices.update((devs) =>
+        devs.map((d) => (d.id === dev.id ? { ...d, ssoRevokedAt: updatedTime, lastSync: 'Just now' } : d))
+      );
+      this.userDevices.update((devs) =>
+        devs.map((d) => (d.id === dev.id ? { ...d, ssoRevokedAt: updatedTime, lastSync: 'Just now' } : d))
+      );
+      this.saveStored('vanguard_fleet_devices', this.fleetDevices());
+      this.saveStored('vanguard_user_devices', this.userDevices());
+      this.logAuditEvent(
+        `Revoked active SSO sessions and tokens for device ${dev.name} (${dev.model}) owned by ${dev.ownerName}`,
+        'Endpoint Trust Manager',
+        'Zero-Trust Revocation',
+        'blocked',
+        'Medium'
+      );
+      this.supabaseService.upsertUserDevice({
+        id: dev.id,
+        tenant_id: this.activeOrganizationId(),
+        user_id: this.user()?.id || '00000000-0000-0000-0000-000000000000',
+        name: dev.name,
+        model: dev.model,
+        type: dev.type,
+        os_version: dev.osVersion,
+        compliance_status: dev.complianceStatus,
+      }).catch((err) => console.warn('Supabase device sync notice:', err));
+
+      this.showRevokeSsoModal.set(false);
+      this.revokeSsoSuccess.set(false);
+      this.selectedDeviceForRevokeSso.set(null);
+      this.showAdminNotice(`Active SSO sessions revoked for ${dev.name}.`);
+    }, 800);
+  }
+
+  openCompromisedModal(device: EnrolledDevice): void {
+    this.selectedDeviceForCompromised.set(device);
+    this.compromisedSuccess.set(false);
+    this.showCompromisedModal.set(true);
+  }
+
+  closeCompromisedModal(): void {
+    this.showCompromisedModal.set(false);
+    this.selectedDeviceForCompromised.set(null);
+  }
+
+  executeMarkCompromised(): void {
+    const dev = this.selectedDeviceForCompromised();
+    if (!dev) return;
+
+    this.compromisedSuccess.set(true);
+    setTimeout(() => {
+      this.fleetDevices.update((devs) =>
+        devs.map((d) =>
+          d.id === dev.id
+            ? { ...d, complianceStatus: 'Revoked', isCompromised: true, lastSync: 'Just now' }
+            : d
+        )
+      );
+      this.userDevices.update((devs) =>
+        devs.map((d) =>
+          d.id === dev.id
+            ? { ...d, complianceStatus: 'Revoked', isCompromised: true, lastSync: 'Just now' }
+            : d
+        )
+      );
+      this.saveStored('vanguard_fleet_devices', this.fleetDevices());
+      this.saveStored('vanguard_user_devices', this.userDevices());
+      this.logAuditEvent(
+        `Flagged device ${dev.name} (${dev.model}) as COMPROMISED / LOST; all network & SSO access quarantined`,
+        'Endpoint Trust Manager',
+        'Zero-Trust Quarantine',
+        'blocked',
+        'High'
+      );
+      this.supabaseService.upsertUserDevice({
+        id: dev.id,
+        tenant_id: this.activeOrganizationId(),
+        user_id: this.user()?.id || '00000000-0000-0000-0000-000000000000',
+        name: dev.name,
+        compliance_status: 'Revoked',
+      }).catch((err) => console.warn('Supabase device sync notice:', err));
+
+      this.showCompromisedModal.set(false);
+      this.compromisedSuccess.set(false);
+      this.selectedDeviceForCompromised.set(null);
+      this.showAdminNotice(`Device ${dev.name} flagged as compromised. Access quarantined.`);
+    }, 800);
+  }
+
+  openRemoveDeviceModal(device: EnrolledDevice): void {
+    this.selectedDeviceForRemove.set(device);
+    this.removeDeviceSuccess.set(false);
+    this.showRemoveDeviceModal.set(true);
+  }
+
+  closeRemoveDeviceModal(): void {
+    this.showRemoveDeviceModal.set(false);
+    this.selectedDeviceForRemove.set(null);
+  }
+
+  executeRemoveDevice(): void {
+    const dev = this.selectedDeviceForRemove();
+    if (!dev) return;
+
+    this.removeDeviceSuccess.set(true);
+    setTimeout(() => {
+      this.fleetDevices.update((devs) => devs.filter((d) => d.id !== dev.id));
+      this.userDevices.update((devs) => devs.filter((d) => d.id !== dev.id));
+      this.saveStored('vanguard_fleet_devices', this.fleetDevices());
+      this.saveStored('vanguard_user_devices', this.userDevices());
+      this.logAuditEvent(
+        `Removed device ${dev.name} (${dev.model}) from corporate directory`,
+        'Endpoint Trust Manager',
+        'Directory Deprovisioning',
+        'success',
+        'Medium'
+      );
+      this.supabaseService.deleteUserDevice(dev.id).catch((err) => console.warn('Supabase device delete notice:', err));
+
+      this.showRemoveDeviceModal.set(false);
+      this.removeDeviceSuccess.set(false);
+      this.selectedDeviceForRemove.set(null);
+      this.showAdminNotice(`Device ${dev.name} un-enrolled and removed from directory.`);
+    }, 800);
   }
 
   private showAdminNotice(msg: string): void {

@@ -96,6 +96,7 @@ export interface AuditThreatIndicator {
 
 export interface TenantAuditEvent {
   id: string;
+  action?: string;
   timestamp: string;
   actor: string;
   target: string;
@@ -280,6 +281,8 @@ export interface EnrolledDevice {
   complianceStatus: 'Compliant' | 'Warning' | 'Revoked';
   enrolledAt: string;
   lastSync: string;
+  ssoRevokedAt?: string;
+  isCompromised?: boolean;
 }
 
 export interface MobilePolicyConfig {
@@ -287,7 +290,11 @@ export interface MobilePolicyConfig {
   enforceBiometrics: boolean;
   blockJailbroken: boolean;
   inactivityLockoutMinutes: number;
+  requireDiskEncryption?: boolean;
+  enforceMinimumOs?: boolean;
 }
+
+export type EndpointCompliancePolicyConfig = MobilePolicyConfig;
 
 export type WebhookEventType =
   | 'user.created'
