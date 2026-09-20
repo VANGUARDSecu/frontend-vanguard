@@ -75,11 +75,9 @@
                   (ngModelChange)="setDirectoryDepartment($event)"
                 >
                   <option value="all">All Departments</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="Security Ops">Security Ops</option>
-                  <option value="IT Infrastructure">IT Infrastructure</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Executive">Executive</option>
+                  <option *ngFor="let dept of availableDepartments()" [value]="dept">
+                    {{ dept }}
+                  </option>
                 </select>
 
                 <select
@@ -454,22 +452,40 @@
 
           <div class="modal-row-grid">
             <div class="form-group">
-              <label class="form-label">Department</label>
-              <select [(ngModel)]="inviteDepartment" class="form-input">
-                <option value="Engineering">Engineering</option>
-                <option value="Security Ops">Security Ops</option>
-                <option value="IT Infrastructure">IT Infrastructure</option>
-                <option value="Finance">Finance</option>
-                <option value="Executive">Executive</option>
-              </select>
+              <label class="form-label" for="inviteDepartmentInput">Department *</label>
+              <div class="combobox-wrap">
+                <input
+                  id="inviteDepartmentInput"
+                  type="text"
+                  [(ngModel)]="inviteDepartment"
+                  list="department-suggestions"
+                  placeholder="e.g. Engineering, Legal, HR..."
+                  class="form-input dynamic-entry-input"
+                  autocomplete="off"
+                />
+                <datalist id="department-suggestions">
+                  <option *ngFor="let dept of availableDepartments()" [value]="dept">{{ dept }}</option>
+                </datalist>
+              </div>
+              <span class="form-hint-text">Select a standard department or enter a custom one.</span>
             </div>
             <div class="form-group">
-              <label class="form-label">Role</label>
-              <select [(ngModel)]="inviteRole" class="form-input">
-                <option value="Directory Member">Directory Member</option>
-                <option value="Security Officer">Security Officer</option>
-                <option value="Super Administrator">Super Administrator</option>
-              </select>
+              <label class="form-label" for="inviteRoleInput">Role / Job Title *</label>
+              <div class="combobox-wrap">
+                <input
+                  id="inviteRoleInput"
+                  type="text"
+                  [(ngModel)]="inviteRole"
+                  list="role-suggestions"
+                  placeholder="e.g. Directory Member, Lead Counsel..."
+                  class="form-input dynamic-entry-input"
+                  autocomplete="off"
+                />
+                <datalist id="role-suggestions">
+                  <option *ngFor="let role of availableRoles()" [value]="role">{{ role }}</option>
+                </datalist>
+              </div>
+              <span class="form-hint-text">Select a standard role or enter an organizational title.</span>
             </div>
           </div>
 
@@ -667,14 +683,21 @@
               />
             </div>
             <div class="form-group">
-              <label class="form-label">Department</label>
-              <select [(ngModel)]="groupFormDepartment" class="form-input">
-                <option value="Engineering">Engineering</option>
-                <option value="Security Ops">Security Ops</option>
-                <option value="IT Infrastructure">IT Infrastructure</option>
-                <option value="Finance">Finance</option>
-                <option value="Executive">Executive</option>
-              </select>
+              <label class="form-label" for="groupDepartmentInput">Department</label>
+              <div class="combobox-wrap">
+                <input
+                  id="groupDepartmentInput"
+                  type="text"
+                  [(ngModel)]="groupFormDepartment"
+                  list="group-department-suggestions"
+                  placeholder="e.g. Engineering, Legal, Sales..."
+                  class="form-input dynamic-entry-input"
+                  autocomplete="off"
+                />
+                <datalist id="group-department-suggestions">
+                  <option *ngFor="let dept of availableDepartments()" [value]="dept">{{ dept }}</option>
+                </datalist>
+              </div>
             </div>
           </div>
 

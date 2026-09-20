@@ -284,6 +284,72 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     expect(component.showInviteModal()).toBe(false);
   });
 
+  it('should support dynamic department and role entry, suggestions, and filtering (SCRUM-37)', () => {
+    const sendSpy = vi.spyOn(authService, 'sendInviteEmail').mockReturnValue(
+      of({ success: true, message: 'Invite sent' })
+    );
+
+    // Verify baseline defaults are present
+    expect(component.availableDepartments()).toContain('Engineering');
+    expect(component.availableDepartments()).toContain('Security Ops');
+    expect(component.availableDepartments()).toContain('Human Resources');
+    expect(component.availableRoles()).toContain('Directory Member');
+    expect(component.availableRoles()).toContain('Security Officer');
+
+    // Validation: blank department or role is rejected
+    component.openInviteModal();
+    component.inviteFirstName = 'Legal';
+    component.inviteLastName = 'Counsel';
+    component.inviteEmail = 'counsel@vanguard.security';
+    component.inviteDepartment = '   ';
+    component.submitInviteUser();
+    expect(component.inviteError()).toContain('fill out all required fields');
+    expect(component.inviteSuccess()).toBe(false);
+
+    component.inviteDepartment = 'Corporate Legal';
+    component.inviteRole = '   ';
+    component.submitInviteUser();
+    expect(component.inviteError()).toContain('fill out all required fields');
+    expect(component.inviteSuccess()).toBe(false);
+
+    // Valid submission with custom department and custom role
+    component.inviteDepartment = 'Corporate Legal';
+    component.inviteRole = 'General Counsel & DPO';
+    component.submitInviteUser();
+
+    expect(component.inviteSuccess()).toBe(true);
+    expect(component.inviteError()).toBeNull();
+
+    // Verify user is provisioned with exact custom department and role
+    const provisionedUser = component.directoryUsers().find((u) => u.email === 'counsel@vanguard.security');
+    expect(provisionedUser).toBeDefined();
+    expect(provisionedUser?.department).toBe('Corporate Legal');
+    expect(provisionedUser?.role).toBe('General Counsel & DPO');
+
+    // Verify invitation email payload received the custom strings
+    expect(sendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'counsel@vanguard.security',
+        department: 'Corporate Legal',
+        role: 'General Counsel & DPO',
+      })
+    );
+
+    // Verify availableDepartments dynamically includes the new custom department
+    expect(component.availableDepartments()).toContain('Corporate Legal');
+    // Verify availableRoles dynamically includes the new custom role
+    expect(component.availableRoles()).toContain('General Counsel & DPO');
+
+    // Verify directory filtering by custom department
+    component.setDirectoryDepartment('Corporate Legal');
+    expect(component.directoryDepartmentFilter()).toBe('Corporate Legal');
+    expect(component.filteredDirectoryUsers().length).toBeGreaterThanOrEqual(1);
+    expect(component.filteredDirectoryUsers().every((u) => u.department === 'Corporate Legal')).toBe(true);
+
+    // Reset filter
+    component.setDirectoryDepartment('all');
+  });
+
   it('should prevent duplicate user creation when active email already exists (SCRUM-40)', () => {
     let existingActive = component.directoryUsers().find((u) => u.accountStatus === 'Active');
     if (!existingActive) {

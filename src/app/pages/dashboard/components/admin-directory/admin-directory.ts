@@ -32,6 +32,8 @@ export class AdminDirectory {
 
   readonly activeTab = this.dashboardService.activeTab;
   readonly directoryDepartmentFilter = this.dashboardService.directoryDepartmentFilter;
+  readonly availableDepartments = this.dashboardService.availableDepartments;
+  readonly availableRoles = this.dashboardService.availableRoles;
   readonly directoryStatusFilter = this.dashboardService.directoryStatusFilter;
   readonly directoryUsers = this.dashboardService.directoryUsers;
   readonly filteredDirectoryUsers = this.dashboardService.filteredDirectoryUsers;
@@ -68,10 +70,10 @@ export class AdminDirectory {
   set inviteEmail(v: string) { this.dashboardService.inviteEmail = v; }
   get invitePassword() { return this.dashboardService.invitePassword; }
   set invitePassword(v: string) { this.dashboardService.invitePassword = v; }
-  get inviteDepartment() { return this.dashboardService.inviteDepartment; }
-  set inviteDepartment(v: any) { this.dashboardService.inviteDepartment = v; }
-  get inviteRole() { return this.dashboardService.inviteRole; }
-  set inviteRole(v: any) { this.dashboardService.inviteRole = v; }
+  get inviteDepartment(): string { return this.dashboardService.inviteDepartment; }
+  set inviteDepartment(v: string) { this.dashboardService.inviteDepartment = v; }
+  get inviteRole(): string { return this.dashboardService.inviteRole; }
+  set inviteRole(v: string) { this.dashboardService.inviteRole = v; }
 
   // Group Form Getters & Setters
   get groupFormName() { return this.dashboardService.groupFormName; }

@@ -106,6 +106,8 @@ export class DashboardComponent implements OnInit {
 
   // Directory Management (Phase 3)
   readonly directoryDepartmentFilter = this.dashboardService.directoryDepartmentFilter;
+  readonly availableDepartments = this.dashboardService.availableDepartments;
+  readonly availableRoles = this.dashboardService.availableRoles;
   readonly directoryStatusFilter = this.dashboardService.directoryStatusFilter;
   readonly directorySearch = this.dashboardService.directorySearch;
   readonly directoryUsers = this.dashboardService.directoryUsers;
@@ -125,10 +127,10 @@ export class DashboardComponent implements OnInit {
   set inviteEmail(v: string) { this.dashboardService.inviteEmail = v; }
   get invitePassword() { return this.dashboardService.invitePassword; }
   set invitePassword(v: string) { this.dashboardService.invitePassword = v; }
-  get inviteDepartment() { return this.dashboardService.inviteDepartment; }
-  set inviteDepartment(v: any) { this.dashboardService.inviteDepartment = v; }
-  get inviteRole() { return this.dashboardService.inviteRole; }
-  set inviteRole(v: any) { this.dashboardService.inviteRole = v; }
+  get inviteDepartment(): string { return this.dashboardService.inviteDepartment; }
+  set inviteDepartment(v: string) { this.dashboardService.inviteDepartment = v; }
+  get inviteRole(): string { return this.dashboardService.inviteRole; }
+  set inviteRole(v: string) { this.dashboardService.inviteRole = v; }
 
   // User Groups & App Matrix (SCRUM-25)
   readonly directoryActiveSubTab = this.dashboardService.directoryActiveSubTab;
