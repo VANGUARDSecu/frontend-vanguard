@@ -647,6 +647,111 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
   });
 
   // ==========================================
+  // SCRUM-23: Cloud RADIUS Client & Network Access Point Manager Tests
+  // ==========================================
+  it('should validate IPv4 address and CIDR subnet syntax for RADIUS clients', () => {
+    component.openAddRadiusApModal();
+    component.newRadiusApName = 'Branch AP';
+    component.newRadiusApIp = 'invalid-subnet-ip';
+    component.submitAddRadiusAp();
+
+    expect(component.addRadiusApError()).toContain('Invalid IPv4 address or CIDR subnet');
+
+    // Valid CIDR notation
+    component.newRadiusApIp = '192.168.1.0/24';
+    component.submitAddRadiusAp();
+    expect(component.addRadiusApSuccess()).toBe(true);
+    expect(component.radiusAccessPoints().some(ap => ap.ipAddress === '192.168.1.0/24')).toBe(true);
+  });
+
+  it('should generate high-entropy cryptographic secrets and allow reveal and copy', () => {
+    component.openAddRadiusApModal();
+    expect(component.newRadiusApSecret().length).toBeGreaterThanOrEqual(24);
+    expect(component.newRadiusApSecretRevealed()).toBe(false);
+
+    component.toggleNewRadiusSecretRevealed();
+    expect(component.newRadiusApSecretRevealed()).toBe(true);
+
+    const firstSecret = component.newRadiusApSecret();
+    component.regenerateNewRadiusClientSecret();
+    expect(component.newRadiusApSecret()).not.toBe(firstSecret);
+    expect(component.newRadiusApSecret().length).toBe(24);
+
+    expect(() => component.copyNewRadiusSecret()).not.toThrow();
+  });
+
+  it('should support editing RADIUS client details and rotating per-client secret', () => {
+    component.openAddRadiusApModal();
+    component.newRadiusApName = 'Main HQ Wi-Fi - UniFi AP';
+    component.newRadiusApType = 'Ubiquiti UniFi AP';
+    component.newRadiusApIp = '192.168.1.50';
+    component.newRadiusApDesc = 'Executive Floor Array';
+    component.newRadiusApProtocol = 'PEAP-MSCHAPv2';
+    component.submitAddRadiusAp();
+
+    const client = component.radiusAccessPoints().find(a => a.name === 'Main HQ Wi-Fi - UniFi AP');
+    expect(client).toBeTruthy();
+    expect(client?.description).toBe('Executive Floor Array');
+    expect(client?.authProtocol).toBe('PEAP-MSCHAPv2');
+
+    // Per-client secret reveal toggle
+    expect(client?.secretRevealed).toBeFalsy();
+    component.toggleRadiusClientSecretRevealed(client!.id);
+    const revealedClient = component.radiusAccessPoints().find(a => a.id === client!.id);
+    expect(revealedClient?.secretRevealed).toBe(true);
+
+    // Per-client secret rotation
+    const originalSecret = revealedClient!.sharedSecret;
+    component.rotateRadiusClientSecret(client!.id);
+    const rotatedClient = component.radiusAccessPoints().find(a => a.id === client!.id);
+    expect(rotatedClient?.sharedSecret).not.toBe(originalSecret);
+    expect(rotatedClient?.sharedSecret.length).toBe(24);
+
+    // Edit client
+    component.openEditRadiusApModal(rotatedClient!);
+    expect(component.editingRadiusApId).toBe(rotatedClient!.id);
+    expect(component.newRadiusApName).toBe('Main HQ Wi-Fi - UniFi AP');
+    component.newRadiusApName = 'Updated HQ Wi-Fi - UniFi AP 6';
+    component.submitAddRadiusAp();
+    const updatedClient = component.radiusAccessPoints().find(a => a.id === client!.id);
+    expect(updatedClient?.name).toBe('Updated HQ Wi-Fi - UniFi AP 6');
+
+    expect(() => component.copyRadiusClientSecret(updatedClient!.sharedSecret)).not.toThrow();
+  });
+
+  it('should manage recent 802.1X authentication activity stream and filtering', () => {
+    const initialEvents = component.radiusAuthActivity();
+    expect(initialEvents.length).toBeGreaterThanOrEqual(4);
+    expect(initialEvents[0].clientMac).toMatch(/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i);
+
+    // Simulate Access-Accept event
+    const prevCount = component.radiusAuthActivity().length;
+    component.simulateRadiusAuth(true);
+    expect(component.radiusAuthActivity().length).toBe(prevCount + 1);
+    const latestAccept = component.radiusAuthActivity()[0];
+    expect(latestAccept.status).toBe('Access-Accept');
+    expect(latestAccept.vlanId).toBeDefined();
+
+    // Simulate Access-Reject event
+    component.simulateRadiusAuth(false);
+    const latestReject = component.radiusAuthActivity()[0];
+    expect(latestReject.status).toBe('Access-Reject');
+    expect(latestReject.vlanId).toBeUndefined();
+
+    // Filter by Access-Accept
+    component.setRadiusActivityFilter('Access-Accept');
+    expect(component.filteredRadiusActivity().every(e => e.status === 'Access-Accept')).toBe(true);
+
+    // Filter by Access-Reject
+    component.setRadiusActivityFilter('Access-Reject');
+    expect(component.filteredRadiusActivity().every(e => e.status === 'Access-Reject')).toBe(true);
+
+    // Reset filter to all
+    component.setRadiusActivityFilter('all');
+    expect(component.filteredRadiusActivity().length).toBe(component.radiusAuthActivity().length);
+  });
+
+  // ==========================================
   // PHASE 6: Mobile Companion App & Biometrics Tests
   // ==========================================
   it('should initialize with personal and fleet devices and mobile security policies', () => {
@@ -865,4 +970,121 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
       expect(component.dashboardService.apps().some((a) => a.id === 'test-app-1')).toBe(false);
     });
   });
+
+  describe('SCRUM-24: Cloud LDAP Configuration & Bind Verification Console', () => {
+    it('should expose connection configuration parameters and trigger 1-click copy notice', () => {
+      expect(component.ldapServerHost()).toBe('ldap.vanguardsecurity.io');
+      expect(component.ldapPortLdaps()).toBe(636);
+      expect(component.ldapPortStartTls()).toBe(389);
+      expect(component.ldapBaseDn()).toBe('dc=vanguard,dc=security');
+      expect(component.ldapOrgDn()).toBe('o=Vanguard Security Enterprise,dc=vanguard,dc=security');
+      expect(component.ldapUsersOu()).toBe('ou=Users,dc=vanguard,dc=security');
+      expect(component.ldapGroupsOu()).toBe('ou=Groups,dc=vanguard,dc=security');
+      expect(component.ldapServicesOu()).toBe('ou=services,dc=vanguard,dc=security');
+
+      // Test copy parameter
+      component.copyLdapParam(component.ldapServerHost(), 'Server Host');
+      expect(component.copiedLdapParamNotice()).toContain('Server Host copied to clipboard');
+
+      // Test CA Cert download
+      expect(component.ldapCaCertPem()).toContain('-----BEGIN CERTIFICATE-----');
+      expect(component.ldapCaCertPem()).toContain('-----END CERTIFICATE-----');
+      expect(() => component.downloadLdapCaCert()).not.toThrow();
+    });
+
+    it('should manage Service Account Bind Credentials lifecycle', () => {
+      const initialCount = component.ldapServiceAccounts().length;
+      expect(initialCount).toBeGreaterThan(0);
+
+      // Open Modal
+      component.openAddServiceAccountModal();
+      expect(component.showAddServiceAccountModal()).toBe(true);
+      expect(component.newSvcAcctPassword().length).toBe(32);
+
+      // Validation check
+      component.newSvcAcctName = '';
+      component.newSvcAcctUid = '';
+      component.submitAddServiceAccount();
+      expect(component.addServiceAccountError()).toContain('Service Account Name and UID are required');
+
+      // Regenerate password
+      const firstPw = component.newSvcAcctPassword();
+      component.generateSvcAcctPassword();
+      const secondPw = component.newSvcAcctPassword();
+      expect(secondPw.length).toBe(32);
+      expect(secondPw).not.toBe(firstPw);
+
+      // Provision new service account
+      component.newSvcAcctName = 'QNAP TS-464 Backup Target';
+      component.newSvcAcctUid = 'svc_qnap_ts464';
+      component.newSvcAcctType = 'QNAP QTS';
+      component.newSvcAcctIpRestriction = '10.200.5.0/24';
+      component.submitAddServiceAccount();
+
+      expect(component.addServiceAccountSuccess()).toBe(true);
+      expect(component.ldapServiceAccounts().length).toBe(initialCount + 1);
+
+      const created = component.ldapServiceAccounts().find((a) => a.bindDn.includes('svc_qnap_ts464'));
+      expect(created).toBeDefined();
+      expect(created?.bindDn).toBe('uid=svc_qnap_ts464,ou=services,dc=vanguard,dc=security');
+      expect(created?.status).toBe('Active');
+
+      // Password reveal toggle
+      const initialRevealed = created?.passwordRevealed ?? false;
+      component.toggleSvcAcctPwRevealed(created!.id);
+      const afterToggle = component.ldapServiceAccounts().find((a) => a.id === created!.id);
+      expect(afterToggle?.passwordRevealed).toBe(!initialRevealed);
+
+      // Status toggle (Active -> Revoked -> Active)
+      component.toggleServiceAccountStatus(afterToggle!);
+      const revoked = component.ldapServiceAccounts().find((a) => a.id === created!.id);
+      expect(revoked?.status).toBe('Revoked');
+      component.toggleServiceAccountStatus(revoked!);
+      const reactivated = component.ldapServiceAccounts().find((a) => a.id === created!.id);
+      expect(reactivated?.status).toBe('Active');
+
+      // Delete service account
+      component.deleteServiceAccount(created!.id);
+      expect(component.ldapServiceAccounts().some((a) => a.id === created!.id)).toBe(false);
+
+      // Close modal
+      component.closeAddServiceAccountModal();
+      expect(component.showAddServiceAccountModal()).toBe(false);
+    });
+
+    it('should support presets and return code inspection in bind connectivity sandbox', () => {
+      // Load service-account preset
+      component.loadLdapDiagPreset('service-account');
+      expect(component.ldapDiagBindDn).toContain('ou=services');
+      expect(component.ldapDiagFilter).toContain('objectClass=posixAccount');
+
+      // Load invalid auth preset
+      component.loadLdapDiagPreset('invalid');
+      expect(component.ldapDiagBindDn).toContain('uid=svc_invalid');
+      expect(component.ldapDiagBindPassword).toBe('WrongPassword123!');
+
+      // Run bind test with invalid auth
+      component.runLdapBindTest();
+      expect(component.ldapDiagRunning()).toBe(true);
+
+      // Simulate async completion or check immediate test result state
+      const invalidResult = component.ldapTestResult();
+      expect(invalidResult).toBeDefined();
+      expect(invalidResult?.resultCode).toBe(49);
+      expect(invalidResult?.resultName).toBe('LDAP_INVALID_CREDENTIALS');
+      expect(invalidResult?.status).toBe('error');
+
+      // Load valid user preset and test success
+      component.loadLdapDiagPreset('user');
+      component.runLdapBindTest();
+      const validResult = component.ldapTestResult();
+      expect(validResult).toBeDefined();
+      expect(validResult?.resultCode).toBe(0);
+      expect(validResult?.resultName).toBe('LDAP_SUCCESS');
+      expect(validResult?.status).toBe('success');
+      expect(validResult?.latencyMs).toBeGreaterThan(0);
+      expect(validResult?.cipher).toContain('TLS_AES_256_GCM_SHA384');
+    });
+  });
 });
+

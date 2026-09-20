@@ -203,3 +203,307 @@
 .ml-2 {
   margin-left: 8px;
 }
+
+/* ==========================================================================
+   SCRUM-24: LDAP CONNECTION PARAMS, SERVICE ACCOUNTS & BIND TESTER
+   ========================================================================== */
+
+.copy-toast-banner {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  animation: fadeIn 0.2s ease-in;
+}
+
+.toast-icon {
+  font-size: 16px;
+}
+
+.header-tools-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.config-cell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.btn-copy-chip {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-copy-chip:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #ffffff;
+}
+
+.dn-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-icon-copy {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  padding: 2px 4px;
+}
+
+.btn-icon-copy:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.secret-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preset-pill-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(10, 16, 45, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.preset-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+
+.preset-btn {
+  background: rgba(30, 41, 79, 0.7);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preset-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #ffffff;
+}
+
+.btn-preset-danger {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.btn-preset-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fecaca;
+}
+
+.sandbox-config-box {
+  padding: 20px;
+}
+
+.sandbox-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.btn-full-width {
+  width: 100%;
+  justify-content: center;
+  height: 40px;
+}
+
+/* LDAP Test Result Banner */
+.ldap-test-result-card {
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid transparent;
+  animation: fadeIn 0.2s ease-in;
+}
+
+.ldap-test-result-card.result-success {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 78, 59, 0.25) 100%);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.ldap-test-result-card.result-error {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.14) 0%, rgba(127, 29, 29, 0.25) 100%);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.ldap-test-result-card.result-warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(120, 53, 15, 0.25) 100%);
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.result-code-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.status-code-0 {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.status-code-49 {
+  background: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.status-code-32 {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.code-num {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+}
+
+.result-metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric-tag {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+.latency-tag {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.tls-tag {
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.25);
+}
+
+.entries-tag {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.result-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.result-message {
+  margin: 0;
+  font-size: 13.5px;
+  color: #f1f5f9;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.result-cipher-info, .result-dn-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.cipher-label {
+  color: #94a3b8;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.result-cipher-info code, .result-dn-info code {
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #e2e8f0;
+}
+
+.field-hint {
+  display: block;
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin-top: 5px;
+}
+
+.field-hint code {
+  color: #38bdf8;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

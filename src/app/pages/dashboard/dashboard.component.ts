@@ -29,6 +29,8 @@ import {
   OidcClient,
   IdpCertMetadata,
   LdapHost,
+  LdapServiceAccount,
+  LdapTestResult,
   RadiusAccessPoint,
   VlanMapping,
   EnrolledDevice,
@@ -46,6 +48,8 @@ export type {
   OidcClient,
   IdpCertMetadata,
   LdapHost,
+  LdapServiceAccount,
+  LdapTestResult,
   RadiusAccessPoint,
   VlanMapping,
   EnrolledDevice,
@@ -185,6 +189,46 @@ export class DashboardComponent {
   get newLdapHostProtocol() { return this.dashboardService.newLdapHostProtocol; }
   set newLdapHostProtocol(v: any) { this.dashboardService.newLdapHostProtocol = v; }
 
+  // Connection Configuration & Service Accounts (SCRUM-24)
+  readonly ldapServerHost = this.dashboardService.ldapServerHost;
+  readonly ldapPortLdaps = this.dashboardService.ldapPortLdaps;
+  readonly ldapPortStartTls = this.dashboardService.ldapPortStartTls;
+  readonly ldapBaseDn = this.dashboardService.ldapBaseDn;
+  readonly ldapOrgDn = this.dashboardService.ldapOrgDn;
+  readonly ldapUsersOu = this.dashboardService.ldapUsersOu;
+  readonly ldapGroupsOu = this.dashboardService.ldapGroupsOu;
+  readonly ldapServicesOu = this.dashboardService.ldapServicesOu;
+  readonly copiedLdapParamNotice = this.dashboardService.copiedLdapParamNotice;
+  readonly ldapCaCertPem = this.dashboardService.ldapCaCertPem;
+
+  readonly ldapServiceAccounts = this.dashboardService.ldapServiceAccounts;
+  readonly showAddServiceAccountModal = this.dashboardService.showAddServiceAccountModal;
+  readonly newSvcAcctPassword = this.dashboardService.newSvcAcctPassword;
+  readonly newSvcAcctPwRevealed = this.dashboardService.newSvcAcctPwRevealed;
+  readonly addServiceAccountSuccess = this.dashboardService.addServiceAccountSuccess;
+  readonly addServiceAccountError = this.dashboardService.addServiceAccountError;
+
+  get newSvcAcctName() { return this.dashboardService.newSvcAcctName; }
+  set newSvcAcctName(v: string) { this.dashboardService.newSvcAcctName = v; }
+  get newSvcAcctUid() { return this.dashboardService.newSvcAcctUid; }
+  set newSvcAcctUid(v: string) { this.dashboardService.newSvcAcctUid = v; }
+  get newSvcAcctType() { return this.dashboardService.newSvcAcctType; }
+  set newSvcAcctType(v: any) { this.dashboardService.newSvcAcctType = v; }
+  get newSvcAcctIpRestriction() { return this.dashboardService.newSvcAcctIpRestriction; }
+  set newSvcAcctIpRestriction(v: string) { this.dashboardService.newSvcAcctIpRestriction = v; }
+
+  get ldapDiagEndpoint() { return this.dashboardService.ldapDiagEndpoint; }
+  set ldapDiagEndpoint(v: string) { this.dashboardService.ldapDiagEndpoint = v; }
+  get ldapDiagBindDn() { return this.dashboardService.ldapDiagBindDn; }
+  set ldapDiagBindDn(v: string) { this.dashboardService.ldapDiagBindDn = v; }
+  get ldapDiagBindPassword() { return this.dashboardService.ldapDiagBindPassword; }
+  set ldapDiagBindPassword(v: string) { this.dashboardService.ldapDiagBindPassword = v; }
+  get ldapDiagSearchBase() { return this.dashboardService.ldapDiagSearchBase; }
+  set ldapDiagSearchBase(v: string) { this.dashboardService.ldapDiagSearchBase = v; }
+  get ldapDiagFilter() { return this.dashboardService.ldapDiagFilter; }
+  set ldapDiagFilter(v: string) { this.dashboardService.ldapDiagFilter = v; }
+  readonly ldapTestResult = this.dashboardService.ldapTestResult;
+
   // Cloud RADIUS Gateway (Phase 5)
   readonly radiusSharedSecret = this.dashboardService.radiusSharedSecret;
   readonly radiusSecretRevealed = this.dashboardService.radiusSecretRevealed;
@@ -206,6 +250,17 @@ export class DashboardComponent {
   set newRadiusApType(v: any) { this.dashboardService.newRadiusApType = v; }
   get newRadiusApIp() { return this.dashboardService.newRadiusApIp; }
   set newRadiusApIp(v: string) { this.dashboardService.newRadiusApIp = v; }
+  get newRadiusApDesc() { return this.dashboardService.newRadiusApDesc; }
+  set newRadiusApDesc(v: string) { this.dashboardService.newRadiusApDesc = v; }
+  get newRadiusApProtocol() { return this.dashboardService.newRadiusApProtocol; }
+  set newRadiusApProtocol(v: any) { this.dashboardService.newRadiusApProtocol = v; }
+  readonly newRadiusApSecret = this.dashboardService.newRadiusApSecret;
+  readonly newRadiusApSecretRevealed = this.dashboardService.newRadiusApSecretRevealed;
+  readonly copiedRadiusSecretNotice = this.dashboardService.copiedRadiusSecretNotice;
+  readonly radiusAuthActivity = this.dashboardService.radiusAuthActivity;
+  readonly radiusActivityFilter = this.dashboardService.radiusActivityFilter;
+  readonly filteredRadiusActivity = this.dashboardService.filteredRadiusActivity;
+  get editingRadiusApId() { return this.dashboardService.editingRadiusApId; }
 
   // Mobile Companion & Fleet MDM (Phase 6)
   readonly userDevices = this.dashboardService.userDevices;
@@ -329,6 +384,19 @@ export class DashboardComponent {
   submitAddLdapHost() { return this.dashboardService.submitAddLdapHost(); }
   deleteLdapHost(host: string | LdapHost) { const id = typeof host === 'string' ? host : host.id; return this.dashboardService.deleteLdapHost(id); }
   toggleLdapHostStatus(host: LdapHost) { return this.dashboardService.toggleLdapHostStatus(host); }
+  downloadLdapCaCert() { return this.dashboardService.downloadLdapCaCert(); }
+  copyLdapParam(value: string, label: string) { return this.dashboardService.copyLdapParam(value, label); }
+  openAddServiceAccountModal() { return this.dashboardService.openAddServiceAccountModal(); }
+  closeAddServiceAccountModal() { return this.dashboardService.closeAddServiceAccountModal(); }
+  generateSvcAcctPassword() { return this.dashboardService.generateSvcAcctPassword(); }
+  toggleNewSvcAcctPwRevealed() { return this.dashboardService.toggleNewSvcAcctPwRevealed(); }
+  submitAddServiceAccount() { return this.dashboardService.submitAddServiceAccount(); }
+  toggleSvcAcctPwRevealed(id: string) { return this.dashboardService.toggleSvcAcctPwRevealed(id); }
+  toggleServiceAccountStatus(account: LdapServiceAccount) { return this.dashboardService.toggleServiceAccountStatus(account); }
+  deleteServiceAccount(id: string) { return this.dashboardService.deleteServiceAccount(id); }
+  copySvcAcctPassword(password: string) { return this.dashboardService.copySvcAcctPassword(password); }
+  copySvcAcctDn(dn: string) { return this.dashboardService.copySvcAcctDn(dn); }
+  loadLdapDiagPreset(type: 'service-account' | 'user' | 'admin' | 'invalid') { return this.dashboardService.loadLdapDiagPreset(type); }
   runRadiusAuthTest() { return this.dashboardService.runRadiusAuthTest(); }
   copyRadiusDiagLog() { return this.dashboardService.copyRadiusDiagLog(); }
   toggleRadiusSecretRevealed() { return this.dashboardService.toggleRadiusSecretRevealed(); }
@@ -340,6 +408,15 @@ export class DashboardComponent {
   submitAddRadiusAp() { return this.dashboardService.submitAddRadiusAp(); }
   deleteRadiusAp(ap: string | RadiusAccessPoint) { const id = typeof ap === 'string' ? ap : ap.id; return this.dashboardService.deleteRadiusAp(id); }
   toggleRadiusApStatus(ap: RadiusAccessPoint) { return this.dashboardService.toggleRadiusApStatus(ap); }
+  openEditRadiusApModal(ap: RadiusAccessPoint) { return this.dashboardService.openEditRadiusApModal(ap); }
+  regenerateNewRadiusClientSecret() { return this.dashboardService.regenerateNewRadiusClientSecret(); }
+  toggleNewRadiusSecretRevealed() { return this.dashboardService.toggleNewRadiusSecretRevealed(); }
+  copyNewRadiusSecret() { return this.dashboardService.copyNewRadiusSecret(); }
+  rotateRadiusClientSecret(id: string) { return this.dashboardService.rotateRadiusClientSecret(id); }
+  toggleRadiusClientSecretRevealed(id: string) { return this.dashboardService.toggleRadiusClientSecretRevealed(id); }
+  copyRadiusClientSecret(secret: string) { return this.dashboardService.copyRadiusClientSecret(secret); }
+  setRadiusActivityFilter(filter: 'all' | 'Access-Accept' | 'Access-Reject') { return this.dashboardService.setRadiusActivityFilter(filter); }
+  simulateRadiusAuth(success?: boolean) { return this.dashboardService.simulateRadiusAuth(success); }
   openPairDeviceModal() { return this.dashboardService.openPairDeviceModal(); }
   closePairDeviceModal() { return this.dashboardService.closePairDeviceModal(); }
   confirmPairDevice() { return this.dashboardService.confirmPairDevice(); }

@@ -62,22 +62,27 @@
             </div>
           </div>
 
-          <!-- Managed Network Access Points Table -->
+          <!-- Managed Network Access Points Table (SCRUM-23) -->
           <div class="activity-table-card mb-4">
             <div class="card-header-inner">
               <div class="title-with-badge">
-                <h3 class="card-inner-title">Managed Network Access Points & Gateways ({{ radiusAccessPoints().length }})</h3>
+                <h3 class="card-inner-title">Network Access Clients & Wi-Fi Access Points ({{ radiusAccessPoints().length }})</h3>
                 <span class="badge badge-success">802.1X Enforced</span>
               </div>
+              <button type="button" class="btn-sm btn-primary-action" (click)="openAddRadiusApModal()">
+                <span class="btn-plus">+</span>
+                <span>Register Client</span>
+              </button>
             </div>
             <div class="table-responsive">
               <table class="activity-table">
                 <thead>
                   <tr>
-                    <th>Access Point / Gateway</th>
-                    <th>Hardware / Vendor Type</th>
-                    <th>IP Address / Gateway</th>
-                    <th>Shared Secret Status</th>
+                    <th>Client / Gateway</th>
+                    <th>Hardware / Vendor</th>
+                    <th>IP / CIDR Subnet</th>
+                    <th>Protocol</th>
+                    <th>Shared Secret</th>
                     <th>Status</th>
                     <th>Last Auth Event</th>
                     <th>Actions</th>
@@ -90,33 +95,78 @@
                         <div class="connector-icon-box">📶</div>
                         <div class="user-row-info">
                           <span class="user-name-cell">{{ ap.name }}</span>
-                          <span class="user-email-cell">Port 1812 / 1813</span>
+                          <span class="user-email-cell">{{ ap.description || 'Port 1812 / 1813' }}</span>
                         </div>
                       </div>
                     </td>
                     <td><span class="dept-badge">{{ ap.type }}</span></td>
-                    <td><code>{{ ap.ipAddress }}</code></td>
-                    <td><span class="badge badge-success">Synchronized</span></td>
+                    <td><code class="ip-code-pill">{{ ap.ipAddress }}</code></td>
                     <td>
-                      <span class="status-badge" [class.status-success]="ap.status === 'Active'" [class.status-warning]="ap.status === 'Standby'">
-                        {{ ap.status }}
+                      <span class="proto-badge">{{ ap.authProtocol || 'PEAP-MSCHAPv2' }}</span>
+                    </td>
+                    <td>
+                      <div class="secret-table-cell">
+                        <code class="masked-secret">{{ ap.secretRevealed ? ap.sharedSecret : '••••••••••••••••' }}</code>
+                        <div class="secret-cell-actions">
+                          <button
+                            type="button"
+                            class="btn-cell-icon"
+                            [title]="ap.secretRevealed ? 'Hide Secret' : 'Reveal Secret'"
+                            (click)="toggleRadiusClientSecretRevealed(ap.id)"
+                          >
+                            {{ ap.secretRevealed ? '🙈' : '👁️' }}
+                          </button>
+                          <button
+                            type="button"
+                            class="btn-cell-icon"
+                            title="Copy Secret"
+                            (click)="copyRadiusClientSecret(ap.sharedSecret)"
+                          >
+                            📋
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        class="status-badge"
+                        [class.status-success]="ap.status === 'Active'"
+                        [class.status-warning]="ap.status === 'Standby'"
+                      >
+                        {{ ap.status === 'Active' ? 'Online' : 'Inactive' }}
                       </span>
                     </td>
-                    <td class="text-sm text-muted">{{ ap.lastAuthEvent }}</td>
+                    <td class="text-sm text-muted whitespace-nowrap">{{ ap.lastAuthEvent }}</td>
                     <td>
                       <div class="action-btn-group">
                         <button
                           type="button"
                           class="btn-action-icon"
-                          [title]="ap.status === 'Active' ? 'Set to Standby' : 'Activate'"
+                          title="Edit Client"
+                          (click)="openEditRadiusApModal(ap)"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-action-icon"
+                          [title]="ap.status === 'Active' ? 'Set to Inactive' : 'Set to Online'"
                           (click)="toggleRadiusApStatus(ap)"
                         >
                           {{ ap.status === 'Active' ? '⏸️' : '▶️' }}
                         </button>
                         <button
                           type="button"
+                          class="btn-action-icon"
+                          title="Rotate Client Shared Secret"
+                          (click)="rotateRadiusClientSecret(ap.id)"
+                        >
+                          🔄
+                        </button>
+                        <button
+                          type="button"
                           class="btn-action-icon text-red"
-                          title="Remove AP"
+                          title="Remove Client"
                           (click)="deleteRadiusAp(ap.id)"
                         >
                           🗑️
@@ -125,15 +175,127 @@
                     </td>
                   </tr>
                   <tr *ngIf="radiusAccessPoints().length === 0">
-                    <td colspan="7" class="empty-state-cell">
+                    <td colspan="8" class="empty-state-cell">
                       <div class="empty-state-wrap">
                         <span class="empty-icon">📶</span>
-                        <h4 class="empty-title">No RADIUS access points configured</h4>
+                        <h4 class="empty-title">No RADIUS clients configured</h4>
                         <p class="empty-desc">No corporate Wi-Fi access points or VPN concentrators have been registered yet.</p>
                         <button type="button" class="btn-primary-action btn-sm" (click)="openAddRadiusApModal()">
                           <span class="btn-plus">+</span>
-                          <span>Add Access Point</span>
+                          <span>Add Network Client</span>
                         </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Recent 802.1X Authentication Activity Live Stream Card (SCRUM-23) -->
+          <div class="activity-table-card mb-4">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <div class="live-indicator-wrap">
+                  <span class="pulse-dot-green"></span>
+                  <h3 class="card-inner-title">Recent 802.1X Authentication Activity ({{ filteredRadiusActivity().length }})</h3>
+                </div>
+                <span class="badge badge-cyan">Live RADIUS Stream</span>
+              </div>
+              <div class="activity-header-controls">
+                <div class="filter-pill-group">
+                  <button
+                    type="button"
+                    class="filter-pill"
+                    [class.active]="radiusActivityFilter() === 'all'"
+                    (click)="setRadiusActivityFilter('all')"
+                  >
+                    All Events
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-pill pill-success"
+                    [class.active]="radiusActivityFilter() === 'Access-Accept'"
+                    (click)="setRadiusActivityFilter('Access-Accept')"
+                  >
+                    Access-Accept
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-pill pill-danger"
+                    [class.active]="radiusActivityFilter() === 'Access-Reject'"
+                    (click)="setRadiusActivityFilter('Access-Reject')"
+                  >
+                    Access-Reject
+                  </button>
+                </div>
+                <div class="simulate-btn-group">
+                  <button type="button" class="btn-sm btn-ghost-action" (click)="simulateRadiusAuth(true)" title="Simulate 802.1X Access-Accept">
+                    <span>+ Simulate Accept</span>
+                  </button>
+                  <button type="button" class="btn-sm btn-ghost-danger" (click)="simulateRadiusAuth(false)" title="Simulate 802.1X Access-Reject">
+                    <span>+ Simulate Reject</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Calling Station (Client MAC)</th>
+                    <th>User Identity</th>
+                    <th>NAS Gateway / Subnet</th>
+                    <th>Protocol</th>
+                    <th>Status</th>
+                    <th>Dynamic VLAN</th>
+                    <th>Diagnostic Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let ev of filteredRadiusActivity()">
+                    <td class="text-sm text-muted whitespace-nowrap">{{ ev.timestamp }}</td>
+                    <td>
+                      <div class="mac-cell">
+                        <span class="mac-icon">💻</span>
+                        <code class="mac-code">{{ ev.clientMac }}</code>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="user-identity-cell">
+                        <strong>{{ ev.username }}</strong>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="nas-cell">
+                        <span class="nas-name">{{ ev.nasClientName }}</span>
+                        <code class="nas-ip">{{ ev.nasIp }}</code>
+                      </div>
+                    </td>
+                    <td><span class="proto-badge">{{ ev.protocol }}</span></td>
+                    <td>
+                      <span
+                        class="status-badge"
+                        [class.status-success]="ev.status === 'Access-Accept'"
+                        [class.status-blocked]="ev.status === 'Access-Reject'"
+                      >
+                        {{ ev.status }}
+                      </span>
+                    </td>
+                    <td>
+                      <span *ngIf="ev.vlanId" class="vlan-pill">VLAN {{ ev.vlanId }}</span>
+                      <span *ngIf="!ev.vlanId" class="text-muted text-xs">—</span>
+                    </td>
+                    <td class="text-sm text-muted">{{ ev.reason || '802.1X verification' }}</td>
+                  </tr>
+                  <tr *ngIf="filteredRadiusActivity().length === 0">
+                    <td colspan="8" class="empty-state-cell">
+                      <div class="empty-state-wrap">
+                        <span class="empty-icon">📡</span>
+                        <h4 class="empty-title">No 802.1X authentication activity found</h4>
+                        <p class="empty-desc">No events matched the selected filter.</p>
                       </div>
                     </td>
                   </tr>
@@ -264,58 +426,138 @@
              ================================================================== -->
 
   <div class="modal-backdrop" *ngIf="showAddRadiusApModal()">
-    <div class="modal-card">
+    <div class="modal-card modal-lg">
       <div class="modal-header">
-        <h3 class="modal-title">Register RADIUS Access Point / Gateway</h3>
+        <h3 class="modal-title">{{ editingRadiusApId ? 'Edit RADIUS Client / Access Point' : 'Register RADIUS Client & Network Access Point' }}</h3>
         <button type="button" class="modal-close-btn" (click)="closeAddRadiusApModal()">✕</button>
       </div>
 
       <div class="modal-body">
         <p class="modal-desc">
-          Add an 802.1X Network Access Server (NAS) client. The primary shared secret will be applied.
+          Enroll an 802.1X Network Access Server (NAS), corporate Wi-Fi access point, or VPN gateway with individual high-entropy shared secret credentials and dynamic VLAN assignment.
         </p>
 
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Client / Access Point Name *</label>
+            <input
+              type="text"
+              [(ngModel)]="newRadiusApName"
+              placeholder="e.g. Main HQ Wi-Fi - UniFi AP"
+              class="form-input"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Hardware Vendor / Appliance Type *</label>
+            <select [(ngModel)]="newRadiusApType" class="form-select">
+              <option value="Ubiquiti UniFi AP">Ubiquiti UniFi AP / Dream Machine</option>
+              <option value="Cisco Meraki MR">Cisco Meraki MR Cloud-Managed AP</option>
+              <option value="Aruba WPA3 Enterprise">Aruba CX / Instant AP</option>
+              <option value="Cisco Catalyst 9100">Cisco Catalyst 9100 Wi-Fi 6E</option>
+              <option value="Palo Alto GlobalProtect">Palo Alto GlobalProtect VPN Gateway</option>
+              <option value="pfSense VPN Gateway">pfSense / OPNsense RADIUS NAS</option>
+              <option value="WireGuard Gateway">WireGuard Enterprise Mesh Gateway</option>
+              <option value="Generic 802.1X NAS">Generic RADIUS NAS / Switch Port</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">IPv4 Address / CIDR Subnet *</label>
+            <input
+              type="text"
+              [(ngModel)]="newRadiusApIp"
+              placeholder="e.g. 192.168.1.0/24 or 10.0.0.1"
+              class="form-input"
+            />
+            <span class="field-hint">Supports single IP (10.0.0.1) or CIDR subnet (192.168.1.0/24)</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Authentication Protocol *</label>
+            <select [(ngModel)]="newRadiusApProtocol" class="form-select">
+              <option value="PEAP-MSCHAPv2">PEAP-MSCHAPv2 (Username & Password)</option>
+              <option value="EAP-TLS">EAP-TLS (X.509 Certificate-based)</option>
+              <option value="MS-CHAPv2">MS-CHAPv2 (Encrypted challenge-response)</option>
+              <option value="PAP">PAP (Password Authentication Protocol)</option>
+            </select>
+          </div>
+        </div>
+
         <div class="form-group">
-          <label class="form-label">Access Point / Gateway Name</label>
+          <label class="form-label">Description & Location Note</label>
           <input
             type="text"
-            [(ngModel)]="newRadiusApName"
-            placeholder="e.g. HQ Floor 3 - Aruba CX WPA3"
+            [(ngModel)]="newRadiusApDesc"
+            placeholder="e.g. Primary 4th floor executive wing WPA3 Enterprise array"
             class="form-input"
           />
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Hardware Vendor / Appliance</label>
-          <select [(ngModel)]="newRadiusApType" class="form-select">
-            <option value="Aruba WPA3 Enterprise">Aruba WPA3 Enterprise AP</option>
-            <option value="Cisco Catalyst 9100">Cisco Catalyst 9100 Wi-Fi 6E</option>
-            <option value="Palo Alto GlobalProtect">Palo Alto GlobalProtect VPN Gateway</option>
-            <option value="WireGuard Gateway">WireGuard Enterprise Mesh Gateway</option>
-          </select>
-        </div>
+        <!-- Cryptographic Shared Secret Generator Box (SCRUM-23) -->
+        <div class="secret-generator-card">
+          <div class="generator-header">
+            <div class="generator-title-wrap">
+              <span class="key-icon">🔑</span>
+              <span class="generator-title">Cryptographic Shared Secret</span>
+            </div>
+            <div class="generator-actions">
+              <button
+                type="button"
+                class="btn-tiny btn-action-regen"
+                (click)="regenerateNewRadiusClientSecret()"
+                title="Generate high-entropy 24-character cryptographic token"
+              >
+                🎲 Regenerate Secret
+              </button>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label class="form-label">IPv4 / Gateway Address</label>
-          <input
-            type="text"
-            [(ngModel)]="newRadiusApIp"
-            placeholder="e.g. 192.168.10.15"
-            class="form-input"
-          />
+          <div class="secret-input-wrapper">
+            <input
+              [type]="newRadiusApSecretRevealed() ? 'text' : 'password'"
+              [value]="newRadiusApSecret()"
+              readonly
+              class="form-input secret-display-input"
+            />
+            <button
+              type="button"
+              class="btn-secret-action"
+              (click)="toggleNewRadiusSecretRevealed()"
+              [title]="newRadiusApSecretRevealed() ? 'Mask Secret' : 'Reveal Secret'"
+            >
+              {{ newRadiusApSecretRevealed() ? '🙈' : '👁️' }}
+            </button>
+            <button
+              type="button"
+              class="btn-secret-action"
+              (click)="copyNewRadiusSecret()"
+              title="Copy to clipboard"
+            >
+              {{ copiedRadiusSecretNotice() ? '✓' : '📋' }}
+            </button>
+          </div>
+          <div class="generator-footer">
+            <span class="entropy-label">Entropy: 24-char cryptographic token with uppercase, lowercase, digits, and symbols.</span>
+            <span *ngIf="copiedRadiusSecretNotice()" class="copied-pill">Copied to clipboard!</span>
+          </div>
         </div>
 
         <div class="form-error-text" *ngIf="addRadiusApError()">
           {{ addRadiusApError() }}
         </div>
         <div class="form-success-text" *ngIf="addRadiusApSuccess()">
-          ✓ Access Point enrolled into RADIUS cluster!
+          ✓ Access Point client successfully {{ editingRadiusApId ? 'updated' : 'enrolled into RADIUS cluster' }}!
         </div>
       </div>
 
       <div class="modal-footer">
         <button type="button" class="btn-ghost" (click)="closeAddRadiusApModal()">Cancel</button>
-        <button type="button" class="btn-primary-action" (click)="submitAddRadiusAp()">Enroll Access Point</button>
+        <button type="button" class="btn-primary-action" (click)="submitAddRadiusAp()">
+          {{ editingRadiusApId ? 'Save Client Changes' : 'Enroll Network Client' }}
+        </button>
       </div>
     </div>
   </div>

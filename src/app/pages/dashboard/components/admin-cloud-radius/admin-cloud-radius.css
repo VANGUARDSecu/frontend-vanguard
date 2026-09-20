@@ -203,3 +203,363 @@
 .ml-2 {
   margin-left: 8px;
 }
+
+/* ==========================================================================
+   SCRUM-23: Cloud RADIUS Client & Network Access Point Manager Styles
+   ========================================================================== */
+
+.modal-lg {
+  max-width: 680px;
+  width: 90%;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+  display: block;
+}
+
+.secret-generator-card {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.generator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.generator-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.key-icon {
+  font-size: 15px;
+}
+
+.generator-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #93c5fd;
+}
+
+.btn-action-regen {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-action-regen:hover {
+  background: rgba(59, 130, 246, 0.3);
+  color: #ffffff;
+  border-color: #60a5fa;
+}
+
+.secret-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 4px 6px 4px 12px;
+}
+
+.secret-display-input {
+  flex: 1;
+  background: transparent !important;
+  border: none !important;
+  color: #38bdf8 !important;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  letter-spacing: 0.8px;
+  padding: 6px 0;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.btn-secret-action {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #cbd5e1;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.btn-secret-action:hover {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+
+.generator-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.entropy-label {
+  font-size: 10.5px;
+  color: #64748b;
+}
+
+.copied-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+/* Inventory Table Enhancements */
+.ip-code-pill {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11.5px;
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  display: inline-block;
+}
+
+.proto-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  display: inline-block;
+}
+
+.secret-table-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.masked-secret {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 3px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.secret-cell-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-cell-icon {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  color: #94a3b8;
+  transition: all 0.15s ease;
+}
+
+.btn-cell-icon:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
+/* Activity Stream Live Indicator & Controls */
+.live-indicator-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pulse-dot-green {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 12px #34d399; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.activity-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-pill-group {
+  display: flex;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.filter-pill {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-pill:hover {
+  color: #ffffff;
+}
+
+.filter-pill.active {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.filter-pill.pill-success.active {
+  background: #059669;
+  color: #ffffff;
+}
+
+.filter-pill.pill-danger.active {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.simulate-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-ghost-action {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ghost-action:hover {
+  background: rgba(16, 185, 129, 0.25);
+  color: #ffffff;
+}
+
+.btn-ghost-danger {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ghost-danger:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ffffff;
+}
+
+.mac-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mac-icon {
+  font-size: 13px;
+}
+
+.mac-code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.user-identity-cell {
+  color: #f1f5f9;
+  font-size: 12px;
+}
+
+.nas-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nas-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.nas-ip {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+
+.whitespace-nowrap {
+  white-space: nowrap;
+}

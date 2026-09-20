@@ -14,6 +14,7 @@ import {
   IdpCertMetadata,
   LdapHost,
   RadiusAccessPoint,
+  RadiusAuthActivityEvent,
   VlanMapping,
   EnrolledDevice,
   MobilePolicyConfig,
@@ -53,12 +54,25 @@ export class AdminCloudRadius {
   readonly copiedRadiusLog = this.dashboardService.copiedRadiusLog;
   readonly radiusDiagLog = this.dashboardService.radiusDiagLog;
 
+  // SCRUM-23 State & Signals
+  readonly newRadiusApSecret = this.dashboardService.newRadiusApSecret;
+  readonly newRadiusApSecretRevealed = this.dashboardService.newRadiusApSecretRevealed;
+  readonly copiedRadiusSecretNotice = this.dashboardService.copiedRadiusSecretNotice;
+  readonly radiusAuthActivity = this.dashboardService.radiusAuthActivity;
+  readonly radiusActivityFilter = this.dashboardService.radiusActivityFilter;
+  readonly filteredRadiusActivity = this.dashboardService.filteredRadiusActivity;
+
+  get editingRadiusApId() { return this.dashboardService.editingRadiusApId; }
   get newRadiusApName() { return this.dashboardService.newRadiusApName; }
   set newRadiusApName(v: string) { this.dashboardService.newRadiusApName = v; }
   get newRadiusApType() { return this.dashboardService.newRadiusApType; }
   set newRadiusApType(v: any) { this.dashboardService.newRadiusApType = v; }
   get newRadiusApIp() { return this.dashboardService.newRadiusApIp; }
   set newRadiusApIp(v: string) { this.dashboardService.newRadiusApIp = v; }
+  get newRadiusApDesc() { return this.dashboardService.newRadiusApDesc; }
+  set newRadiusApDesc(v: string) { this.dashboardService.newRadiusApDesc = v; }
+  get newRadiusApProtocol() { return this.dashboardService.newRadiusApProtocol; }
+  set newRadiusApProtocol(v: any) { this.dashboardService.newRadiusApProtocol = v; }
 
   runRadiusAuthTest() { this.dashboardService.runRadiusAuthTest(); }
   copyRadiusDiagLog() { this.dashboardService.copyRadiusDiagLog(); }
@@ -67,9 +81,17 @@ export class AdminCloudRadius {
   closeRotateRadiusSecretModal() { this.dashboardService.closeRotateRadiusSecretModal(); }
   executeRotateRadiusSecret() { this.dashboardService.executeRotateRadiusSecret(); }
   openAddRadiusApModal() { this.dashboardService.openAddRadiusApModal(); }
+  openEditRadiusApModal(ap: RadiusAccessPoint) { this.dashboardService.openEditRadiusApModal(ap); }
   closeAddRadiusApModal() { this.dashboardService.closeAddRadiusApModal(); }
   submitAddRadiusAp() { this.dashboardService.submitAddRadiusAp(); }
   deleteRadiusAp(ap: string | RadiusAccessPoint) { const id = typeof ap === 'string' ? ap : ap.id; this.dashboardService.deleteRadiusAp(id); }
   toggleRadiusApStatus(ap: RadiusAccessPoint) { this.dashboardService.toggleRadiusApStatus(ap); }
-
+  regenerateNewRadiusClientSecret() { this.dashboardService.regenerateNewRadiusClientSecret(); }
+  toggleNewRadiusSecretRevealed() { this.dashboardService.toggleNewRadiusSecretRevealed(); }
+  copyNewRadiusSecret() { this.dashboardService.copyNewRadiusSecret(); }
+  rotateRadiusClientSecret(id: string) { this.dashboardService.rotateRadiusClientSecret(id); }
+  toggleRadiusClientSecretRevealed(id: string) { this.dashboardService.toggleRadiusClientSecretRevealed(id); }
+  copyRadiusClientSecret(secret: string) { this.dashboardService.copyRadiusClientSecret(secret); }
+  setRadiusActivityFilter(filter: 'all' | 'Access-Accept' | 'Access-Reject') { this.dashboardService.setRadiusActivityFilter(filter); }
+  simulateRadiusAuth(success?: boolean) { this.dashboardService.simulateRadiusAuth(success); }
 }

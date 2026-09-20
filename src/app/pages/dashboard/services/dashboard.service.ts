@@ -13,7 +13,10 @@ import {
   OidcClient,
   IdpCertMetadata,
   LdapHost,
+  LdapServiceAccount,
+  LdapTestResult,
   RadiusAccessPoint,
+  RadiusAuthActivityEvent,
   VlanMapping,
   EnrolledDevice,
   MobilePolicyConfig,
@@ -415,6 +418,26 @@ export class DashboardService {
   // ==========================================
   // PHASE 5: Cloud LDAP & RADIUS Network State (Dynamic)
   // ==========================================
+  // Connection Configuration Parameters (SCRUM-24)
+  readonly ldapServerHost = signal<string>('ldap.vanguardsecurity.io');
+  readonly ldapPortLdaps = signal<number>(636);
+  readonly ldapPortStartTls = signal<number>(389);
+  readonly ldapBaseDn = signal<string>('dc=vanguard,dc=security');
+  readonly ldapOrgDn = signal<string>('o=Vanguard Security Enterprise,dc=vanguard,dc=security');
+  readonly ldapUsersOu = signal<string>('ou=Users,dc=vanguard,dc=security');
+  readonly ldapGroupsOu = signal<string>('ou=Groups,dc=vanguard,dc=security');
+  readonly ldapServicesOu = signal<string>('ou=services,dc=vanguard,dc=security');
+  readonly copiedLdapParamNotice = signal<string | null>(null);
+
+  readonly ldapCaCertPem = signal<string>(`-----BEGIN CERTIFICATE-----
+MIIDazCCAlOgAwIBAgIUQ7mZ1p8nKqXvFwR2s9L3yE0A9o8wDQYJKoZIhvcNAQEL
+BQAwRTELMAkGA1UEBhMCVVMxETAPBgNVBAoTCFZhbmd1YXJkMSMwIQYDVQQDExpW
+YW5ndWFyZCBDbG91ZCBJZFAgUm9vdCBDQTAeFw0yNjAxMDEwMDAwMDBaFw0zNjAx
+MDEwMDAwMDBaMEUxCzAJBgNVBAYTAlVTMREwDwYDVQQKEwhWYW5ndWFyZDEjMCEG
+A1UEAxMaVmFuZ3VhcmQgQ2xvdWQgSWRQIFJvb3QgQ0EwggEiMA0GCSqGSIb3DQEB
+AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
+-----END CERTIFICATE-----`);
+
   readonly ldapAdminPassword = signal<string>(
     this.loadStored<string>('vanguard_ldap_admin_pw', 'Vang!Ldap#Root_9832')
   );
@@ -423,6 +446,58 @@ export class DashboardService {
     this.loadStored<string>('vanguard_ldap_ro_pw', 'Vang!Ldap_RO_4412')
   );
   readonly ldapReadonlyPwRevealed = signal<boolean>(false);
+
+  // Service Account Bind Credentials Manager (SCRUM-24)
+  readonly ldapServiceAccounts = signal<LdapServiceAccount[]>(
+    this.loadStored<LdapServiceAccount[]>('vanguard_ldap_service_accounts', [
+      {
+        id: 'sa-synology',
+        name: 'Synology NAS Backup Vault',
+        bindDn: 'uid=svc_synology,ou=services,dc=vanguard,dc=security',
+        bindPassword: 'Vang!Ldap_Synology#8842',
+        applianceType: 'Synology NAS',
+        ipRestriction: '10.100.1.0/24',
+        status: 'Active',
+        createdAt: '2026-08-20',
+        lastBind: '4 mins ago',
+        passwordRevealed: false,
+      },
+      {
+        id: 'sa-qnap',
+        name: 'QNAP Engineering Storage',
+        bindDn: 'uid=svc_qnap,ou=services,dc=vanguard,dc=security',
+        bindPassword: 'Vang!Ldap_QNAP#9124',
+        applianceType: 'QNAP Storage',
+        ipRestriction: '10.100.2.50',
+        status: 'Active',
+        createdAt: '2026-08-28',
+        lastBind: '18 mins ago',
+        passwordRevealed: false,
+      },
+      {
+        id: 'sa-linux-pam',
+        name: 'Linux SSSD/PAM Prod Cluster',
+        bindDn: 'uid=svc_sssd_pam,ou=services,dc=vanguard,dc=security',
+        bindPassword: 'Vang!Ldap_PamSSSD#5512',
+        applianceType: 'Linux SSSD/PAM',
+        status: 'Active',
+        createdAt: '2026-09-01',
+        lastBind: '1 min ago',
+        passwordRevealed: false,
+      },
+    ])
+  );
+
+  // Modals for Service Account Provisioning (SCRUM-24)
+  readonly showAddServiceAccountModal = signal<boolean>(false);
+  newSvcAcctName = '';
+  newSvcAcctUid = '';
+  newSvcAcctType: LdapServiceAccount['applianceType'] = 'Synology NAS';
+  newSvcAcctIpRestriction = '';
+  readonly newSvcAcctPassword = signal<string>('');
+  readonly newSvcAcctPwRevealed = signal<boolean>(false);
+  readonly addServiceAccountSuccess = signal<boolean>(false);
+  readonly addServiceAccountError = signal<string | null>(null);
 
   readonly ldapHosts = signal<LdapHost[]>(
     this.loadStored<LdapHost[]>('vanguard_ldap_hosts', [])
@@ -437,12 +512,18 @@ export class DashboardService {
   readonly addLdapHostSuccess = signal<boolean>(false);
   readonly addLdapHostError = signal<string | null>(null);
 
-  // Interactive LDAP Bind Diagnostic State
+  // Interactive LDAP Bind Diagnostic State (SCRUM-24)
   ldapDiagUserId = '';
   ldapDiagPassword = '••••••••••••';
+  ldapDiagEndpoint = 'ldaps://ldap.vanguardsecurity.io:636';
+  ldapDiagBindDn = 'uid=svc_synology,ou=services,dc=vanguard,dc=security';
+  ldapDiagBindPassword = 'Vang!Ldap_Synology#8842';
+  ldapDiagSearchBase = 'dc=vanguard,dc=security';
+  ldapDiagFilter = '(objectClass=inetOrgPerson)';
   readonly ldapDiagRunning = signal<boolean>(false);
   readonly ldapDiagExecuted = signal<boolean>(false);
   readonly copiedLdapLog = signal<boolean>(false);
+  readonly ldapTestResult = signal<LdapTestResult | null>(null);
 
   // Cloud RADIUS State
   readonly radiusSharedSecret = signal<string>(
@@ -459,16 +540,82 @@ export class DashboardService {
     this.loadStored<VlanMapping[]>('vanguard_vlan_mappings', [])
   );
 
-  // Modals for RADIUS
+  // Modals for RADIUS & Network Client Manager (SCRUM-23)
   readonly showAddRadiusApModal = signal<boolean>(false);
+  editingRadiusApId: string | null = null;
   newRadiusApName = '';
-  newRadiusApType: RadiusAccessPoint['type'] = 'Aruba WPA3 Enterprise';
+  newRadiusApType: RadiusAccessPoint['type'] = 'Ubiquiti UniFi AP';
   newRadiusApIp = '';
+  newRadiusApDesc = '';
+  newRadiusApProtocol: 'PEAP-MSCHAPv2' | 'EAP-TLS' | 'PAP' | 'MS-CHAPv2' = 'PEAP-MSCHAPv2';
+  readonly newRadiusApSecret = signal<string>('');
+  readonly newRadiusApSecretRevealed = signal<boolean>(false);
+  readonly copiedRadiusSecretNotice = signal<boolean>(false);
   readonly addRadiusApSuccess = signal<boolean>(false);
   readonly addRadiusApError = signal<string | null>(null);
 
   readonly showRotateRadiusSecretModal = signal<boolean>(false);
   readonly rotateRadiusSecretSuccess = signal<boolean>(false);
+
+  // Recent 802.1X Authentication Activity Stream (SCRUM-23)
+  readonly radiusAuthActivity = signal<RadiusAuthActivityEvent[]>([
+    {
+      id: 'rad-act-1',
+      timestamp: '2 mins ago',
+      clientMac: 'D4:61:9D:3A:8B:01',
+      username: 'alex.vanguard@vanguard.security',
+      nasClientName: 'Main HQ Wi-Fi - UniFi AP',
+      nasIp: '192.168.1.50',
+      protocol: 'PEAP-MSCHAPv2',
+      status: 'Access-Accept',
+      vlanId: 10,
+      reason: 'Credentials verified against Supabase Vault',
+    },
+    {
+      id: 'rad-act-2',
+      timestamp: '6 mins ago',
+      clientMac: 'BC:D0:74:11:F2:A9',
+      username: 'sarah.connor@vanguard.security',
+      nasClientName: 'Cisco Meraki MR Branch Gateway',
+      nasIp: '10.200.0.1',
+      protocol: 'EAP-TLS',
+      status: 'Access-Accept',
+      vlanId: 20,
+      reason: 'Valid X.509 client certificate presented',
+    },
+    {
+      id: 'rad-act-3',
+      timestamp: '14 mins ago',
+      clientMac: 'F0:18:98:C3:4D:7E',
+      username: 'unknown_contractor',
+      nasClientName: 'Main HQ Wi-Fi - UniFi AP',
+      nasIp: '192.168.1.50',
+      protocol: 'MS-CHAPv2',
+      status: 'Access-Reject',
+      reason: 'Authentication failed: Invalid credentials or expired account',
+    },
+    {
+      id: 'rad-act-4',
+      timestamp: '28 mins ago',
+      clientMac: '70:EF:00:81:4A:23',
+      username: 'dev-ops-service',
+      nasClientName: 'Aruba CX R&D Lab AP',
+      nasIp: '172.16.50.10',
+      protocol: 'PAP',
+      status: 'Access-Accept',
+      vlanId: 30,
+      reason: 'Service token authenticated',
+    },
+  ]);
+
+  readonly radiusActivityFilter = signal<'all' | 'Access-Accept' | 'Access-Reject'>('all');
+
+  readonly filteredRadiusActivity = computed<RadiusAuthActivityEvent[]>(() => {
+    const filter = this.radiusActivityFilter();
+    const list = this.radiusAuthActivity();
+    if (filter === 'all') return list;
+    return list.filter((e) => e.status === filter);
+  });
 
   // Interactive RADIUS Auth Diagnostic State
   radiusDiagUserId = '';
@@ -1600,25 +1747,222 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   // ==========================================
   // PHASE 5: Cloud LDAP & RADIUS Actions
   // ==========================================
-  readonly ldapDiagLog = computed<string>(() => {
-    const users = this.directoryUsers();
-    const hosts = this.ldapHosts();
+  // Connection Configuration & CA Certificate Actions (SCRUM-24)
+  downloadLdapCaCert(): void {
+    this.showAdminNotice('Vanguard Cloud LDAP CA Certificate downloaded (vanguard-ldap-ca.crt).');
+    if (!this.isBrowser || typeof document === 'undefined') return;
+    try {
+      const blob = new Blob([this.ldapCaCertPem()], { type: 'application/x-x509-ca-cert' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'vanguard-ldap-ca.crt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      // safe fallback in headless/test environments
+    }
+  }
 
-    if (users.length === 0 || hosts.length === 0) {
-      return '[!] Diagnostic Idle: Please register at least one Cloud LDAP client host to execute bind tests.';
+  copyLdapParam(value: string, label: string): void {
+    this.copiedLdapParamNotice.set(`${label} copied to clipboard`);
+    this.showAdminNotice(`Copied ${label} to clipboard.`);
+    if (this.isBrowser && navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(value).catch(() => {});
+    }
+    setTimeout(() => {
+      if (this.copiedLdapParamNotice() === `${label} copied to clipboard`) {
+        this.copiedLdapParamNotice.set(null);
+      }
+    }, 2000);
+  }
+
+  // Service Account Bind Credentials Manager Actions (SCRUM-24)
+  openAddServiceAccountModal(): void {
+    this.newSvcAcctName = '';
+    this.newSvcAcctUid = '';
+    this.newSvcAcctType = 'Synology NAS';
+    this.newSvcAcctIpRestriction = '';
+    this.newSvcAcctPassword.set(this.generateHighEntropySecret(32));
+    this.newSvcAcctPwRevealed.set(false);
+    this.addServiceAccountSuccess.set(false);
+    this.addServiceAccountError.set(null);
+    this.showAddServiceAccountModal.set(true);
+  }
+
+  closeAddServiceAccountModal(): void {
+    this.showAddServiceAccountModal.set(false);
+  }
+
+  generateSvcAcctPassword(): void {
+    this.newSvcAcctPassword.set(this.generateHighEntropySecret(32));
+  }
+
+  toggleNewSvcAcctPwRevealed(): void {
+    this.newSvcAcctPwRevealed.update((v) => !v);
+  }
+
+  submitAddServiceAccount(): void {
+    this.addServiceAccountError.set(null);
+    if (!this.newSvcAcctName.trim() || !this.newSvcAcctUid.trim()) {
+      this.addServiceAccountError.set('Service Account Name and UID are required (e.g. svc_synology).');
+      return;
     }
 
-    const user = users.find((u) => u.id === this.ldapDiagUserId) || users[0];
-    const host = hosts[0];
-    const username = user ? user.email.split('@')[0] : 'user';
+    const cleanUid = this.newSvcAcctUid.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    const bindDn = `uid=${cleanUid},ou=services,dc=vanguard,dc=security`;
+    const password = this.newSvcAcctPassword() || this.generateHighEntropySecret(32);
 
-    return `[+] Initiating secure LDAPS connection to ldaps://ldap.vanguard.security:636...
+    const newAccount: LdapServiceAccount = {
+      id: 'sa-' + Date.now(),
+      name: this.newSvcAcctName.trim(),
+      bindDn,
+      bindPassword: password,
+      applianceType: this.newSvcAcctType,
+      ipRestriction: this.newSvcAcctIpRestriction.trim() || undefined,
+      status: 'Active',
+      createdAt: 'Just registered',
+      lastBind: 'Never',
+      passwordRevealed: false,
+    };
+
+    this.ldapServiceAccounts.update((accounts) => [newAccount, ...accounts]);
+    this.saveStored('vanguard_ldap_service_accounts', this.ldapServiceAccounts());
+    this.logAuditEvent(`Created LDAP service account: ${bindDn}`, 'Cloud LDAP Directory', 'LDAPS (636)', 'success', 'Low');
+
+    this.addServiceAccountSuccess.set(true);
+    setTimeout(() => {
+      this.showAddServiceAccountModal.set(false);
+      this.addServiceAccountSuccess.set(false);
+      this.showAdminNotice(`Service Account ${bindDn} provisioned successfully.`);
+    }, 1200);
+  }
+
+  toggleSvcAcctPwRevealed(id: string): void {
+    this.ldapServiceAccounts.update((accounts) =>
+      accounts.map((a) => (a.id === id ? { ...a, passwordRevealed: !a.passwordRevealed } : a))
+    );
+  }
+
+  toggleServiceAccountStatus(account: LdapServiceAccount): void {
+    const newStatus: 'Active' | 'Revoked' = account.status === 'Active' ? 'Revoked' : 'Active';
+    this.ldapServiceAccounts.update((accounts) =>
+      accounts.map((a) => (a.id === account.id ? { ...a, status: newStatus } : a))
+    );
+    this.saveStored('vanguard_ldap_service_accounts', this.ldapServiceAccounts());
+    this.logAuditEvent(
+      `${newStatus === 'Revoked' ? 'Revoked' : 'Re-activated'} service account ${account.bindDn}`,
+      'Cloud LDAP Directory',
+      'LDAPS (636)',
+      'success',
+      newStatus === 'Revoked' ? 'Medium' : 'Low'
+    );
+    this.showAdminNotice(`Service Account ${account.name} marked as ${newStatus}.`);
+  }
+
+  deleteServiceAccount(id: string): void {
+    const acct = this.ldapServiceAccounts().find((a) => a.id === id);
+    this.ldapServiceAccounts.update((accounts) => accounts.filter((a) => a.id !== id));
+    this.saveStored('vanguard_ldap_service_accounts', this.ldapServiceAccounts());
+    if (acct) {
+      this.logAuditEvent(`Deleted service account ${acct.bindDn}`, 'Cloud LDAP Directory', 'LDAPS (636)', 'success', 'Medium');
+      this.showAdminNotice(`Service Account ${acct.bindDn} deleted.`);
+    }
+  }
+
+  copySvcAcctPassword(password: string): void {
+    this.showAdminNotice('Service account password copied to clipboard.');
+    if (this.isBrowser && navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(password).catch(() => {});
+    }
+  }
+
+  copySvcAcctDn(dn: string): void {
+    this.showAdminNotice('Bind DN copied to clipboard.');
+    if (this.isBrowser && navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(dn).catch(() => {});
+    }
+  }
+
+  loadLdapDiagPreset(type: 'service-account' | 'user' | 'admin' | 'invalid'): void {
+    if (type === 'service-account') {
+      const sa = this.ldapServiceAccounts()[0];
+      this.ldapDiagBindDn = sa ? sa.bindDn : 'uid=svc_synology,ou=services,dc=vanguard,dc=security';
+      this.ldapDiagBindPassword = sa ? sa.bindPassword : 'Vang!Ldap_Synology#8842';
+      this.ldapDiagSearchBase = 'dc=vanguard,dc=security';
+      this.ldapDiagFilter = '(objectClass=posixAccount)';
+    } else if (type === 'user') {
+      const users = this.directoryUsers();
+      const u = users[0];
+      const username = u ? u.email.split('@')[0] : 'alex';
+      this.ldapDiagBindDn = `uid=${username},ou=Users,dc=vanguard,dc=security`;
+      this.ldapDiagBindPassword = 'Alex#Vanguard2026!';
+      this.ldapDiagSearchBase = 'ou=Users,dc=vanguard,dc=security';
+      this.ldapDiagFilter = `(mail=${u?.email || 'alex@vanguard.security'})`;
+    } else if (type === 'admin') {
+      this.ldapDiagBindDn = 'cn=admin,dc=vanguard,dc=security';
+      this.ldapDiagBindPassword = this.ldapAdminPassword();
+      this.ldapDiagSearchBase = 'dc=vanguard,dc=security';
+      this.ldapDiagFilter = '(cn=*)';
+    } else if (type === 'invalid') {
+      this.ldapDiagBindDn = 'uid=svc_invalid,ou=services,dc=vanguard,dc=security';
+      this.ldapDiagBindPassword = 'WrongPassword123!';
+      this.ldapDiagSearchBase = 'dc=vanguard,dc=security';
+      this.ldapDiagFilter = '(uid=svc_invalid)';
+    }
+    this.ldapTestResult.set(null);
+    this.ldapDiagExecuted.set(false);
+  }
+
+  readonly ldapDiagLog = computed<string>(() => {
+    const res = this.ldapTestResult();
+    const endpoint = this.ldapDiagEndpoint || 'ldaps://ldap.vanguard.security:636';
+    const bindDn = this.ldapDiagBindDn || 'cn=svc-ldap-readonly,ou=ServiceAccounts,dc=vanguard,dc=security';
+
+    const users = this.directoryUsers();
+    const user = users.find((u) => u.id === this.ldapDiagUserId) || users[0];
+    const host = this.ldapHosts()[0];
+
+    if (!res && (!user || !host)) {
+      return '[*] Diagnostic Idle: Select a directory user to simulate an LDAPS 636 simple bind packet exchange.';
+    }
+
+    if (res && res.resultCode === 49) {
+      return `[+] Initiating secure LDAPS connection to ldaps://ldap.vanguard.security:636...
+[*] Target Endpoint: ${endpoint}
 [*] TLS 1.3 Handshake completed: Cipher TLS_AES_256_GCM_SHA384, RSA 4096-bit key
 [*] Server Certificate: CN=ldap.vanguard.security (Issued by Vanguard Root CA - Valid)
 [*] Executing Simple Bind Request:
-    Bind DN: uid=${username},ou=Users,dc=vanguard,dc=security
+    Bind DN: ${bindDn}
     Target Directory: Supabase PostgreSQL Vault (Argon2id/Bcrypt validation)
-    Client IP / Gateway: ${host ? host.ipAddress : '10.100.1.15'}
+[✗] Result Code: 49 (LDAP_INVALID_CREDENTIALS) - Authentication failed
+[!] Diagnostic Warning: Password mismatch or credential revoked.
+[!] Connection closed by client (TLS close_notify). Roundtrip duration: ${res.latencyMs}ms.`;
+    }
+
+    if (res && res.resultCode === 32) {
+      return `[+] Initiating secure LDAPS connection to ldaps://ldap.vanguard.security:636...
+[*] Target Endpoint: ${endpoint}
+[*] TLS 1.3 Handshake completed: Cipher TLS_AES_256_GCM_SHA384, RSA 4096-bit key
+[*] Server Certificate: CN=ldap.vanguard.security (Issued by Vanguard Root CA - Valid)
+[*] Executing Simple Bind Request:
+    Bind DN: ${bindDn}
+[✗] Result Code: 32 (LDAP_NO_SUCH_OBJECT) - Target entry not found in tree
+[!] Connection closed by client. Roundtrip duration: ${res.latencyMs}ms.`;
+    }
+
+    const username = user ? user.email.split('@')[0] : 'admin';
+
+    return `[+] Initiating secure LDAPS connection to ldaps://ldap.vanguard.security:636...
+[*] Target Endpoint: ${endpoint}
+[*] TLS 1.3 Handshake completed: Cipher TLS_AES_256_GCM_SHA384, RSA 4096-bit key
+[*] Server Certificate: CN=ldap.vanguard.security (Issued by Vanguard Root CA - Valid)
+[*] Executing Simple Bind Request:
+    Bind DN: ${bindDn.includes('Users') ? bindDn : `uid=${username},ou=Users,dc=vanguard,dc=security`}
+    Target Directory: Supabase PostgreSQL Vault (Argon2id/Bcrypt validation)
+    Client IP / Gateway: 10.100.1.15
 [✓] Result Code: 0 (LDAP_SUCCESS) - Authentication successful
 [+] Object attributes retrieved:
     dn: uid=${username},ou=Users,dc=vanguard,dc=security
@@ -1628,12 +1972,78 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     employeeType: ${user?.role || 'Directory Member'}
     accountStatus: ${user?.accountStatus || 'Active'}
     memberOf: cn=${user?.department || 'Engineering'},ou=Groups,dc=vanguard,dc=security
-[✓] Connection terminated gracefully (TLS close_notify). Roundtrip duration: 1.8ms.`;
+[✓] Connection terminated gracefully (TLS close_notify). Roundtrip duration: ${res?.latencyMs || 1.8}ms.`;
   });
 
   runLdapBindTest(): void {
     this.ldapDiagRunning.set(true);
     this.ldapDiagExecuted.set(false);
+
+    const isInvalid =
+      this.ldapDiagBindPassword.toLowerCase().includes('wrong') ||
+      this.ldapDiagBindPassword.toLowerCase().includes('invalid') ||
+      !this.ldapDiagBindPassword.trim();
+    const isNotFound =
+      this.ldapDiagBindDn.includes('unknown') ||
+      this.ldapDiagBindDn.includes('nonexistent');
+
+    if (isInvalid) {
+      this.ldapTestResult.set({
+        resultCode: 49,
+        resultName: 'LDAP_INVALID_CREDENTIALS',
+        status: 'error',
+        message: 'Authentication failed: Invalid credentials provided for Bind DN.',
+        latencyMs: 3.2,
+        tlsVersion: 'TLSv1.3',
+        cipher: 'TLS_AES_256_GCM_SHA384',
+        entriesFound: 0,
+      });
+      this.logAuditEvent(
+        `LDAP Simple Bind FAILED (Code 49) for ${this.ldapDiagBindDn}`,
+        'Cloud LDAP Directory',
+        'LDAPS (636)',
+        'blocked',
+        'Medium'
+      );
+    } else if (isNotFound) {
+      this.ldapTestResult.set({
+        resultCode: 32,
+        resultName: 'LDAP_NO_SUCH_OBJECT',
+        status: 'warning',
+        message: 'Target Distinguished Name was not found in directory tree.',
+        latencyMs: 2.4,
+        tlsVersion: 'TLSv1.3',
+        cipher: 'TLS_AES_256_GCM_SHA384',
+        entriesFound: 0,
+      });
+      this.logAuditEvent(
+        `LDAP Object Not Found (Code 32) for ${this.ldapDiagBindDn}`,
+        'Cloud LDAP Directory',
+        'LDAPS (636)',
+        'blocked',
+        'Low'
+      );
+    } else {
+      this.ldapTestResult.set({
+        resultCode: 0,
+        resultName: 'LDAP_SUCCESS',
+        status: 'success',
+        message: 'Simple Bind verified against Supabase PostgreSQL Vault over TLS 1.3.',
+        latencyMs: 1.8,
+        tlsVersion: 'TLSv1.3',
+        cipher: 'TLS_AES_256_GCM_SHA384',
+        entriesFound: 1,
+        matchedDn: this.ldapDiagBindDn,
+      });
+      this.logAuditEvent(
+        `LDAP Simple Bind SUCCESS (Code 0) for ${this.ldapDiagBindDn}`,
+        'Cloud LDAP Directory',
+        'LDAPS (636)',
+        'success',
+        'Low'
+      );
+    }
+
     setTimeout(() => {
       this.ldapDiagRunning.set(false);
       this.ldapDiagExecuted.set(true);
@@ -1816,17 +2226,84 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     }, 1200);
   }
 
+  // ==========================================
+  // Cloud RADIUS Helpers & Operations (SCRUM-23)
+  // ==========================================
+  isValidIpv4OrCidr(input: string): boolean {
+    if (!input) return false;
+    const trimmed = input.trim();
+    const pattern = /^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\/([0-9]|[1-2][0-9]|3[0-2]))?$/;
+    return pattern.test(trimmed);
+  }
+
+  generateHighEntropySecret(length = 24): string {
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const symbols = '!@#$%^&*()_+-=[]{}|';
+    const all = upper + lower + numbers + symbols;
+
+    let secret = '';
+    secret += upper[Math.floor(Math.random() * upper.length)];
+    secret += lower[Math.floor(Math.random() * lower.length)];
+    secret += numbers[Math.floor(Math.random() * numbers.length)];
+    secret += symbols[Math.floor(Math.random() * symbols.length)];
+
+    for (let i = 4; i < length; i++) {
+      secret += all[Math.floor(Math.random() * all.length)];
+    }
+    return secret.split('').sort(() => 0.5 - Math.random()).join('');
+  }
+
+  regenerateNewRadiusClientSecret(): void {
+    this.newRadiusApSecret.set(this.generateHighEntropySecret(24));
+  }
+
+  toggleNewRadiusSecretRevealed(): void {
+    this.newRadiusApSecretRevealed.update((v) => !v);
+  }
+
+  copyNewRadiusSecret(): void {
+    if (!this.isBrowser || !navigator?.clipboard?.writeText) return;
+    navigator.clipboard.writeText(this.newRadiusApSecret()).then(() => {
+      this.copiedRadiusSecretNotice.set(true);
+      setTimeout(() => this.copiedRadiusSecretNotice.set(false), 2000);
+    });
+  }
+
   openAddRadiusApModal(): void {
-    this.showAddRadiusApModal.set(true);
+    this.editingRadiusApId = null;
     this.newRadiusApName = '';
-    this.newRadiusApType = 'Aruba WPA3 Enterprise';
+    this.newRadiusApType = 'Ubiquiti UniFi AP';
     this.newRadiusApIp = '';
+    this.newRadiusApDesc = '';
+    this.newRadiusApProtocol = 'PEAP-MSCHAPv2';
+    this.newRadiusApSecret.set(this.generateHighEntropySecret(24));
+    this.newRadiusApSecretRevealed.set(false);
+    this.copiedRadiusSecretNotice.set(false);
     this.addRadiusApSuccess.set(false);
     this.addRadiusApError.set(null);
+    this.showAddRadiusApModal.set(true);
+  }
+
+  openEditRadiusApModal(ap: RadiusAccessPoint): void {
+    this.editingRadiusApId = ap.id;
+    this.newRadiusApName = ap.name;
+    this.newRadiusApType = ap.type;
+    this.newRadiusApIp = ap.ipAddress;
+    this.newRadiusApDesc = ap.description || '';
+    this.newRadiusApProtocol = ap.authProtocol || 'PEAP-MSCHAPv2';
+    this.newRadiusApSecret.set(ap.sharedSecret);
+    this.newRadiusApSecretRevealed.set(false);
+    this.copiedRadiusSecretNotice.set(false);
+    this.addRadiusApSuccess.set(false);
+    this.addRadiusApError.set(null);
+    this.showAddRadiusApModal.set(true);
   }
 
   closeAddRadiusApModal(): void {
     this.showAddRadiusApModal.set(false);
+    this.editingRadiusApId = null;
   }
 
   submitAddRadiusAp(): void {
@@ -1836,19 +2313,58 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
       return;
     }
 
+    if (!this.isValidIpv4OrCidr(this.newRadiusApIp.trim())) {
+      this.addRadiusApError.set('Invalid IPv4 address or CIDR subnet (e.g. 192.168.1.0/24 or 10.0.0.1).');
+      return;
+    }
+
+    const secret = this.newRadiusApSecret() || this.radiusSharedSecret() || this.generateHighEntropySecret(24);
+
+    if (this.editingRadiusApId) {
+      const editId = this.editingRadiusApId;
+      this.radiusAccessPoints.update((aps) =>
+        aps.map((ap) =>
+          ap.id === editId
+            ? {
+                ...ap,
+                name: this.newRadiusApName.trim(),
+                type: this.newRadiusApType,
+                ipAddress: this.newRadiusApIp.trim(),
+                description: this.newRadiusApDesc.trim() || undefined,
+                authProtocol: this.newRadiusApProtocol,
+                sharedSecret: secret,
+              }
+            : ap
+        )
+      );
+      this.saveStored('vanguard_radius_aps', this.radiusAccessPoints());
+      this.logAuditEvent(`Updated RADIUS Client ${this.newRadiusApName.trim()}`, 'Cloud RADIUS Gateway', `${this.newRadiusApProtocol} / 802.1X`, 'success', 'Low');
+      this.addRadiusApSuccess.set(true);
+      setTimeout(() => {
+        this.showAddRadiusApModal.set(false);
+        this.addRadiusApSuccess.set(false);
+        this.editingRadiusApId = null;
+        this.showAdminNotice(`RADIUS Client ${this.newRadiusApName.trim()} updated.`);
+      }, 1200);
+      return;
+    }
+
     const newAp: RadiusAccessPoint = {
       id: 'ap-' + Date.now(),
       name: this.newRadiusApName.trim(),
       type: this.newRadiusApType,
       ipAddress: this.newRadiusApIp.trim(),
-      sharedSecret: this.radiusSharedSecret(),
+      sharedSecret: secret,
       status: 'Active',
       lastAuthEvent: 'Just registered',
+      description: this.newRadiusApDesc.trim() || undefined,
+      authProtocol: this.newRadiusApProtocol,
+      secretRevealed: false,
     };
 
     this.radiusAccessPoints.update((aps) => [newAp, ...aps]);
     this.saveStored('vanguard_radius_aps', this.radiusAccessPoints());
-    this.logAuditEvent(`Added RADIUS Access Point ${newAp.name}`, 'Cloud RADIUS Gateway', '802.1X / WPA3', 'success', 'Low');
+    this.logAuditEvent(`Added RADIUS Access Point ${newAp.name} (${newAp.ipAddress})`, 'Cloud RADIUS Gateway', `${newAp.authProtocol || '802.1X'} / WPA3`, 'success', 'Low');
 
     this.addRadiusApSuccess.set(true);
     setTimeout(() => {
@@ -1856,6 +2372,32 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
       this.addRadiusApSuccess.set(false);
       this.showAdminNotice(`RADIUS Access Point ${newAp.name} registered.`);
     }, 1200);
+  }
+
+  rotateRadiusClientSecret(id: string): void {
+    const newSecret = this.generateHighEntropySecret(24);
+    this.radiusAccessPoints.update((aps) =>
+      aps.map((a) => (a.id === id ? { ...a, sharedSecret: newSecret, secretRevealed: true } : a))
+    );
+    this.saveStored('vanguard_radius_aps', this.radiusAccessPoints());
+    const ap = this.radiusAccessPoints().find((a) => a.id === id);
+    if (ap) {
+      this.logAuditEvent(`Rotated shared secret for RADIUS client ${ap.name}`, 'Cloud RADIUS Gateway', '802.1X', 'success', 'Medium');
+      this.showAdminNotice(`Cryptographic secret rotated for client ${ap.name}.`);
+    }
+  }
+
+  toggleRadiusClientSecretRevealed(id: string): void {
+    this.radiusAccessPoints.update((aps) =>
+      aps.map((a) => (a.id === id ? { ...a, secretRevealed: !a.secretRevealed } : a))
+    );
+  }
+
+  copyRadiusClientSecret(secret: string): void {
+    if (!this.isBrowser || !navigator?.clipboard?.writeText) return;
+    navigator.clipboard.writeText(secret).then(() => {
+      this.showAdminNotice('RADIUS client secret copied to clipboard.');
+    });
   }
 
   deleteRadiusAp(id: string): void {
@@ -1875,6 +2417,47 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     );
     this.saveStored('vanguard_radius_aps', this.radiusAccessPoints());
     this.showAdminNotice(`Access point ${ap.name} set to ${newStatus}.`);
+  }
+
+  setRadiusActivityFilter(filter: 'all' | 'Access-Accept' | 'Access-Reject'): void {
+    this.radiusActivityFilter.set(filter);
+  }
+
+  simulateRadiusAuth(success: boolean = true): void {
+    const users = this.directoryUsers();
+    const aps = this.radiusAccessPoints();
+    const user = users.length > 0 ? users[Math.floor(Math.random() * users.length)] : null;
+    const ap = aps.length > 0 ? aps[Math.floor(Math.random() * aps.length)] : null;
+    const protocols: ('PEAP-MSCHAPv2' | 'EAP-TLS' | 'PAP' | 'MS-CHAPv2')[] = ['PEAP-MSCHAPv2', 'EAP-TLS', 'PAP', 'MS-CHAPv2'];
+    const proto = ap?.authProtocol || protocols[Math.floor(Math.random() * protocols.length)];
+
+    const hex = () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase();
+    const mac = `${hex()}:${hex()}:${hex()}:${hex()}:${hex()}:${hex()}`;
+
+    const event: RadiusAuthActivityEvent = {
+      id: 'rad-act-' + Date.now(),
+      timestamp: 'Just now',
+      clientMac: mac,
+      username: user ? user.email : 'contractor.device@vanguard.security',
+      nasClientName: ap ? ap.name : 'Main HQ Wi-Fi - UniFi AP',
+      nasIp: ap ? ap.ipAddress : '192.168.1.50',
+      protocol: proto,
+      status: success ? 'Access-Accept' : 'Access-Reject',
+      vlanId: success ? (Math.floor(Math.random() * 3) + 1) * 10 : undefined,
+      reason: success
+        ? 'Inner MSCHAPv2 / TLS handshake verified against Supabase Vault'
+        : 'Access-Reject: Credential mismatch or unassigned department policy',
+    };
+
+    this.radiusAuthActivity.update((events) => [event, ...events.slice(0, 19)]);
+    this.logAuditEvent(
+      `RADIUS 802.1X ${event.status} for ${event.username} via ${event.nasClientName}`,
+      'Cloud RADIUS Gateway',
+      event.protocol,
+      success ? 'success' : 'blocked',
+      success ? 'Low' : 'Medium'
+    );
+    this.showAdminNotice(`Simulated 802.1X ${event.status} event for ${event.username}`);
   }
 
   // ==========================================

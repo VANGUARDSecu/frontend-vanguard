@@ -143,14 +143,65 @@ export interface LdapHost {
   lastActive: string;
 }
 
+export interface LdapServiceAccount {
+  id: string;
+  name: string;
+  bindDn: string;
+  bindPassword: string;
+  passwordRevealed?: boolean;
+  applianceType: 'Synology NAS' | 'QNAP Storage' | 'Linux SSSD/PAM' | 'GitLab / Jira' | 'Legacy Application' | string;
+  ipRestriction?: string;
+  status: 'Active' | 'Revoked';
+  createdAt: string;
+  lastBind?: string;
+}
+
+export interface LdapTestResult {
+  resultCode: number;
+  resultName: string;
+  status: 'success' | 'error' | 'warning';
+  message: string;
+  latencyMs: number;
+  tlsVersion: string;
+  cipher: string;
+  entriesFound: number;
+  matchedDn?: string;
+}
+
 export interface RadiusAccessPoint {
   id: string;
   name: string;
-  type: 'Aruba WPA3 Enterprise' | 'Cisco Catalyst 9100' | 'Palo Alto GlobalProtect' | 'WireGuard Gateway';
+  type:
+    | 'Ubiquiti UniFi AP'
+    | 'Cisco Meraki MR'
+    | 'Aruba WPA3 Enterprise'
+    | 'Cisco Catalyst 9100'
+    | 'Palo Alto GlobalProtect'
+    | 'pfSense VPN Gateway'
+    | 'WireGuard Gateway'
+    | 'Generic 802.1X NAS'
+    | string;
   ipAddress: string;
   sharedSecret: string;
   status: 'Active' | 'Standby';
   lastAuthEvent: string;
+  description?: string;
+  authProtocol?: 'PAP' | 'MS-CHAPv2' | 'PEAP-MSCHAPv2' | 'EAP-TLS';
+  secretRevealed?: boolean;
+  cidrSubnet?: string;
+}
+
+export interface RadiusAuthActivityEvent {
+  id: string;
+  timestamp: string;
+  clientMac: string;
+  username: string;
+  nasClientName: string;
+  nasIp: string;
+  protocol: 'PEAP-MSCHAPv2' | 'EAP-TLS' | 'PAP' | 'MS-CHAPv2';
+  status: 'Access-Accept' | 'Access-Reject' | 'Access-Challenge';
+  vlanId?: number;
+  reason?: string;
 }
 
 export interface VlanMapping {

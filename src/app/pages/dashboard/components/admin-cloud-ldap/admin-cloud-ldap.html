@@ -5,17 +5,33 @@
               <p class="section-subtitle">Zero-Trust identity provider for legacy storage NAS appliances, Linux server clusters, and PAM/SSSD daemons.</p>
             </div>
             <div class="header-actions-group">
+              <button type="button" class="btn-ghost" (click)="downloadLdapCaCert()" title="Download Vanguard Root CA Certificate in PEM format">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                <span>Download CA Cert (.crt)</span>
+              </button>
               <button type="button" class="btn-ghost" (click)="regenerateLdapPasswords()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
                   <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
                 </svg>
                 <span>Rotate Service Secrets</span>
               </button>
+              <button type="button" class="btn-primary-action" (click)="openAddServiceAccountModal()">
+                <span class="btn-plus">+</span>
+                <span>Provision Service Account</span>
+              </button>
               <button type="button" class="btn-primary-action" (click)="openAddLdapHostModal()">
                 <span class="btn-plus">+</span>
                 <span>Register Hardware / NAS</span>
               </button>
             </div>
+          </div>
+
+          <!-- Toast / Notice for 1-Click Copy -->
+          <div class="copy-toast-banner" *ngIf="copiedLdapParamNotice()">
+            <span class="toast-icon">📋</span>
+            <span>{{ copiedLdapParamNotice() }}</span>
           </div>
 
           <!-- Telemetry Metric Cards -->
@@ -57,57 +73,215 @@
             </div>
           </div>
 
-          <!-- LDAP Config & Hierarchy Details Card -->
+          <!-- LDAP Config & Hierarchy Details Card (SCRUM-24) -->
           <div class="activity-table-card mb-4">
             <div class="card-header-inner">
               <div class="title-with-badge">
-                <h3 class="card-inner-title">Directory Hierarchy & Bind Endpoint Configurations</h3>
+                <h3 class="card-inner-title">Cloud LDAP Directory Connection Parameters & Hierarchy</h3>
                 <span class="badge badge-success">TLS 1.3 Strict Mode</span>
               </div>
-              <span class="text-muted text-sm">Primary Endpoint: <code>ldaps://ldap.vanguard.security:636</code></span>
+              <div class="header-tools-row">
+                <span class="text-muted text-sm">Primary Endpoint: <code>ldaps://{{ ldapServerHost() }}:{{ ldapPortLdaps() }}</code></span>
+                <button type="button" class="btn-tiny ml-2" (click)="downloadLdapCaCert()">
+                  📥 Download CA Cert
+                </button>
+              </div>
             </div>
 
             <div class="ldap-config-grid">
               <div class="config-cell">
-                <span class="cell-label">Base Distinguished Name (DN)</span>
-                <code class="cell-code">dc=vanguard,dc=security</code>
+                <div class="config-cell-header">
+                  <span class="cell-label">Primary Server Host (FQDN)</span>
+                  <button type="button" class="btn-copy-chip" (click)="copyLdapParam(ldapServerHost(), 'Server Host')">Copy</button>
+                </div>
+                <code class="cell-code">{{ ldapServerHost() }}</code>
+                <span class="cell-desc">Global Anycast load-balanced LDAPS cluster endpoint.</span>
+              </div>
+
+              <div class="config-cell">
+                <div class="config-cell-header">
+                  <span class="cell-label">LDAPS Secure Port</span>
+                  <button type="button" class="btn-copy-chip" (click)="copyLdapParam(ldapPortLdaps().toString(), 'LDAPS Port')">Copy</button>
+                </div>
+                <code class="cell-code">TCP {{ ldapPortLdaps() }} (TLS Implicit)</code>
+                <span class="cell-desc">Recommended for all modern NAS appliances and SSSD.</span>
+              </div>
+
+              <div class="config-cell">
+                <div class="config-cell-header">
+                  <span class="cell-label">StartTLS Fallback Port</span>
+                  <button type="button" class="btn-copy-chip" (click)="copyLdapParam(ldapPortStartTls().toString(), 'StartTLS Port')">Copy</button>
+                </div>
+                <code class="cell-code">TCP {{ ldapPortStartTls() }} (Enforces StartTLS)</code>
+                <span class="cell-desc">Plaintext binds strictly rejected prior to StartTLS upgrade.</span>
+              </div>
+
+              <div class="config-cell">
+                <div class="config-cell-header">
+                  <span class="cell-label">Base Distinguished Name (DN)</span>
+                  <button type="button" class="btn-copy-chip" (click)="copyLdapParam(ldapBaseDn(), 'Base DN')">Copy</button>
+                </div>
+                <code class="cell-code">{{ ldapBaseDn() }}</code>
                 <span class="cell-desc">Root schema identifier for enterprise tenant directory tree.</span>
               </div>
+
               <div class="config-cell">
-                <span class="cell-label">Users Organizational Unit (OU)</span>
-                <code class="cell-code">ou=Users,dc=vanguard,dc=security</code>
+                <div class="config-cell-header">
+                  <span class="cell-label">Organization DN</span>
+                  <button type="button" class="btn-copy-chip" (click)="copyLdapParam(ldapOrgDn(), 'Organization DN')">Copy</button>
+                </div>
+                <code class="cell-code">{{ ldapOrgDn() }}</code>
+                <span class="cell-desc">Top-level organization object in LDAP hierarchy.</span>
+              </div>
+
+              <div class="config-cell">
+                <div class="config-cell-header">
+                  <span class="cell-label">Users Organizational Unit (OU)</span>
+                  <button type="button" class="btn-copy-chip" (click)="copyLdapParam(ldapUsersOu(), 'Users OU')">Copy</button>
+                </div>
+                <code class="cell-code">{{ ldapUsersOu() }}</code>
                 <span class="cell-desc">Schema: <code>inetOrgPerson</code>, <code>posixAccount</code> (Mapped to Supabase).</span>
               </div>
+
               <div class="config-cell">
-                <span class="cell-label">Groups Organizational Unit (OU)</span>
-                <code class="cell-code">ou=Groups,dc=vanguard,dc=security</code>
+                <div class="config-cell-header">
+                  <span class="cell-label">Groups Organizational Unit (OU)</span>
+                  <button type="button" class="btn-copy-chip" (click)="copyLdapParam(ldapGroupsOu(), 'Groups OU')">Copy</button>
+                </div>
+                <code class="cell-code">{{ ldapGroupsOu() }}</code>
                 <span class="cell-desc">Schema: <code>groupOfNames</code>, <code>posixGroup</code> (RBAC sync).</span>
               </div>
+
               <div class="config-cell">
-                <span class="cell-label">Read-Only Service Account Bind DN</span>
-                <code class="cell-code">cn=svc-ldap-readonly,ou=ServiceAccounts,dc=vanguard,dc=security</code>
-                <div class="secret-field-row">
-                  <span class="secret-val">{{ ldapReadonlyPwRevealed() ? ldapReadonlyPassword() : '••••••••••••••••' }}</span>
-                  <button type="button" class="btn-tiny" (click)="toggleLdapReadonlyPwRevealed()">
-                    {{ ldapReadonlyPwRevealed() ? 'Hide' : 'Reveal' }}
-                  </button>
+                <div class="config-cell-header">
+                  <span class="cell-label">Service Accounts OU</span>
+                  <button type="button" class="btn-copy-chip" (click)="copyLdapParam(ldapServicesOu(), 'Services OU')">Copy</button>
                 </div>
+                <code class="cell-code">{{ ldapServicesOu() }}</code>
+                <span class="cell-desc">Schema: <code>simpleSecurityObject</code>, <code>uidObject</code>.</span>
               </div>
+
               <div class="config-cell">
-                <span class="cell-label">Admin Service Account Bind DN</span>
-                <code class="cell-code">cn=admin,dc=vanguard,dc=security</code>
-                <div class="secret-field-row">
-                  <span class="secret-val">{{ ldapAdminPwRevealed() ? ldapAdminPassword() : '••••••••••••••••' }}</span>
-                  <button type="button" class="btn-tiny" (click)="toggleLdapAdminPwRevealed()">
-                    {{ ldapAdminPwRevealed() ? 'Hide' : 'Reveal' }}
-                  </button>
+                <div class="config-cell-header">
+                  <span class="cell-label">Supported Ciphers & TLS</span>
+                  <button type="button" class="btn-copy-chip" (click)="copyLdapParam('TLS_AES_256_GCM_SHA384 (TLSv1.3)', 'TLS Cipher')">Copy</button>
                 </div>
-              </div>
-              <div class="config-cell">
-                <span class="cell-label">Supported Ciphers & TLS</span>
                 <code class="cell-code">TLS_AES_256_GCM_SHA384 (TLSv1.3)</code>
-                <span class="cell-desc">Plaintext LDAP (Port 389) strictly enforces StartTLS upgrade.</span>
+                <span class="cell-desc">ECDHE key exchange, PFS with Vanguard Root Authority.</span>
               </div>
+            </div>
+          </div>
+
+          <!-- Service Account Bind Credentials Manager (SCRUM-24) -->
+          <div class="activity-table-card mb-4">
+            <div class="card-header-inner">
+              <div class="title-with-badge">
+                <h3 class="card-inner-title">Service Account Bind Credentials Manager ({{ ldapServiceAccounts().length }})</h3>
+                <span class="badge badge-accent">Read-Only Binds</span>
+              </div>
+              <div class="header-tools-row">
+                <p class="text-muted text-sm mb-0">Pre-provisioned Bind credentials for NAS appliances and legacy background daemons.</p>
+                <button type="button" class="btn-primary-action btn-sm ml-2" (click)="openAddServiceAccountModal()">
+                  <span class="btn-plus">+</span>
+                  <span>Provision Service Account</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Service Account</th>
+                    <th>Appliance Type</th>
+                    <th>Bind Distinguished Name (DN)</th>
+                    <th>IP Restriction</th>
+                    <th>Bind Password</th>
+                    <th>Status</th>
+                    <th>Last Bind</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let acct of ldapServiceAccounts()">
+                    <td>
+                      <div class="user-row-meta">
+                        <div class="connector-icon-box">🔑</div>
+                        <div class="user-row-info">
+                          <span class="user-name-cell">{{ acct.name }}</span>
+                          <span class="user-email-cell">Created: {{ acct.createdAt }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="dept-badge">{{ acct.applianceType }}</span>
+                    </td>
+                    <td>
+                      <div class="dn-copy-row">
+                        <code class="text-xs">{{ acct.bindDn }}</code>
+                        <button type="button" class="btn-icon-copy" title="Copy Bind DN" (click)="copySvcAcctDn(acct.bindDn)">
+                          📋
+                        </button>
+                      </div>
+                    </td>
+                    <td>
+                      <code>{{ acct.ipRestriction }}</code>
+                    </td>
+                    <td>
+                      <div class="secret-field-row">
+                        <span class="secret-val">{{ acct.passwordRevealed ? acct.bindPassword : '••••••••••••••••' }}</span>
+                        <div class="secret-btn-group">
+                          <button type="button" class="btn-tiny" (click)="toggleSvcAcctPwRevealed(acct.id)">
+                            {{ acct.passwordRevealed ? 'Hide' : 'Reveal' }}
+                          </button>
+                          <button type="button" class="btn-tiny" (click)="copySvcAcctPassword(acct.bindPassword)" title="Copy Bind Password">
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="status-badge" [class.status-success]="acct.status === 'Active'" [class.status-warning]="acct.status === 'Revoked'">
+                        {{ acct.status }}
+                      </span>
+                    </td>
+                    <td class="text-sm text-muted">{{ acct.lastBind }}</td>
+                    <td>
+                      <div class="action-btn-group">
+                        <button
+                          type="button"
+                          class="btn-action-icon"
+                          [title]="acct.status === 'Active' ? 'Revoke account credentials' : 'Reactivate account'"
+                          (click)="toggleServiceAccountStatus(acct)"
+                        >
+                          {{ acct.status === 'Active' ? '⏸️' : '▶️' }}
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-action-icon text-red"
+                          title="Delete Service Account"
+                          (click)="deleteServiceAccount(acct.id)"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="ldapServiceAccounts().length === 0">
+                    <td colspan="8" class="empty-state-cell">
+                      <div class="empty-state-wrap">
+                        <span class="empty-icon">🔑</span>
+                        <h4 class="empty-title">No Service Accounts Provisioned</h4>
+                        <p class="empty-desc">Create read-only bind accounts to integrate NAS appliances and legacy applications.</p>
+                        <button type="button" class="btn-primary-action btn-sm" (click)="openAddServiceAccountModal()">
+                          <span class="btn-plus">+</span>
+                          <span>Provision Service Account</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -193,42 +367,95 @@
             </div>
           </div>
 
-          <!-- Interactive LDAP Bind Diagnostic Terminal -->
+          <!-- Interactive LDAP Bind Diagnostic Terminal & Sandbox (SCRUM-24) -->
           <div class="activity-table-card">
             <div class="card-header-inner">
               <div class="title-with-badge">
-                <h3 class="card-inner-title">Interactive LDAP Simple Bind Diagnostic Terminal</h3>
-                <span class="badge badge-success">Live ldapsearch Test</span>
+                <h3 class="card-inner-title">Interactive Bind Connectivity Sandbox & Packet Inspector</h3>
+                <span class="badge badge-success">Live Bind Simulator</span>
               </div>
-              <p class="text-muted text-sm">Simulate and verify LDAPS 636 authentication against central Supabase identity records.</p>
+              <p class="text-muted text-sm">Simulate and verify LDAPS 636 authentication, TLS handshake, and directory tree searches.</p>
+            </div>
+
+            <!-- Quick Presets -->
+            <div class="preset-pill-row">
+              <span class="preset-label">Test Presets:</span>
+              <button type="button" class="preset-btn" (click)="loadLdapDiagPreset('service-account')">
+                🔑 Service Account (Synology NAS)
+              </button>
+              <button type="button" class="preset-btn" (click)="loadLdapDiagPreset('user')">
+                👤 Standard User (Alice)
+              </button>
+              <button type="button" class="preset-btn" (click)="loadLdapDiagPreset('admin')">
+                🛡️ Directory Admin (Root)
+              </button>
+              <button type="button" class="preset-btn btn-preset-danger" (click)="loadLdapDiagPreset('invalid')">
+                ❌ Invalid Auth (Error 49)
+              </button>
             </div>
 
             <div class="sandbox-config-box">
-              <div class="sandbox-form-row">
+              <div class="sandbox-form-grid">
                 <div class="sandbox-field-group">
-                  <label class="sandbox-label">Target Directory User</label>
-                  <select class="sandbox-select" [(ngModel)]="ldapDiagUserId">
-                    <option value="" *ngIf="directoryUsers().length === 0" disabled selected>No directory users available</option>
-                    <option *ngFor="let u of directoryUsers()" [value]="u.id">
-                      {{ u.name }} ({{ u.email }}) - {{ u.department }}
-                    </option>
-                  </select>
+                  <label class="sandbox-label">LDAP Endpoint</label>
+                  <input type="text" class="sandbox-select" [(ngModel)]="ldapDiagEndpoint" placeholder="ldaps://ldap.vanguardsecurity.io:636" />
                 </div>
 
                 <div class="sandbox-field-group">
-                  <label class="sandbox-label">Target Service Endpoint</label>
-                  <input type="text" class="sandbox-select" value="ldaps://ldap.vanguard.security:636" readonly />
+                  <label class="sandbox-label">Bind Distinguished Name (DN)</label>
+                  <input type="text" class="sandbox-select" [(ngModel)]="ldapDiagBindDn" placeholder="uid=...,ou=services,dc=vanguard,dc=security" />
+                </div>
+
+                <div class="sandbox-field-group">
+                  <label class="sandbox-label">Bind Password</label>
+                  <input type="password" class="sandbox-select" [(ngModel)]="ldapDiagBindPassword" placeholder="Bind credentials secret" />
+                </div>
+
+                <div class="sandbox-field-group">
+                  <label class="sandbox-label">Search Base DN</label>
+                  <input type="text" class="sandbox-select" [(ngModel)]="ldapDiagSearchBase" placeholder="ou=users,dc=vanguard,dc=security" />
+                </div>
+
+                <div class="sandbox-field-group">
+                  <label class="sandbox-label">Search Filter</label>
+                  <input type="text" class="sandbox-select" [(ngModel)]="ldapDiagFilter" placeholder="(&(objectClass=inetOrgPerson)(uid=alice))" />
                 </div>
 
                 <div class="sandbox-field-group btn-align-end">
                   <button
                     type="button"
-                    class="btn-primary-action"
+                    class="btn-primary-action btn-full-width"
                     [disabled]="ldapDiagRunning()"
                     (click)="runLdapBindTest()"
                   >
-                    <span>{{ ldapDiagRunning() ? 'Testing Bind...' : 'Execute Bind Test' }}</span>
+                    <span>{{ ldapDiagRunning() ? 'Executing Bind...' : 'Execute Bind & Search' }}</span>
                   </button>
+                </div>
+              </div>
+
+              <!-- Visual Result Code Banner (SCRUM-24) -->
+              <div class="ldap-test-result-card" *ngIf="ldapTestResult() as result" [ngClass]="'result-' + result.status">
+                <div class="result-header">
+                  <div class="result-code-tag" [ngClass]="'status-code-' + result.resultCode">
+                    <span class="code-num">{{ result.resultCode }}</span>
+                    <span class="code-name">{{ result.resultName }}</span>
+                  </div>
+                  <div class="result-metrics">
+                    <span class="metric-tag latency-tag">⚡ {{ result.latencyMs }}ms</span>
+                    <span class="metric-tag tls-tag">🔒 {{ result.tlsVersion }}</span>
+                    <span class="metric-tag entries-tag" *ngIf="result.entriesFound !== undefined">📋 {{ result.entriesFound }} Entry Found</span>
+                  </div>
+                </div>
+                <div class="result-body">
+                  <p class="result-message">{{ result.message }}</p>
+                  <div class="result-cipher-info" *ngIf="result.cipher">
+                    <span class="cipher-label">TLS Cipher:</span>
+                    <code>{{ result.cipher }}</code>
+                  </div>
+                  <div class="result-dn-info" *ngIf="result.matchedDn">
+                    <span class="cipher-label">Matched DN:</span>
+                    <code>{{ result.matchedDn }}</code>
+                  </div>
                 </div>
               </div>
 
@@ -239,7 +466,7 @@
                     <span class="terminal-dot red"></span>
                     <span class="terminal-dot yellow"></span>
                     <span class="terminal-dot green"></span>
-                    <span class="terminal-title-text">LDAPS 636 Simple Bind Trace</span>
+                    <span class="terminal-title-text">LDAPS Simple Bind Packet Trace</span>
                   </div>
                   <button type="button" class="btn-tiny" (click)="copyLdapDiagLog()">
                     {{ copiedLdapLog() ? 'Copied Trace!' : 'Copy Trace' }}
@@ -254,6 +481,101 @@
         <!-- ==================================================================
              ADMIN TAB: CLOUD RADIUS NETWORK ACCESS MANAGER (PORT 1812 / 1813)
              ================================================================== -->
+
+  <!-- ========================================================================
+       MODAL: PROVISION SERVICE ACCOUNT (SCRUM-24)
+       ======================================================================== -->
+  <div class="modal-backdrop" *ngIf="showAddServiceAccountModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Provision Service Account Bind Credentials</h3>
+        <button type="button" class="modal-close-btn" (click)="closeAddServiceAccountModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Generate dedicated read-only Bind credentials for NAS storage hardware (Synology DSM, QNAP QTS, TrueNAS) and legacy daemons.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Service Account / Appliance Name</label>
+          <input
+            type="text"
+            [(ngModel)]="newSvcAcctName"
+            placeholder="e.g. Synology DS923+ Primary Storage"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Unique Service Identifier (UID)</label>
+          <input
+            type="text"
+            [(ngModel)]="newSvcAcctUid"
+            placeholder="e.g. svc_synology_nas"
+            class="form-input"
+          />
+          <span class="field-hint">
+            DN Preview: <code>uid={{ newSvcAcctUid || 'svc_name' }},ou=services,dc=vanguard,dc=security</code>
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Target Appliance / Platform</label>
+          <select [(ngModel)]="newSvcAcctType" class="form-select">
+            <option value="Synology DSM">Synology DSM (DiskStation Manager)</option>
+            <option value="QNAP QTS">QNAP QTS / QuTS hero</option>
+            <option value="TrueNAS Core">TrueNAS Core / Scale (ZFS)</option>
+            <option value="Linux PAM/SSSD">Linux PAM / SSSD Server Daemon</option>
+            <option value="Legacy App">Legacy Web Application / Apache</option>
+            <option value="Other">Other LDAP Client</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Allowed IP Restriction / CIDR</label>
+          <input
+            type="text"
+            [(ngModel)]="newSvcAcctIpRestriction"
+            placeholder="e.g. 10.100.1.0/24 or 0.0.0.0/0 (Any IP)"
+            class="form-input"
+          />
+          <span class="field-hint">Restricts directory binds strictly to authorized network subnets.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Generated Bind Password (32-Character Entropy)</label>
+          <div class="secret-field-row">
+            <span class="secret-val">{{ newSvcAcctPwRevealed() ? newSvcAcctPassword() : '••••••••••••••••••••••••••••••••' }}</span>
+            <div class="secret-btn-group">
+              <button type="button" class="btn-tiny" (click)="toggleNewSvcAcctPwRevealed()">
+                {{ newSvcAcctPwRevealed() ? 'Hide' : 'Reveal' }}
+              </button>
+              <button type="button" class="btn-tiny" (click)="generateSvcAcctPassword()" title="Generate new high-entropy secret">
+                ↻ Regenerate
+              </button>
+              <button type="button" class="btn-tiny" (click)="copySvcAcctPassword(newSvcAcctPassword())" title="Copy Secret">
+                Copy
+              </button>
+            </div>
+          </div>
+          <span class="field-hint text-green">Auto-generated cryptographically secure token. Store securely in NAS configuration.</span>
+        </div>
+
+        <div class="form-error-text" *ngIf="addServiceAccountError()">
+          {{ addServiceAccountError() }}
+        </div>
+        <div class="form-success-text" *ngIf="addServiceAccountSuccess()">
+          ✓ Service account credentials provisioned and active!
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeAddServiceAccountModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="submitAddServiceAccount()">Provision Credentials</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-backdrop" *ngIf="showAddLdapHostModal()">
     <div class="modal-card">
