@@ -63,14 +63,14 @@
                 <table class="activity-table">
                   <thead>
                     <tr>
-                      <th>Service Provider</th>
-                      <th>Protocol</th>
-                      <th>Audience / Entity ID</th>
-                      <th>ACS URL / Endpoint</th>
-                      <th>Assigned Groups</th>
-                      <th>Status</th>
-                      <th>Last SSO</th>
-                      <th>Actions</th>
+                      <th style="min-width: 170px;">Service Provider</th>
+                      <th style="min-width: 90px;">Protocol</th>
+                      <th style="min-width: 170px;">Audience / Entity ID</th>
+                      <th style="min-width: 170px;">ACS URL / Endpoint</th>
+                      <th style="min-width: 130px;">Assigned Groups</th>
+                      <th style="min-width: 100px;">Status</th>
+                      <th style="min-width: 100px;">Last SSO</th>
+                      <th style="min-width: 150px;">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -101,7 +101,8 @@
                       </td>
                       <td>
                         <span class="badge" [class.badge-success]="conn.status === 'Active'" [class.badge-orange]="conn.status === 'Draft'" [class.badge-danger]="conn.status === 'Inactive'">
-                          ● {{ conn.status }}
+                          <span class="badge-dot">●</span>
+                          <span>{{ conn.status }}</span>
                         </span>
                       </td>
                       <td class="col-time">{{ conn.lastSsoEvent || 'N/A' }}</td>

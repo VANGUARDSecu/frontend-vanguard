@@ -39,10 +39,12 @@
 
 .toolbar-primary-row .toolbar-search {
   flex: 1;
-  min-width: 280px;
+  min-width: 240px;
   position: relative;
   display: flex;
   align-items: center;
+  height: 38px;
+  box-sizing: border-box;
 }
 
 .toolbar-search .search-icon {
@@ -56,10 +58,12 @@
 
 .filter-search-input {
   width: 100%;
+  height: 100%;
+  box-sizing: border-box;
   background: rgba(2, 6, 23, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  padding: 9px 12px 9px 36px;
+  padding: 0 12px 0 36px;
   color: #f1f5f9;
   font-size: 13px;
   outline: none;
@@ -78,7 +82,9 @@
   background: rgba(2, 6, 23, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  padding: 4px 10px;
+  padding: 0 10px;
+  height: 38px;
+  box-sizing: border-box;
 }
 
 .filter-label {
@@ -110,13 +116,13 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 12px;
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .pill-group {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
@@ -129,10 +135,13 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-right: 4px;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .cat-pill {
-  padding: 4px 10px;
+  padding: 5px 11px;
   font-size: 11.5px;
   font-weight: 600;
   background: rgba(30, 41, 59, 0.5);
@@ -142,6 +151,9 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
 }
 
 .cat-pill:hover {

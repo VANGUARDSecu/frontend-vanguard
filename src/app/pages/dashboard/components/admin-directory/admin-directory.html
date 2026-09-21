@@ -100,19 +100,19 @@
                 <table class="activity-table">
                   <thead>
                     <tr>
-                      <th>Employee Name</th>
-                      <th>Department</th>
-                      <th>Role</th>
-                      <th>Assigned Groups</th>
-                      <th>MFA Status</th>
-                      <th>Account Status</th>
-                      <th>Last Active</th>
-                      <th>Actions</th>
+                      <th class="col-user">Employee Name</th>
+                      <th class="col-dept">Department</th>
+                      <th class="col-role">Role</th>
+                      <th class="col-groups">Assigned Groups</th>
+                      <th class="col-mfa">MFA Status</th>
+                      <th class="col-account-status">Account Status</th>
+                      <th class="col-time">Last Active</th>
+                      <th class="col-actions">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr *ngFor="let u of filteredDirectoryUsers()">
-                      <td>
+                      <td class="col-user">
                         <div class="user-row-meta">
                           <div class="user-row-avatar">{{ u.initials }}</div>
                           <div class="user-row-info">
@@ -121,15 +121,15 @@
                           </div>
                         </div>
                       </td>
-                      <td>
+                      <td class="col-dept">
                         <span class="dept-chip">{{ u.department }}</span>
                       </td>
-                      <td>
+                      <td class="col-role">
                         <span class="role-badge" [class.admin-badge]="u.role === 'Super Administrator'">
                           {{ u.role }}
                         </span>
                       </td>
-                      <td>
+                      <td class="col-groups">
                         <div class="user-groups-preview" *ngIf="getUserGroups(u).length > 0">
                           <span class="user-group-tag" *ngFor="let g of getUserGroups(u)">
                             {{ g.name }}
@@ -137,12 +137,12 @@
                         </div>
                         <span class="no-group-text" *ngIf="getUserGroups(u).length === 0">No groups</span>
                       </td>
-                      <td>
+                      <td class="col-mfa">
                         <span class="mfa-badge" [class.mfa-active]="u.mfaStatus.includes('TOTP')">
                           {{ u.mfaStatus }}
                         </span>
                       </td>
-                      <td>
+                      <td class="col-account-status">
                         <span
                           class="badge"
                           [class.badge-success]="u.accountStatus === 'Active'"
@@ -150,7 +150,8 @@
                           [class.badge-danger]="u.accountStatus === 'Suspended'"
                           [class.badge-expired]="u.accountStatus === 'Expired'"
                         >
-                          ● {{ u.accountStatus }}
+                          <span class="badge-dot">●</span>
+                          <span>{{ u.accountStatus }}</span>
                         </span>
                         <div class="expiry-subtext" *ngIf="u.accountStatus === 'Pending' || u.accountStatus === 'Expired'">
                           {{ getInviteExpiryText(u) }}

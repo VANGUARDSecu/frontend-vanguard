@@ -357,7 +357,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .action-btn {
@@ -413,6 +413,35 @@
   color: #ffffff;
 }
 
+.col-user {
+  min-width: 170px;
+}
+
+.col-dept {
+  min-width: 110px;
+}
+
+.col-role {
+  min-width: 130px;
+}
+
+.col-groups {
+  min-width: 130px;
+}
+
+.col-mfa {
+  min-width: 100px;
+}
+
+.col-account-status {
+  min-width: 130px;
+  white-space: nowrap;
+}
+
+.col-actions {
+  min-width: 130px;
+}
+
 .badge.badge-expired {
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
@@ -424,6 +453,7 @@
   color: #94a3b8;
   margin-top: 3px;
   font-family: ui-monospace, SFMono-Regular, monospace;
+  white-space: nowrap;
 }
 
 .pending-warning-card {
@@ -535,6 +565,7 @@
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 3px;
+  max-width: 220px;
 }
 
 .user-group-tag {
@@ -546,6 +577,11 @@
   border: 1px solid rgba(139, 92, 246, 0.3);
   color: #c4b5fd;
   white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .no-group-text {

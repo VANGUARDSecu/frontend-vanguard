@@ -87,3 +87,28 @@ a {
   pointer-events: none;
   z-index: 0;
 }
+
+/* Global Dark Cyber Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(6, 12, 40, 0.95);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.35);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.6);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.35) rgba(6, 12, 40, 0.95);
+}
+
