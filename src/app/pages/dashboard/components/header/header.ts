@@ -21,6 +21,25 @@ export class DashboardHeader {
   readonly displayName = this.dashboardService.displayName;
   readonly userInitials = this.dashboardService.userInitials;
   readonly userRoleLabel = this.dashboardService.userRoleLabel;
+  readonly isIndividual = this.dashboardService.isIndividual;
+
+  // SCRUM-50: Upgrade Personal Vault to Organization
+  readonly showUpgradeModal = signal<boolean>(false);
+  upgradeCompanyName = '';
+
+  openUpgradeModal(): void {
+    this.upgradeCompanyName = '';
+    this.showUpgradeModal.set(true);
+  }
+
+  closeUpgradeModal(): void {
+    this.showUpgradeModal.set(false);
+  }
+
+  confirmUpgrade(): void {
+    this.dashboardService.upgradeToOrganization(this.upgradeCompanyName);
+    this.closeUpgradeModal();
+  }
 
   // SCRUM-28: Multi-tenant organization switcher
   readonly organizations = this.dashboardService.organizations;

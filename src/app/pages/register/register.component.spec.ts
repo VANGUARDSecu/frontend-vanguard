@@ -1,4 +1,4 @@
-﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -51,5 +51,18 @@ describe('RegisterComponent', () => {
 
     expect(component.registerForm.errors?.['passwordMismatch']).toBeFalsy();
     expect(component.registerForm.valid).toBeTruthy();
+  });
+
+  it('should switch account type between individual and company and adjust validators', () => {
+    expect(component.accountType()).toBe('individual');
+    expect(component.registerForm.get('companyName')?.hasError('required')).toBeFalsy();
+
+    component.setAccountType('company');
+    expect(component.accountType()).toBe('company');
+    expect(component.registerForm.get('companyName')?.hasError('required')).toBeTruthy();
+
+    component.setAccountType('individual');
+    expect(component.accountType()).toBe('individual');
+    expect(component.registerForm.get('companyName')?.hasError('required')).toBeFalsy();
   });
 });

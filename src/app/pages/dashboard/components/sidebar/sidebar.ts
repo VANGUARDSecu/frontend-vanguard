@@ -35,6 +35,9 @@ export class DashboardSidebar {
   readonly fleetDevices = this.dashboardService.fleetDevices;
   readonly userDevices = this.dashboardService.userDevices;
   readonly webhookEndpoints = this.dashboardService.webhookEndpoints;
+  readonly isIndividual = this.dashboardService.isIndividual;
+  readonly vaultItems = this.dashboardService.vaultItems;
+  readonly totpAccounts = this.dashboardService.totpAccounts;
 
   setActiveTab(tab: string) { this.dashboardService.setActiveTab(tab); }
 

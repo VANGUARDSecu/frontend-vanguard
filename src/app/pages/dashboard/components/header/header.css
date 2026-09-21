@@ -529,3 +529,104 @@
   height: 14px;
   color: #60a5fa;
 }
+
+/* SCRUM-50: Individual Personal Vault Header Elements */
+.individual-vault-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: rgba(14, 23, 62, 0.7);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+}
+
+.indiv-icon-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.indiv-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.indiv-name-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.indiv-pill {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.btn-upgrade-org {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(168, 85, 247, 0.15));
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 7px;
+  color: #c084fc;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-upgrade-org:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(168, 85, 247, 0.25));
+  border-color: #c084fc;
+  color: #f3e8ff;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+}
+
+.upgrade-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.upgrade-modal {
+  max-width: 520px;
+}
+
+.upgrade-intro {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.upgrade-feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.feat-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 6px;
+  color: #93c5fd;
+}

@@ -22,8 +22,17 @@
         <span class="brand-subtitle">Zero-Trust Directory Vault</span>
       </div>
 
-      <!-- Multi-Tenant Organization Switcher Dropdown -->
-      <div class="org-switcher-container">
+      <!-- Individual Personal Vault Badge -->
+      <div class="individual-vault-indicator" *ngIf="isIndividual()">
+        <div class="indiv-icon-circle">👤</div>
+        <div class="indiv-info">
+          <span class="indiv-name-text">{{ user()?.firstName ? (user()?.firstName + "'s Vault") : 'Personal Vault' }}</span>
+          <span class="indiv-pill">Personal</span>
+        </div>
+      </div>
+
+      <!-- Multi-Tenant Organization Switcher Dropdown (Company accounts) -->
+      <div class="org-switcher-container" *ngIf="!isIndividual()">
         <button
           type="button"
           class="org-switcher-btn"
@@ -112,8 +121,8 @@
 
     <!-- Right: Role Switcher & Profile Badge -->
     <div class="header-right">
-      <!-- Admin / User Mode Toggle Switcher (Visible to Admins) -->
-      <div class="mode-toggle-pill" *ngIf="isAdmin()">
+      <!-- Admin / User Mode Toggle Switcher (Visible to Company Admins) -->
+      <div class="mode-toggle-pill" *ngIf="isAdmin() && !isIndividual()">
         <button
           type="button"
           class="mode-btn"
@@ -131,6 +140,18 @@
         >
           <span class="mode-icon">👤</span>
           <span>User Portal</span>
+        </button>
+      </div>
+
+      <!-- Upgrade to Organization Button (Individual Accounts) -->
+      <div class="individual-upgrade-wrapper" *ngIf="isIndividual()">
+        <button type="button" class="btn-upgrade-org" (click)="openUpgradeModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upgrade-icon">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          <span>Upgrade to Org</span>
         </button>
       </div>
 
@@ -156,3 +177,44 @@
       </button>
     </div>
   </header>
+
+  <!-- UPGRADE TO ORGANIZATION MODAL -->
+  <div class="modal-backdrop" *ngIf="showUpgradeModal()">
+    <div class="modal-box cyber-modal upgrade-modal">
+      <div class="modal-header">
+        <h2 class="modal-heading">Upgrade to Enterprise Organization</h2>
+        <button type="button" class="modal-close-btn" (click)="closeUpgradeModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="upgrade-intro">
+          Upgrading transforms your account into an Enterprise Directory tenant. You'll gain access to Cloud LDAP, Cloud RADIUS, SAML 2.0 / OIDC SSO, SCIM Directory Sync, and MDM Fleet Management.
+        </p>
+
+        <div class="upgrade-feature-pills">
+          <span class="feat-pill">🛡️ Fleet MDM</span>
+          <span class="feat-pill">⚡ SAML 2.0 / OIDC</span>
+          <span class="feat-pill">📡 RADIUS 802.1X</span>
+          <span class="feat-pill">📁 Cloud LDAP</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Enterprise Organization Name *</label>
+          <input
+            type="text"
+            [(ngModel)]="upgradeCompanyName"
+            placeholder="e.g. Acme Cybersecurity Corp"
+            class="cyber-input"
+          />
+          <span class="form-hint">Your credentials and 2FA keys in your personal vault will remain strictly safe and private.</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cyber-secondary" (click)="closeUpgradeModal()">Cancel</button>
+        <button type="button" class="btn-cyber-primary" (click)="confirmUpgrade()">
+          Activate Organization Console
+        </button>
+      </div>
+    </div>
+  </div>

@@ -12,6 +12,7 @@ export interface UserProfile {
   companyName?: string;
   phone?: string;
   role?: 'admin' | 'security_officer' | 'user';
+  accountType?: 'individual' | 'company';
   avatarUrl?: string;
   user_metadata?: Record<string, any>;
 }
@@ -27,8 +28,9 @@ export interface RegisterPayload {
   password: string;
   firstName: string;
   lastName: string;
-  companyName: string;
-  phone: string;
+  companyName?: string;
+  phone?: string;
+  accountType?: 'individual' | 'company';
 }
 
 export interface AuthResponse {

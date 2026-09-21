@@ -33,6 +33,8 @@ import {
   WebhookDelivery,
   TenantOrganization,
   TenantBranding,
+  PersonalVaultItem,
+  TotpAccount,
 } from '../models/dashboard.models';
 
 @Injectable({
@@ -70,6 +72,13 @@ export class DashboardService {
   readonly user = this.authService.currentUser;
   readonly userRole = this.authService.userRole;
   readonly isAdmin = this.authService.isAdmin;
+
+  // Account Type Detection (Individual vs Company)
+  readonly accountType = computed<'individual' | 'company'>(() => {
+    const u = this.user();
+    return (u?.accountType || (u?.user_metadata as any)?.['account_type']) === 'individual' ? 'individual' : 'company';
+  });
+  readonly isIndividual = computed<boolean>(() => this.accountType() === 'individual');
 
   // View mode switcher: 'admin' (Admin Console) vs 'user' (User Portal)
   readonly viewMode = signal<'admin' | 'user'>('admin');
@@ -1602,20 +1611,27 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   }
 
   constructor() {
-    // Default view mode to the user's role
-    if (!this.isAdmin()) {
+    // Default view mode to the user's role and account type
+    if (this.isIndividual()) {
+      this.viewMode.set('user');
+      this.activeTab.set('personal-vault');
+    } else if (!this.isAdmin()) {
       this.viewMode.set('user');
       this.activeTab.set('my-apps');
     }
     this.syncGroupInheritedApps();
     this.initSupabaseSync();
+    this.startTotpTimer();
   }
 
   initDashboardForCurrentUser(): void {
     const currentUser = this.authService.currentUser();
     if (!currentUser) return;
 
-    if (!this.isAdmin()) {
+    if (this.isIndividual()) {
+      this.viewMode.set('user');
+      this.activeTab.set('personal-vault');
+    } else if (!this.isAdmin()) {
       this.viewMode.set('user');
       this.activeTab.set('my-apps');
     }
@@ -1653,6 +1669,9 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   }
 
   toggleViewMode(mode: 'admin' | 'user'): void {
+    if (this.isIndividual() && mode === 'admin') {
+      return; // Individual personal accounts do not have access to corporate governance console
+    }
     if (!this.isAdmin() && mode === 'admin') {
       return; // Disallow non-admin directory members from entering admin console
     }
@@ -1660,8 +1679,12 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     if (mode === 'admin') {
       this.activeTab.set('overview');
     } else {
-      this.activeTab.set('my-apps');
-      this.syncGroupInheritedApps();
+      if (this.isIndividual()) {
+        this.activeTab.set('personal-vault');
+      } else {
+        this.activeTab.set('my-apps');
+        this.syncGroupInheritedApps();
+      }
     }
   }
 
@@ -4322,6 +4345,284 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   }
 
   // ==========================================
+  // SCRUM-50: Personal Credential Vault (Dynamic & Zero-Trust)
+  // ==========================================
+  private initPersonalVaultItems(): PersonalVaultItem[] {
+    const defaultVault: PersonalVaultItem[] = [
+      {
+        id: 'vault-1',
+        title: 'GitHub Developer Token',
+        category: 'Login',
+        username: 'dev-secops',
+        password: 'ghp_VanguardKey9928#SecureToken',
+        totpSecret: 'JBSWY3DPEHPK3PXP',
+        url: 'https://github.com',
+        notes: 'Personal PAT token with workflow and packages scopes',
+        favorite: true,
+        updatedAt: 'Yesterday'
+      },
+      {
+        id: 'vault-2',
+        title: 'AWS Production IAM',
+        category: 'Login',
+        username: 'iam-ops@vanguard.security',
+        password: 'Aws$Master99!Vault2026',
+        totpSecret: 'HXDMVJECJJWSRB3H',
+        url: 'https://aws.amazon.com',
+        notes: 'IAM Administrator access with hardware MFA key fallback',
+        favorite: true,
+        updatedAt: '3 days ago'
+      },
+      {
+        id: 'vault-3',
+        title: 'Proton Encrypted Mailbox',
+        category: 'Login',
+        username: 'cyber.sec@proton.me',
+        password: 'Prtn_Key#SecOps99',
+        url: 'https://mail.proton.me',
+        notes: 'End-to-end encrypted personal security communications mailbox',
+        favorite: false,
+        updatedAt: '1 week ago'
+      },
+      {
+        id: 'vault-4',
+        title: 'Master Cold Recovery Seed Phrase',
+        category: 'Secure Note',
+        username: '',
+        password: '',
+        notes: 'VANGUARD-REC-8921-9983-X912-BB74\nStore strictly in offline physical fireproof safe or safety deposit box.',
+        favorite: true,
+        updatedAt: '2 weeks ago'
+      },
+      {
+        id: 'vault-5',
+        title: 'CyberShield Virtual Credit Card',
+        category: 'Card',
+        username: '4532 •••• •••• 9812',
+        password: 'CVV: 789 | Exp: 09/29',
+        notes: 'Single-use disposable debit card for SaaS subscriptions and cloud infra',
+        favorite: false,
+        updatedAt: '1 month ago'
+      }
+    ];
+    return this.loadStored<PersonalVaultItem[]>('vanguard_personal_vault_items', defaultVault);
+  }
+
+  readonly vaultItems = signal<PersonalVaultItem[]>(this.initPersonalVaultItems());
+  readonly vaultCategoryFilter = signal<string>('all');
+  readonly vaultSearchQuery = signal<string>('');
+
+  readonly filteredVaultItems = computed(() => {
+    const items = this.vaultItems();
+    const category = this.vaultCategoryFilter().toLowerCase();
+    const query = this.vaultSearchQuery().toLowerCase().trim();
+
+    return items.filter((item) => {
+      if (category === 'favorites' && !item.favorite) return false;
+      if (category !== 'all' && category !== 'favorites' && item.category.toLowerCase() !== category) return false;
+
+      if (!query) return true;
+      return (
+        item.title.toLowerCase().includes(query) ||
+        item.username.toLowerCase().includes(query) ||
+        (item.url && item.url.toLowerCase().includes(query)) ||
+        (item.notes && item.notes.toLowerCase().includes(query))
+      );
+    });
+  });
+
+  setVaultCategory(category: string): void {
+    this.vaultCategoryFilter.set(category);
+  }
+
+  setVaultSearch(query: string): void {
+    this.vaultSearchQuery.set(query);
+  }
+
+  addVaultItem(item: Omit<PersonalVaultItem, 'id' | 'updatedAt'>): void {
+    const newItem: PersonalVaultItem = {
+      ...item,
+      id: 'vault-item-' + Date.now(),
+      updatedAt: 'Just now'
+    };
+    this.vaultItems.update((items) => [newItem, ...items]);
+    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.logAuditEvent(`Added vault credential: ${newItem.title}`, 'Personal Vault', newItem.category, 'success', 'Low');
+  }
+
+  updateVaultItem(id: string, updates: Partial<PersonalVaultItem>): void {
+    this.vaultItems.update((items) =>
+      items.map((item) => (item.id === id ? { ...item, ...updates, updatedAt: 'Just now' } : item))
+    );
+    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.logAuditEvent(`Updated vault credential: ${id}`, 'Personal Vault', 'Update', 'success', 'Low');
+  }
+
+  deleteVaultItem(id: string): void {
+    const item = this.vaultItems().find((i) => i.id === id);
+    this.vaultItems.update((items) => items.filter((i) => i.id !== id));
+    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    if (item) {
+      this.logAuditEvent(`Deleted vault credential: ${item.title}`, 'Personal Vault', item.category, 'success', 'Low');
+    }
+  }
+
+  toggleFavoriteVaultItem(id: string): void {
+    this.vaultItems.update((items) =>
+      items.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item))
+    );
+    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+  }
+
+  generateStrongPassword(options?: {
+    length?: number;
+    uppercase?: boolean;
+    lowercase?: boolean;
+    numbers?: boolean;
+    symbols?: boolean;
+  }): string {
+    const len = options?.length ?? 20;
+    const useUpper = options?.uppercase ?? true;
+    const useLower = options?.lowercase ?? true;
+    const useNums = options?.numbers ?? true;
+    const useSyms = options?.symbols ?? true;
+
+    const uppers = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lowers = 'abcdefghijkmnopqrstuvwxyz';
+    const numbers = '23456789';
+    const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+
+    let pool = '';
+    let password = '';
+
+    if (useUpper) { pool += uppers; password += uppers[Math.floor(Math.random() * uppers.length)]; }
+    if (useLower) { pool += lowers; password += lowers[Math.floor(Math.random() * lowers.length)]; }
+    if (useNums) { pool += numbers; password += numbers[Math.floor(Math.random() * numbers.length)]; }
+    if (useSyms) { pool += symbols; password += symbols[Math.floor(Math.random() * symbols.length)]; }
+
+    if (!pool) pool = lowers + numbers;
+
+    for (let i = password.length; i < len; i++) {
+      password += pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    return password.split('').sort(() => 0.5 - Math.random()).join('');
+  }
+
+  calculatePasswordStrength(password: string): { score: number; label: string; color: string } {
+    if (!password) return { score: 0, label: 'None', color: '#64748b' };
+    let score = 0;
+    if (password.length >= 8) score += 20;
+    if (password.length >= 14) score += 20;
+    if (password.length >= 18) score += 10;
+    if (/[a-z]/.test(password)) score += 10;
+    if (/[A-Z]/.test(password)) score += 15;
+    if (/[0-9]/.test(password)) score += 15;
+    if (/[^a-zA-Z0-9]/.test(password)) score += 10;
+
+    if (score < 40) return { score, label: 'Weak', color: '#ef4444' };
+    if (score < 70) return { score, label: 'Fair', color: '#f59e0b' };
+    if (score < 90) return { score, label: 'Strong', color: '#3b82f6' };
+    return { score: 100, label: 'Very Strong', color: '#10b981' };
+  }
+
+  // ==========================================
+  // SCRUM-50: TOTP 2FA Authenticator State & Actions
+  // ==========================================
+  private initTotpAccounts(): TotpAccount[] {
+    const defaultAccounts: TotpAccount[] = [
+      {
+        id: 'totp-acc-1',
+        issuer: 'Google Cloud Platform',
+        accountName: 'admin@vanguard.dev',
+        secret: 'JBSWY3DPEHPK3PXP'
+      },
+      {
+        id: 'totp-acc-2',
+        issuer: 'GitHub Enterprise',
+        accountName: 'dev-ops',
+        secret: 'HXDMVJECJJWSRB3H'
+      },
+      {
+        id: 'totp-acc-3',
+        issuer: 'Cloudflare Zero Trust',
+        accountName: 'security@vanguard.io',
+        secret: 'MZXW6YTBOI======'
+      },
+      {
+        id: 'totp-acc-4',
+        issuer: 'DigitalOcean Infrastructure',
+        accountName: 'deploy@vanguard.net',
+        secret: 'NBSWY3DPEHPK3PXP'
+      }
+    ];
+    return this.loadStored<TotpAccount[]>('vanguard_user_totp_accounts', defaultAccounts);
+  }
+
+  readonly totpAccounts = signal<TotpAccount[]>(this.initTotpAccounts());
+  readonly totpSecondsRemaining = signal<number>(30);
+  readonly totpTick = signal<number>(0);
+  private totpIntervalId: any = null;
+
+  computeTotpCode(secret: string, offsetWindow: number = 0): string {
+    const epoch = Math.floor(Date.now() / 1000 / 30) + offsetWindow;
+    let hash = 0;
+    const str = `${secret.trim().toUpperCase()}:${epoch}`;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash % 1000000).toString().padStart(6, '0');
+  }
+
+  readonly activeTotpAccounts = computed<TotpAccount[]>(() => {
+    this.totpTick();
+    const remaining = this.totpSecondsRemaining();
+    return this.totpAccounts().map((acc) => ({
+      ...acc,
+      currentCode: this.computeTotpCode(acc.secret),
+      remainingSeconds: remaining
+    }));
+  });
+
+  private startTotpTimer(): void {
+    if (!this.isBrowser) return;
+    if (this.totpIntervalId) clearInterval(this.totpIntervalId);
+
+    const updateTimer = () => {
+      const currentSeconds = Math.floor(Date.now() / 1000) % 30;
+      const remaining = 30 - currentSeconds;
+      this.totpSecondsRemaining.set(remaining);
+      if (remaining === 30 || remaining === 1) {
+        this.totpTick.update((t) => t + 1);
+      }
+    };
+
+    updateTimer();
+    this.totpIntervalId = setInterval(updateTimer, 1000);
+  }
+
+  addTotpAccount(account: Omit<TotpAccount, 'id'>): void {
+    const newAcc: TotpAccount = {
+      ...account,
+      id: 'totp-acc-' + Date.now()
+    };
+    this.totpAccounts.update((accounts) => [newAcc, ...accounts]);
+    this.saveStored('vanguard_user_totp_accounts', this.totpAccounts());
+    this.logAuditEvent(`Added 2FA Authenticator token: ${newAcc.issuer}`, 'TOTP Authenticator', 'Enroll', 'success', 'Low');
+  }
+
+  deleteTotpAccount(id: string): void {
+    const acc = this.totpAccounts().find((a) => a.id === id);
+    this.totpAccounts.update((accounts) => accounts.filter((a) => a.id !== id));
+    this.saveStored('vanguard_user_totp_accounts', this.totpAccounts());
+    if (acc) {
+      this.logAuditEvent(`Removed 2FA Authenticator token: ${acc.issuer}`, 'TOTP Authenticator', 'Revoke', 'success', 'Low');
+    }
+  }
+
+  // ==========================================
   // SCRUM-27: Webhooks & Event API State & Actions (Zero Hardcoded Data)
   // ==========================================
   readonly webhookEndpoints = signal<WebhookEndpoint[]>(
@@ -5122,8 +5423,25 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   }
 
   // ==========================================
-  // Common Actions
+  // Common Actions & Account Upgrades
   // ==========================================
+  upgradeToOrganization(companyName: string): void {
+    const u = this.user();
+    if (!u) return;
+    const orgName = companyName.trim() || `${u.firstName || 'My'} Enterprise Org`;
+    const updatedUser = {
+      ...u,
+      accountType: 'company' as const,
+      role: 'admin' as const,
+      companyName: orgName
+    };
+    this.authService.currentUser.set(updatedUser);
+    this.viewMode.set('admin');
+    this.activeTab.set('overview');
+    this.logAuditEvent(`Upgraded personal account to enterprise organization: ${orgName}`, 'Organization Gateway', 'Upgrade', 'success', 'High');
+    this.showAdminNotice(`Account successfully upgraded to Enterprise Organization: ${orgName}`);
+  }
+
   copyUserId(): void {
     const id = this.user()?.id;
     if (!id || !this.isBrowser) return;

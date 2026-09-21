@@ -40,20 +40,38 @@ export class RegisterComponent {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
-  // Registration Form definition with JumpCloud fields
+  // Account Type Selection: 'individual' (Personal Vault) vs 'company' (Enterprise Directory)
+  readonly accountType = signal<'individual' | 'company'>('individual');
+
+  // Registration Form definition
   readonly registerForm: FormGroup = this.fb.group(
     {
       firstName: ['', [Validators.required, Validators.minLength(2)]],
       lastName: ['', [Validators.required, Validators.minLength(2)]],
-      companyName: ['', [Validators.required, Validators.minLength(2)]],
+      companyName: [''],
       email: ['', [Validators.required, Validators.email]],
-      phone: ['', [Validators.required, Validators.pattern(/^[+]?[\d\s().-]{7,20}$/)]],
+      phone: [''],
       password: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', [Validators.required]],
       agreeTerms: [false, [Validators.requiredTrue]],
     },
     { validators: passwordMatchValidator }
   );
+
+  setAccountType(type: 'individual' | 'company'): void {
+    this.accountType.set(type);
+    const companyControl = this.registerForm.get('companyName');
+    const phoneControl = this.registerForm.get('phone');
+    if (type === 'individual') {
+      companyControl?.clearValidators();
+      phoneControl?.clearValidators();
+    } else {
+      companyControl?.setValidators([Validators.required, Validators.minLength(2)]);
+      phoneControl?.setValidators([Validators.required, Validators.pattern(/^[+]?[\d\s().-]{7,20}$/)]);
+    }
+    companyControl?.updateValueAndValidity();
+    phoneControl?.updateValueAndValidity();
+  }
 
   // State signals
   readonly showPassword = signal<boolean>(false);
@@ -132,14 +150,18 @@ export class RegisterComponent {
 
     this.isLoading.set(true);
     const formVal = this.registerForm.value;
+    const type = this.accountType();
 
     const payload = {
       email: formVal.email.trim(),
       password: formVal.password,
       firstName: formVal.firstName.trim(),
       lastName: formVal.lastName.trim(),
-      companyName: formVal.companyName.trim(),
-      phone: formVal.phone.trim(),
+      companyName: type === 'company'
+        ? (formVal.companyName?.trim() || '')
+        : (formVal.companyName?.trim() || `${formVal.firstName.trim()}'s Personal Vault`),
+      phone: formVal.phone?.trim() || '',
+      accountType: type,
     };
 
     this.authService.signup(payload).subscribe({

@@ -19,6 +19,8 @@ import { UserNetwork } from './components/user-network/user-network';
 import { UserSsh } from './components/user-ssh/user-ssh';
 import { UserActivity } from './components/user-activity/user-activity';
 import { UserDevices } from './components/user-devices/user-devices';
+import { UserPersonalVault } from './components/user-personal-vault/user-personal-vault';
+import { UserAuthenticator } from './components/user-authenticator/user-authenticator';
 import {
   ProtocolStatus,
   SaaSApp,
@@ -80,6 +82,8 @@ export type {
     UserSsh,
     UserActivity,
     UserDevices,
+    UserPersonalVault,
+    UserAuthenticator,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
@@ -95,6 +99,7 @@ export class DashboardComponent implements OnInit {
   readonly user = this.dashboardService.user;
   readonly userRole = this.dashboardService.userRole;
   readonly isAdmin = this.dashboardService.isAdmin;
+  readonly isIndividual = this.dashboardService.isIndividual;
   readonly viewMode = this.dashboardService.viewMode;
   readonly activeTab = this.dashboardService.activeTab;
   readonly copiedUserId = this.dashboardService.copiedUserId;

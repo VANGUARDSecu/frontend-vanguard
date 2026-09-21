@@ -48,14 +48,22 @@
       </div>
 
       <!-- ====================================================================
-           VIEW 2: USER PORTAL
+           VIEW 2: USER PORTAL & PERSONAL VAULT
            ==================================================================== -->
       <div *ngIf="viewMode() === 'user'">
-        <app-user-my-apps *ngIf="activeTab() === 'my-apps' || activeTab() === 'overview'"></app-user-my-apps>
+        <!-- Personal Credential Vault (Individual & Company Users) -->
+        <app-user-personal-vault *ngIf="activeTab() === 'personal-vault'"></app-user-personal-vault>
+
+        <!-- 2FA Authenticator (Individual & Company Users) -->
+        <app-user-authenticator *ngIf="activeTab() === 'authenticator'"></app-user-authenticator>
+
+        <!-- Enterprise Single Sign-On Apps (Corporate Workspace) -->
+        <app-user-my-apps *ngIf="!isIndividual() && (activeTab() === 'my-apps' || activeTab() === 'overview')"></app-user-my-apps>
+
         <app-user-security *ngIf="activeTab() === 'user-security'"></app-user-security>
-        <app-user-network *ngIf="activeTab() === 'user-network'"></app-user-network>
+        <app-user-network *ngIf="!isIndividual() && activeTab() === 'user-network'"></app-user-network>
         <app-user-ssh *ngIf="activeTab() === 'user-ssh'"></app-user-ssh>
-        <app-user-activity *ngIf="activeTab() === 'user-activity'"></app-user-activity>
+        <app-user-activity *ngIf="!isIndividual() && activeTab() === 'user-activity'"></app-user-activity>
         <app-user-devices *ngIf="activeTab() === 'user-devices'"></app-user-devices>
       </div>
     </main>

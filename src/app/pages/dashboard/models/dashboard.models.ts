@@ -368,3 +368,27 @@ export interface TenantBranding {
   emailButtonText?: string;
   supportEmail?: string;
 }
+
+export interface PersonalVaultItem {
+  id: string;
+  userId?: string;
+  title: string;
+  category: 'Login' | 'Card' | 'Identity' | 'Secure Note';
+  username: string;
+  password?: string;
+  totpSecret?: string;
+  url?: string;
+  notes?: string;
+  favorite?: boolean;
+  updatedAt: string;
+}
+
+export interface TotpAccount {
+  id: string;
+  issuer: string;
+  accountName: string;
+  secret: string;
+  currentCode?: string;
+  remainingSeconds?: number;
+}
+
