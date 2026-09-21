@@ -1182,14 +1182,107 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   requestAppJustification = '';
   readonly requestAppSuccess = signal<boolean>(false);
 
+  // SCRUM-52: Personal Application Bookmarks & Launcher (Figma, Facebook, GitHub, etc.)
+  private initPersonalApps(): SaaSApp[] {
+    const defaultApps: SaaSApp[] = [
+      {
+        id: 'papp-figma',
+        name: 'Figma',
+        category: 'developer',
+        description: 'Collaborative cloud interface design, vector graphics, and prototyping',
+        icon: '🎨',
+        protocol: 'Web Auth',
+        status: 'Online',
+        launchUrl: 'https://www.figma.com/login',
+        assigned: true,
+      },
+      {
+        id: 'papp-facebook',
+        name: 'Facebook',
+        category: 'collaboration',
+        description: 'Meta social network, developer accounts, and creator business tools',
+        icon: '👥',
+        protocol: 'OAuth 2.0',
+        status: 'Online',
+        launchUrl: 'https://www.facebook.com/login',
+        assigned: true,
+      },
+      {
+        id: 'papp-github',
+        name: 'GitHub',
+        category: 'developer',
+        description: 'Source code management, CI/CD Actions, and developer repositories',
+        icon: '💻',
+        protocol: 'Web Auth',
+        status: 'Online',
+        launchUrl: 'https://github.com/login',
+        assigned: true,
+      },
+      {
+        id: 'papp-google',
+        name: 'Google Account',
+        category: 'cloud',
+        description: 'Google Cloud, Drive, and personal productivity suite',
+        icon: '☁️',
+        protocol: 'OIDC',
+        status: 'Online',
+        launchUrl: 'https://accounts.google.com',
+        assigned: true,
+      },
+      {
+        id: 'papp-slack',
+        name: 'Slack',
+        category: 'collaboration',
+        description: 'Real-time messaging, channels, and developer community notifications',
+        icon: '💬',
+        protocol: 'Web Auth',
+        status: 'Online',
+        launchUrl: 'https://slack.com/signin',
+        assigned: true,
+      },
+      {
+        id: 'papp-notion',
+        name: 'Notion',
+        category: 'collaboration',
+        description: 'Connected workspace for notes, documentation, and personal knowledge bases',
+        icon: '📝',
+        protocol: 'Web Auth',
+        status: 'Online',
+        launchUrl: 'https://www.notion.so/login',
+        assigned: true,
+      },
+      {
+        id: 'papp-aws',
+        name: 'AWS Management Console',
+        category: 'cloud',
+        description: 'Amazon Web Services cloud console and IAM root account access',
+        icon: '☁️',
+        protocol: 'Web Auth',
+        status: 'Online',
+        launchUrl: 'https://aws.amazon.com/console/',
+        assigned: true,
+      },
+    ];
+    return this.loadStored<SaaSApp[]>('vanguard_personal_apps', defaultApps);
+  }
+
+  readonly personalApps = signal<SaaSApp[]>(this.initPersonalApps());
+
   readonly apps = signal<SaaSApp[]>(
     this.loadStored<SaaSApp[]>('vanguard_user_apps', [])
   );
 
+  // Active apps source: personal apps when in personal workspace, company apps when in organization
+  readonly activeAppsList = computed<SaaSApp[]>(() => {
+    return this.isPersonalWorkspace() ? this.personalApps() : this.apps();
+  });
+
   readonly filteredApps = computed(() => {
     const cat = this.selectedCategory();
     const query = this.searchQuery.toLowerCase().trim();
-    return this.apps().filter((app) => {
+    const sourceApps = this.activeAppsList();
+
+    return sourceApps.filter((app) => {
       const matchCat = cat === 'all' || app.category === cat;
       const matchQuery =
         !query ||
@@ -1340,22 +1433,42 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     return [initialOrg];
   }
 
+  readonly personalWorkspace: TenantOrganization = {
+    id: 'personal',
+    name: 'Personal Vault',
+    slug: 'personal-vault',
+    tier: 'Personal',
+    domain: 'personal.vault',
+    primaryContactEmail: this.user()?.email || 'user@vanguard.security',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    memberCount: 1,
+    isCustomDomainVerified: true,
+  };
+
   readonly organizations = signal<TenantOrganization[]>(this.initOrganizations());
   readonly activeOrganizationId = signal<string>(
     this.loadStored<string>('vanguard_active_org_id', 'org_root')
   );
 
+  readonly activeWorkspaceId = signal<string>(
+    this.loadStored<string>('vanguard_active_workspace', this.isIndividual() ? 'personal' : 'org_root')
+  );
+
+  readonly isPersonalWorkspace = computed<boolean>(() => {
+    return this.activeWorkspaceId() === 'personal';
+  });
+
+  readonly allWorkspaces = computed<TenantOrganization[]>(() => {
+    return [this.personalWorkspace, ...this.organizations()];
+  });
+
   readonly activeOrganization = computed<TenantOrganization>(() => {
+    if (this.activeWorkspaceId() === 'personal') {
+      return this.personalWorkspace;
+    }
     const orgs = this.organizations();
     const activeId = this.activeOrganizationId();
-    return orgs.find((o) => o.id === activeId) || orgs[0] || {
-      id: 'org_root',
-      name: 'Vanguard Security Systems',
-      slug: 'vanguard-corp',
-      tier: 'Enterprise',
-      createdAt: new Date().toISOString(),
-      memberCount: 1,
-    };
+    return orgs.find((o) => o.id === activeId) || orgs[0] || this.personalWorkspace;
   });
 
   readonly organizationName = computed<string>(() => {
@@ -4150,12 +4263,22 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   // SSO Launch Simulator
   // ==========================================
   launchApp(app: SaaSApp): void {
-    this.ssoLaunchingNotice.set(
-      `Redirecting to ${app.name} via cryptographically signed ${app.protocol} assertion...`
-    );
+    const matched = this.findCredentialsForDomain(app.launchUrl || app.name);
+    if (matched.length > 0) {
+      this.ssoLaunchingNotice.set(
+        `Launching ${app.name}. Auto-fill credentials for ${matched[0].username || matched[0].title} ready!`
+      );
+      if (matched[0].password && this.isBrowser && navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(matched[0].password).catch(() => {});
+      }
+    } else {
+      this.ssoLaunchingNotice.set(
+        `Redirecting to ${app.name} via cryptographically signed ${app.protocol} assertion...`
+      );
+    }
     setTimeout(() => {
       this.ssoLaunchingNotice.set(null);
-      if (this.isBrowser) {
+      if (this.isBrowser && app.launchUrl) {
         window.open(app.launchUrl, '_blank');
       }
     }, 1200);
@@ -4403,6 +4526,29 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
         notes: 'Single-use disposable debit card for SaaS subscriptions and cloud infra',
         favorite: false,
         updatedAt: '1 month ago'
+      },
+      {
+        id: 'vault-6',
+        title: 'Figma Design Cloud',
+        category: 'Login',
+        username: 'designer@vanguard.security',
+        password: 'Fig$Master99!Design2026',
+        totpSecret: 'JBSWY3DPEHPK3PXP',
+        url: 'https://www.figma.com/login',
+        notes: 'UI/UX prototyping and team design workspace',
+        favorite: true,
+        updatedAt: 'Just now'
+      },
+      {
+        id: 'vault-7',
+        title: 'Facebook Meta Business Suite',
+        category: 'Login',
+        username: 'social.lead@vanguard.security',
+        password: 'Fb$SocialShield99!',
+        url: 'https://www.facebook.com/login',
+        notes: 'Meta Business Manager and creator studio credentials',
+        favorite: false,
+        updatedAt: 'Just now'
       }
     ];
     return this.loadStored<PersonalVaultItem[]>('vanguard_personal_vault_items', defaultVault);
@@ -5150,12 +5296,102 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   }
 
   // ==========================================
+  // SCRUM-52: Multi-Workspace Switcher (Personal Vault <-> Company Organization)
+  // ==========================================
+  switchWorkspace(workspaceId: string): void {
+    this.activeWorkspaceId.set(workspaceId);
+    this.saveStored('vanguard_active_workspace', workspaceId);
+
+    if (workspaceId === 'personal') {
+      this.viewMode.set('user');
+      this.activeTab.set('personal-vault');
+      this.showAdminNotice('Switched to Personal Vault workspace.');
+      this.logAuditEvent('Switched context to Personal Vault workspace', 'Workspace Switcher', 'Context Switch', 'success', 'Low');
+    } else {
+      this.switchOrganization(workspaceId);
+      if (this.isAdmin()) {
+        this.viewMode.set('admin');
+        this.activeTab.set('overview');
+      } else {
+        this.viewMode.set('user');
+        this.activeTab.set('my-apps');
+      }
+    }
+  }
+
+  // ==========================================
+  // SCRUM-52: Personal Applications Management
+  // ==========================================
+  addPersonalApp(app: { name: string; category: 'cloud' | 'developer' | 'collaboration'; launchUrl: string; description?: string; icon?: string }): void {
+    const newApp: SaaSApp = {
+      id: 'papp-' + Date.now(),
+      name: app.name.trim(),
+      category: app.category,
+      launchUrl: app.launchUrl.trim(),
+      description: app.description?.trim() || `${app.name} web application`,
+      icon: app.icon || '🌐',
+      protocol: 'Web Auth',
+      status: 'Online',
+      assigned: true,
+    };
+    this.personalApps.update((list) => [newApp, ...list]);
+    this.saveStored('vanguard_personal_apps', this.personalApps());
+    this.logAuditEvent(`Added personal application bookmark: ${newApp.name}`, 'Personal Workspace', 'App Launcher', 'success', 'Low');
+    this.showAdminNotice(`Added ${newApp.name} to personal applications.`);
+  }
+
+  deletePersonalApp(id: string): void {
+    const app = this.personalApps().find((a) => a.id === id);
+    this.personalApps.update((list) => list.filter((a) => a.id !== id));
+    this.saveStored('vanguard_personal_apps', this.personalApps());
+    if (app) {
+      this.logAuditEvent(`Removed personal application bookmark: ${app.name}`, 'Personal Workspace', 'App Launcher', 'success', 'Low');
+      this.showAdminNotice(`Removed ${app.name} from personal applications.`);
+    }
+  }
+
+  // ==========================================
+  // SCRUM-52: Web Extension Domain Credential Matching API
+  // ==========================================
+  findCredentialsForDomain(domainOrUrl: string): PersonalVaultItem[] {
+    if (!domainOrUrl) return [];
+    const cleanTarget = domainOrUrl
+      .toLowerCase()
+      .trim()
+      .replace(/^(https?:\/\/)?(www\.)?/, '')
+      .split('/')[0]
+      .split('?')[0];
+
+    return this.vaultItems().filter((item) => {
+      const itemUrl = (item.url || '')
+        .toLowerCase()
+        .replace(/^(https?:\/\/)?(www\.)?/, '')
+        .split('/')[0]
+        .split('?')[0];
+      const itemTitle = (item.title || '').toLowerCase();
+      const domainParts = cleanTarget.split('.');
+      const mainDomain = domainParts.length >= 2 ? domainParts[domainParts.length - 2] : cleanTarget;
+
+      return (
+        (itemUrl && (itemUrl.includes(cleanTarget) || cleanTarget.includes(itemUrl))) ||
+        (mainDomain && (itemTitle.includes(mainDomain) || mainDomain.includes(itemTitle)))
+      );
+    });
+  }
+
+  // ==========================================
   // SCRUM-28: Multi-Tenant Organization Switcher & Branding Actions
   // ==========================================
   switchOrganization(orgId: string): void {
+    if (orgId === 'personal') {
+      this.switchWorkspace('personal');
+      return;
+    }
     const org = this.organizations().find((o) => o.id === orgId);
     if (!org) return;
 
+    this.activeWorkspaceId.set(orgId);
+    this.saveStored('vanguard_active_workspace', orgId);
     this.activeOrganizationId.set(orgId);
     this.saveStored('vanguard_active_org_id', orgId);
 

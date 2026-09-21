@@ -100,6 +100,7 @@ export class DashboardComponent implements OnInit {
   readonly userRole = this.dashboardService.userRole;
   readonly isAdmin = this.dashboardService.isAdmin;
   readonly isIndividual = this.dashboardService.isIndividual;
+  readonly isPersonalWorkspace = this.dashboardService.isPersonalWorkspace;
   readonly viewMode = this.dashboardService.viewMode;
   readonly activeTab = this.dashboardService.activeTab;
   readonly copiedUserId = this.dashboardService.copiedUserId;

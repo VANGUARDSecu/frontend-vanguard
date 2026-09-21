@@ -14,10 +14,11 @@ export interface SaaSApp {
   category: 'cloud' | 'developer' | 'collaboration' | 'custom';
   description: string;
   icon: string;
-  protocol: 'SAML 2.0' | 'OIDC';
+  protocol: 'SAML 2.0' | 'OIDC' | 'OAuth 2.0' | 'Web Auth';
   launchUrl: string;
   assigned: boolean;
   inheritedViaGroup?: string;
+  status?: string;
 }
 
 export interface SignInEvent {
@@ -347,7 +348,7 @@ export interface TenantOrganization {
   id: string;
   name: string;
   slug: string;
-  tier: 'Enterprise' | 'Business' | 'Starter' | 'Trial';
+  tier: 'Enterprise' | 'Business' | 'Starter' | 'Trial' | 'Personal';
   domain?: string;
   logoUrl?: string;
   primaryContactEmail?: string;

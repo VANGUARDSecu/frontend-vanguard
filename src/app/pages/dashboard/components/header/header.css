@@ -630,3 +630,32 @@
   border-radius: 6px;
   color: #93c5fd;
 }
+
+/* SCRUM-52: Universal Workspace Switcher */
+.dropdown-sub-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  padding: 8px 12px 4px 12px;
+  text-transform: uppercase;
+}
+
+.avatar-personal {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  font-size: 14px !important;
+}
+
+.personal-badge {
+  background: rgba(16, 185, 129, 0.2) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  font-size: 14px;
+}
+
+.pill-personal {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}

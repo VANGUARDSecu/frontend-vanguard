@@ -41,9 +41,13 @@ export class DashboardHeader {
     this.closeUpgradeModal();
   }
 
-  // SCRUM-28: Multi-tenant organization switcher
+  // SCRUM-28 & SCRUM-52: Multi-tenant organization & workspace switcher
   readonly organizations = this.dashboardService.organizations;
   readonly activeOrganization = this.dashboardService.activeOrganization;
+  readonly activeWorkspaceId = this.dashboardService.activeWorkspaceId;
+  readonly isPersonalWorkspace = this.dashboardService.isPersonalWorkspace;
+  readonly allWorkspaces = this.dashboardService.allWorkspaces;
+  readonly personalWorkspace = this.dashboardService.personalWorkspace;
   readonly tenantBranding = this.dashboardService.tenantBranding;
   readonly showOrgDropdown = signal<boolean>(false);
 
@@ -65,7 +69,7 @@ export class DashboardHeader {
   }
 
   switchOrg(orgId: string): void {
-    this.dashboardService.switchOrganization(orgId);
+    this.dashboardService.switchWorkspace(orgId);
     this.showOrgDropdown.set(false);
   }
 

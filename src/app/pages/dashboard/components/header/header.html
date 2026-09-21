@@ -22,30 +22,22 @@
         <span class="brand-subtitle">Zero-Trust Directory Vault</span>
       </div>
 
-      <!-- Individual Personal Vault Badge -->
-      <div class="individual-vault-indicator" *ngIf="isIndividual()">
-        <div class="indiv-icon-circle">👤</div>
-        <div class="indiv-info">
-          <span class="indiv-name-text">{{ user()?.firstName ? (user()?.firstName + "'s Vault") : 'Personal Vault' }}</span>
-          <span class="indiv-pill">Personal</span>
-        </div>
-      </div>
-
-      <!-- Multi-Tenant Organization Switcher Dropdown (Company accounts) -->
-      <div class="org-switcher-container" *ngIf="!isIndividual()">
+      <!-- Universal Workspace Switcher (Personal Vault & Company Organizations) -->
+      <div class="org-switcher-container">
         <button
           type="button"
           class="org-switcher-btn"
           [class.active]="showOrgDropdown()"
           (click)="toggleOrgDropdown()"
-          title="Switch Tenant Organization"
+          title="Switch Workspace / Organization"
         >
-          <div class="org-badge-icon">
-            <span>{{ activeOrganization().name.substring(0, 1).toUpperCase() }}</span>
+          <div class="org-badge-icon" [class.personal-badge]="isPersonalWorkspace()">
+            <span *ngIf="isPersonalWorkspace()">👤</span>
+            <span *ngIf="!isPersonalWorkspace()">{{ activeOrganization().name.substring(0, 1).toUpperCase() }}</span>
           </div>
           <div class="org-btn-info">
             <span class="org-name-text">{{ activeOrganization().name }}</span>
-            <span class="org-tier-pill">{{ activeOrganization().tier }}</span>
+            <span class="org-tier-pill" [class.pill-personal]="isPersonalWorkspace()">{{ activeOrganization().tier }}</span>
           </div>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chevron-icon" [class.rotated]="showOrgDropdown()">
             <polyline points="6 9 12 15 18 9"></polyline>
@@ -55,16 +47,38 @@
         <!-- Dropdown Menu -->
         <div class="org-dropdown-menu" *ngIf="showOrgDropdown()">
           <div class="dropdown-header">
-            <span class="dropdown-title">Tenant Organizations</span>
-            <span class="org-counter">{{ organizations().length }} total</span>
+            <span class="dropdown-title">Workspaces & Organizations</span>
+            <span class="org-counter">{{ allWorkspaces().length }} total</span>
           </div>
 
+          <!-- Section 1: Personal Workspace -->
+          <div class="dropdown-sub-label">PERSONAL WORKSPACE</div>
+          <button
+            type="button"
+            class="org-item-btn"
+            [class.selected]="activeWorkspaceId() === 'personal'"
+            (click)="switchOrg('personal')"
+          >
+            <div class="org-item-avatar avatar-personal">
+              👤
+            </div>
+            <div class="org-item-meta">
+              <span class="org-item-name">Personal Vault</span>
+              <span class="org-item-sub">Private Credentials & Personal Apps</span>
+            </div>
+            <svg *ngIf="activeWorkspaceId() === 'personal'" class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+
+          <!-- Section 2: Enterprise Organizations -->
+          <div class="dropdown-sub-label" *ngIf="organizations().length > 0">ENTERPRISE ORGANIZATIONS</div>
           <div class="org-list">
             <button
               *ngFor="let org of organizations()"
               type="button"
               class="org-item-btn"
-              [class.selected]="org.id === activeOrganization().id"
+              [class.selected]="activeWorkspaceId() === org.id"
               (click)="switchOrg(org.id)"
             >
               <div class="org-item-avatar">
@@ -74,7 +88,7 @@
                 <span class="org-item-name">{{ org.name }}</span>
                 <span class="org-item-sub">{{ org.domain || org.slug }} • {{ org.tier }}</span>
               </div>
-              <svg *ngIf="org.id === activeOrganization().id" class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <svg *ngIf="activeWorkspaceId() === org.id" class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
             </button>
@@ -90,7 +104,7 @@
               </svg>
               <span>Create New Organization</span>
             </button>
-            <button type="button" class="dropdown-action-link" (click)="goToBrandingStudio()">
+            <button type="button" class="dropdown-action-link" (click)="goToBrandingStudio()" *ngIf="!isPersonalWorkspace() && isAdmin()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
                 <circle cx="12" cy="12" r="3"></circle>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -121,8 +135,8 @@
 
     <!-- Right: Role Switcher & Profile Badge -->
     <div class="header-right">
-      <!-- Admin / User Mode Toggle Switcher (Visible to Company Admins) -->
-      <div class="mode-toggle-pill" *ngIf="isAdmin() && !isIndividual()">
+      <!-- Admin / User Mode Toggle Switcher (Visible to Company Admins when in Company Org) -->
+      <div class="mode-toggle-pill" *ngIf="!isPersonalWorkspace() && isAdmin()">
         <button
           type="button"
           class="mode-btn"

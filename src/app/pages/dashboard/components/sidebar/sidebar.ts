@@ -36,6 +36,8 @@ export class DashboardSidebar {
   readonly userDevices = this.dashboardService.userDevices;
   readonly webhookEndpoints = this.dashboardService.webhookEndpoints;
   readonly isIndividual = this.dashboardService.isIndividual;
+  readonly isPersonalWorkspace = this.dashboardService.isPersonalWorkspace;
+  readonly personalApps = this.dashboardService.personalApps;
   readonly vaultItems = this.dashboardService.vaultItems;
   readonly totpAccounts = this.dashboardService.totpAccounts;
 

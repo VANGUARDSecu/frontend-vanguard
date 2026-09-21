@@ -57,8 +57,8 @@
         <!-- 2FA Authenticator (Individual & Company Users) -->
         <app-user-authenticator *ngIf="activeTab() === 'authenticator'"></app-user-authenticator>
 
-        <!-- Enterprise Single Sign-On Apps (Corporate Workspace) -->
-        <app-user-my-apps *ngIf="!isIndividual() && (activeTab() === 'my-apps' || activeTab() === 'overview')"></app-user-my-apps>
+        <!-- Applications Launcher (Personal Apps or Enterprise SSO) -->
+        <app-user-my-apps *ngIf="activeTab() === 'my-apps' || (!isPersonalWorkspace() && activeTab() === 'overview')"></app-user-my-apps>
 
         <app-user-security *ngIf="activeTab() === 'user-security'"></app-user-security>
         <app-user-network *ngIf="!isIndividual() && activeTab() === 'user-network'"></app-user-network>
