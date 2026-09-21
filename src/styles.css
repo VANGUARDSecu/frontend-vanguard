@@ -87,3 +87,30 @@ a {
   pointer-events: none;
   z-index: 0;
 }
+
+/* ==========================================================================
+   GLOBAL DARK CYBER SCROLLBARS (SCRUM-51)
+   Eliminates native white scrollbar tracks on Windows across all components
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(6, 12, 40, 0.95);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.35);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.6);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.35) rgba(6, 12, 40, 0.95);
+}

@@ -9,7 +9,7 @@
 }
 
 .dashboard-wrapper {
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -19,20 +19,25 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .dashboard-layout {
   display: flex;
   flex: 1;
-  min-height: calc(100vh - 65px);
+  height: calc(100vh - 65px);
+  overflow: hidden;
 }
 
 .dashboard-viewport {
   flex: 1;
-  padding: 32px clamp(20px, 3vw, 48px);
-  max-width: 1200px;
+  height: 100%;
+  padding: 28px clamp(20px, 3vw, 40px);
+  max-width: 1560px;
+  width: 100%;
   box-sizing: border-box;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Toast Alerts */
