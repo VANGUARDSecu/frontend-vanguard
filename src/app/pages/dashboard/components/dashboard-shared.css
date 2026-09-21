@@ -692,104 +692,8 @@
 .table-responsive {
   width: 100%;
   overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(59, 130, 246, 0.35) rgba(6, 12, 40, 0.8);
 }
 
-.table-responsive::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-  background: rgba(6, 12, 40, 0.8);
-  border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-  background: rgba(59, 130, 246, 0.35);
-  border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.6);
-}
-
-/* Universal Table Row Actions (SCRUM-51) */
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-}
-
-.action-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
-  padding: 5px 12px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1.2;
-}
-
-.action-btn:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: #3b82f6;
-  color: #60a5fa;
-}
-
-.action-btn.text-cyan {
-  color: #38bdf8;
-  border-color: rgba(56, 189, 248, 0.25);
-}
-
-.action-btn.text-cyan:hover {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: #38bdf8;
-  color: #ffffff;
-}
-
-.action-btn.text-danger {
-  color: #f87171;
-  border-color: rgba(239, 68, 68, 0.25);
-}
-
-.action-btn.text-danger:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: #ef4444;
-  color: #ffffff;
-}
-
-.action-btn.text-success {
-  color: #34d399;
-  border-color: rgba(16, 185, 129, 0.25);
-}
-
-.action-btn.text-success:hover {
-  background: rgba(16, 185, 129, 0.2);
-  border-color: #10b981;
-  color: #ffffff;
-}
-
-.action-btn.action-btn-resend {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #60a5fa;
-}
-
-.action-btn.action-btn-resend:hover {
-  background: #2563eb;
-  border-color: #3b82f6;
-  color: #ffffff;
-}
 
 .activity-table {
   width: 100%;
@@ -1375,8 +1279,6 @@
 .table-responsive {
   width: 100%;
   overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(59, 130, 246, 0.35) rgba(6, 12, 40, 0.8);
 }
 
 .activity-table {

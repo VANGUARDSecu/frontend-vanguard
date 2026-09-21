@@ -357,7 +357,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .action-btn {
@@ -535,7 +535,6 @@
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 3px;
-  max-width: 220px;
 }
 
 .user-group-tag {
@@ -547,11 +546,6 @@
   border: 1px solid rgba(139, 92, 246, 0.3);
   color: #c4b5fd;
   white-space: nowrap;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: inline-block;
-  vertical-align: middle;
 }
 
 .no-group-text {
