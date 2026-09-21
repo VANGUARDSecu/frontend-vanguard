@@ -28,6 +28,24 @@ export const passwordMatchValidator: ValidatorFn = (
     : { passwordMismatch: true };
 };
 
+/**
+ * Custom validator enforcing at least 8 characters, uppercase, lowercase, and special character
+ */
+export const strongPasswordValidator: ValidatorFn = (
+  control: AbstractControl
+): ValidationErrors | null => {
+  const value = control.value;
+  if (!value) return null;
+
+  const errors: ValidationErrors = {};
+  if (value.length < 8) errors['minlength'] = true;
+  if (!/[a-z]/.test(value)) errors['missingLower'] = true;
+  if (!/[A-Z]/.test(value)) errors['missingUpper'] = true;
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(value)) errors['missingSpecial'] = true;
+
+  return Object.keys(errors).length > 0 ? errors : null;
+};
+
 @Component({
   selector: 'app-register',
   standalone: true,
@@ -51,7 +69,7 @@ export class RegisterComponent {
       companyName: [''],
       email: ['', [Validators.required, Validators.email]],
       phone: [''],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+      password: ['', [Validators.required, strongPasswordValidator]],
       confirmPassword: ['', [Validators.required]],
       agreeTerms: [false, [Validators.requiredTrue]],
     },
@@ -134,11 +152,44 @@ export class RegisterComponent {
     this.notification.set(null);
   }
 
+  get passwordControl() {
+    return this.registerForm.get('password');
+  }
+
+  get passwordValue(): string {
+    return this.passwordControl?.value || '';
+  }
+
+  get hasMinLength(): boolean {
+    return this.passwordValue.length >= 8;
+  }
+
+  get hasLower(): boolean {
+    return /[a-z]/.test(this.passwordValue);
+  }
+
+  get hasUpper(): boolean {
+    return /[A-Z]/.test(this.passwordValue);
+  }
+
+  get hasSpecial(): boolean {
+    return /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(this.passwordValue);
+  }
+
+  get allPasswordRulesMet(): boolean {
+    return this.hasMinLength && this.hasLower && this.hasUpper && this.hasSpecial;
+  }
+
   onSubmit(): void {
     this.submitted.set(true);
 
     if (this.registerForm.invalid) {
-      if (this.registerForm.errors?.['passwordMismatch']) {
+      if (this.registerForm.get('password')?.invalid) {
+        this.showNotification(
+          'error',
+          'Password must be at least 8 characters long with uppercase, lowercase, and a special character.'
+        );
+      } else if (this.registerForm.errors?.['passwordMismatch']) {
         this.showNotification('error', 'Passwords do not match. Please verify both fields.');
       } else if (this.registerForm.get('agreeTerms')?.invalid) {
         this.showNotification('error', 'Please accept the Terms of Service and Privacy Policy.');

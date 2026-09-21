@@ -230,7 +230,7 @@
               id="password"
               [type]="showPassword() ? 'text' : 'password'"
               formControlName="password"
-              placeholder="Enter strong password (min 6 characters)"
+              placeholder="Enter strong password (min 8 characters)"
               autocomplete="new-password"
               class="form-input"
             />
@@ -254,10 +254,34 @@
               }
             </button>
           </div>
+
+          <!-- Real-Time Password Security Criteria Checklist -->
+          <div class="password-criteria-list" *ngIf="passwordValue.length > 0 || submitted()">
+            <div class="criteria-item" [class.met]="hasMinLength">
+              <span class="criteria-icon">{{ hasMinLength ? '✓' : '○' }}</span>
+              <span>8+ characters</span>
+            </div>
+            <div class="criteria-item" [class.met]="hasLower">
+              <span class="criteria-icon">{{ hasLower ? '✓' : '○' }}</span>
+              <span>Lowercase letter (a-z)</span>
+            </div>
+            <div class="criteria-item" [class.met]="hasUpper">
+              <span class="criteria-icon">{{ hasUpper ? '✓' : '○' }}</span>
+              <span>Uppercase letter (A-Z)</span>
+            </div>
+            <div class="criteria-item" [class.met]="hasSpecial">
+              <span class="criteria-icon">{{ hasSpecial ? '✓' : '○' }}</span>
+              <span>Special letter (!@#$...)</span>
+            </div>
+          </div>
+
           @if (submitted() && registerForm.get('password')?.errors) {
             <span class="field-error">
-              @if (registerForm.get('password')?.hasError('required')) { Password is required }
-              @else if (registerForm.get('password')?.hasError('minlength')) { Password must be at least 6 characters }
+              @if (registerForm.get('password')?.hasError('required')) {
+                Password is required
+              } @else {
+                Password must be at least 8 characters with upper, lower, and special character
+              }
             </span>
           }
         </div>
