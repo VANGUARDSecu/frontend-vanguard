@@ -1182,88 +1182,9 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   requestAppJustification = '';
   readonly requestAppSuccess = signal<boolean>(false);
 
-  // SCRUM-52: Personal Application Bookmarks & Launcher (Figma, Facebook, GitHub, etc.)
+  // SCRUM-52: Personal Application Bookmarks & Launcher (Zero Hardcoded Initial State)
   private initPersonalApps(): SaaSApp[] {
-    const defaultApps: SaaSApp[] = [
-      {
-        id: 'papp-figma',
-        name: 'Figma',
-        category: 'developer',
-        description: 'Collaborative cloud interface design, vector graphics, and prototyping',
-        icon: '🎨',
-        protocol: 'Web Auth',
-        status: 'Online',
-        launchUrl: 'https://www.figma.com/login',
-        assigned: true,
-      },
-      {
-        id: 'papp-facebook',
-        name: 'Facebook',
-        category: 'collaboration',
-        description: 'Meta social network, developer accounts, and creator business tools',
-        icon: '👥',
-        protocol: 'OAuth 2.0',
-        status: 'Online',
-        launchUrl: 'https://www.facebook.com/login',
-        assigned: true,
-      },
-      {
-        id: 'papp-github',
-        name: 'GitHub',
-        category: 'developer',
-        description: 'Source code management, CI/CD Actions, and developer repositories',
-        icon: '💻',
-        protocol: 'Web Auth',
-        status: 'Online',
-        launchUrl: 'https://github.com/login',
-        assigned: true,
-      },
-      {
-        id: 'papp-google',
-        name: 'Google Account',
-        category: 'cloud',
-        description: 'Google Cloud, Drive, and personal productivity suite',
-        icon: '☁️',
-        protocol: 'OIDC',
-        status: 'Online',
-        launchUrl: 'https://accounts.google.com',
-        assigned: true,
-      },
-      {
-        id: 'papp-slack',
-        name: 'Slack',
-        category: 'collaboration',
-        description: 'Real-time messaging, channels, and developer community notifications',
-        icon: '💬',
-        protocol: 'Web Auth',
-        status: 'Online',
-        launchUrl: 'https://slack.com/signin',
-        assigned: true,
-      },
-      {
-        id: 'papp-notion',
-        name: 'Notion',
-        category: 'collaboration',
-        description: 'Connected workspace for notes, documentation, and personal knowledge bases',
-        icon: '📝',
-        protocol: 'Web Auth',
-        status: 'Online',
-        launchUrl: 'https://www.notion.so/login',
-        assigned: true,
-      },
-      {
-        id: 'papp-aws',
-        name: 'AWS Management Console',
-        category: 'cloud',
-        description: 'Amazon Web Services cloud console and IAM root account access',
-        icon: '☁️',
-        protocol: 'Web Auth',
-        status: 'Online',
-        launchUrl: 'https://aws.amazon.com/console/',
-        assigned: true,
-      },
-    ];
-    return this.loadStored<SaaSApp[]>('vanguard_personal_apps', defaultApps);
+    return this.loadStored<SaaSApp[]>('vanguard_personal_apps', []);
   }
 
   readonly personalApps = signal<SaaSApp[]>(this.initPersonalApps());
@@ -1439,8 +1360,8 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     slug: 'personal-vault',
     tier: 'Personal',
     domain: 'personal.vault',
-    primaryContactEmail: this.user()?.email || 'user@vanguard.security',
-    createdAt: '2026-01-01T00:00:00.000Z',
+    primaryContactEmail: this.user()?.email || '',
+    createdAt: new Date().toISOString(),
     memberCount: 1,
     isCustomDomainVerified: true,
   };
@@ -4468,90 +4389,10 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   }
 
   // ==========================================
-  // SCRUM-50: Personal Credential Vault (Dynamic & Zero-Trust)
+  // SCRUM-50: Personal Credential Vault (Zero Hardcoded Initial State)
   // ==========================================
   private initPersonalVaultItems(): PersonalVaultItem[] {
-    const defaultVault: PersonalVaultItem[] = [
-      {
-        id: 'vault-1',
-        title: 'GitHub Developer Token',
-        category: 'Login',
-        username: 'dev-secops',
-        password: 'ghp_VanguardKey9928#SecureToken',
-        totpSecret: 'JBSWY3DPEHPK3PXP',
-        url: 'https://github.com',
-        notes: 'Personal PAT token with workflow and packages scopes',
-        favorite: true,
-        updatedAt: 'Yesterday'
-      },
-      {
-        id: 'vault-2',
-        title: 'AWS Production IAM',
-        category: 'Login',
-        username: 'iam-ops@vanguard.security',
-        password: 'Aws$Master99!Vault2026',
-        totpSecret: 'HXDMVJECJJWSRB3H',
-        url: 'https://aws.amazon.com',
-        notes: 'IAM Administrator access with hardware MFA key fallback',
-        favorite: true,
-        updatedAt: '3 days ago'
-      },
-      {
-        id: 'vault-3',
-        title: 'Proton Encrypted Mailbox',
-        category: 'Login',
-        username: 'cyber.sec@proton.me',
-        password: 'Prtn_Key#SecOps99',
-        url: 'https://mail.proton.me',
-        notes: 'End-to-end encrypted personal security communications mailbox',
-        favorite: false,
-        updatedAt: '1 week ago'
-      },
-      {
-        id: 'vault-4',
-        title: 'Master Cold Recovery Seed Phrase',
-        category: 'Secure Note',
-        username: '',
-        password: '',
-        notes: 'VANGUARD-REC-8921-9983-X912-BB74\nStore strictly in offline physical fireproof safe or safety deposit box.',
-        favorite: true,
-        updatedAt: '2 weeks ago'
-      },
-      {
-        id: 'vault-5',
-        title: 'CyberShield Virtual Credit Card',
-        category: 'Card',
-        username: '4532 •••• •••• 9812',
-        password: 'CVV: 789 | Exp: 09/29',
-        notes: 'Single-use disposable debit card for SaaS subscriptions and cloud infra',
-        favorite: false,
-        updatedAt: '1 month ago'
-      },
-      {
-        id: 'vault-6',
-        title: 'Figma Design Cloud',
-        category: 'Login',
-        username: 'designer@vanguard.security',
-        password: 'Fig$Master99!Design2026',
-        totpSecret: 'JBSWY3DPEHPK3PXP',
-        url: 'https://www.figma.com/login',
-        notes: 'UI/UX prototyping and team design workspace',
-        favorite: true,
-        updatedAt: 'Just now'
-      },
-      {
-        id: 'vault-7',
-        title: 'Facebook Meta Business Suite',
-        category: 'Login',
-        username: 'social.lead@vanguard.security',
-        password: 'Fb$SocialShield99!',
-        url: 'https://www.facebook.com/login',
-        notes: 'Meta Business Manager and creator studio credentials',
-        favorite: false,
-        updatedAt: 'Just now'
-      }
-    ];
-    return this.loadStored<PersonalVaultItem[]>('vanguard_personal_vault_items', defaultVault);
+    return this.loadStored<PersonalVaultItem[]>('vanguard_personal_vault_items', []);
   }
 
   readonly vaultItems = signal<PersonalVaultItem[]>(this.initPersonalVaultItems());
@@ -4673,36 +4514,10 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   }
 
   // ==========================================
-  // SCRUM-50: TOTP 2FA Authenticator State & Actions
+  // SCRUM-50: TOTP 2FA Authenticator State & Actions (Zero Hardcoded Initial State)
   // ==========================================
   private initTotpAccounts(): TotpAccount[] {
-    const defaultAccounts: TotpAccount[] = [
-      {
-        id: 'totp-acc-1',
-        issuer: 'Google Cloud Platform',
-        accountName: 'admin@vanguard.dev',
-        secret: 'JBSWY3DPEHPK3PXP'
-      },
-      {
-        id: 'totp-acc-2',
-        issuer: 'GitHub Enterprise',
-        accountName: 'dev-ops',
-        secret: 'HXDMVJECJJWSRB3H'
-      },
-      {
-        id: 'totp-acc-3',
-        issuer: 'Cloudflare Zero Trust',
-        accountName: 'security@vanguard.io',
-        secret: 'MZXW6YTBOI======'
-      },
-      {
-        id: 'totp-acc-4',
-        issuer: 'DigitalOcean Infrastructure',
-        accountName: 'deploy@vanguard.net',
-        secret: 'NBSWY3DPEHPK3PXP'
-      }
-    ];
-    return this.loadStored<TotpAccount[]>('vanguard_user_totp_accounts', defaultAccounts);
+    return this.loadStored<TotpAccount[]>('vanguard_user_totp_accounts', []);
   }
 
   readonly totpAccounts = signal<TotpAccount[]>(this.initTotpAccounts());

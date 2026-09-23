@@ -53,9 +53,20 @@ describe('UserAuthenticator Component (SCRUM-50 2FA Rolling Code Authenticator)'
     expect(component).toBeTruthy();
   });
 
-  it('should generate valid 6-digit rolling codes for active accounts', () => {
+  it('should initialize with zero hardcoded 2FA accounts', () => {
+    expect(component.activeTotpAccounts().length).toBe(0);
+  });
+
+  it('should generate valid 6-digit rolling codes when 2FA account is added', () => {
+    dashboardService.addTotpAccount({
+      issuer: 'Google Cloud Platform',
+      accountName: 'admin@vanguard.dev',
+      secret: 'JBSWY3DPEHPK3PXP',
+    });
+    fixture.detectChanges();
+
     const active = component.activeTotpAccounts();
-    expect(active.length).toBeGreaterThanOrEqual(3);
+    expect(active.length).toBe(1);
 
     for (const acc of active) {
       expect(acc.currentCode).toBeDefined();

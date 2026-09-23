@@ -53,12 +53,32 @@ describe('UserPersonalVault Component (SCRUM-50 Personal Credential Manager)', (
     expect(component).toBeTruthy();
   });
 
-  it('should load initial seed credentials in personal vault', () => {
-    expect(component.vaultItems().length).toBeGreaterThanOrEqual(3);
-    expect(component.filteredVaultItems().length).toBe(component.vaultItems().length);
+  it('should initialize with zero hardcoded credentials in personal vault', () => {
+    expect(component.vaultItems().length).toBe(0);
+    expect(component.filteredVaultItems().length).toBe(0);
   });
 
-  it('should filter items by category and search query', () => {
+  it('should filter items by category and search query after items are added', () => {
+    dashboardService.addVaultItem({
+      title: 'GitHub Developer Token',
+      category: 'Login',
+      username: 'dev-secops',
+      password: 'ghp_VanguardKey9928#SecureToken',
+      totpSecret: 'JBSWY3DPEHPK3PXP',
+      url: 'https://github.com',
+      notes: 'Personal PAT token',
+      favorite: true,
+    });
+    dashboardService.addVaultItem({
+      title: 'Master Recovery Key',
+      category: 'Secure Note',
+      username: '',
+      password: '',
+      notes: 'Recovery seed phrase',
+      favorite: false,
+    });
+    fixture.detectChanges();
+
     component.setCategory('Login');
     fixture.detectChanges();
     for (const item of component.filteredVaultItems()) {
@@ -72,6 +92,14 @@ describe('UserPersonalVault Component (SCRUM-50 Personal Credential Manager)', (
   });
 
   it('should toggle password visibility for a specific credential', () => {
+    dashboardService.addVaultItem({
+      title: 'Test Service',
+      category: 'Login',
+      username: 'user@test.com',
+      password: 'Password123!',
+    });
+    fixture.detectChanges();
+
     const item = component.vaultItems()[0];
     expect(component.isPasswordRevealed(item.id)).toBe(false);
 
@@ -83,6 +111,15 @@ describe('UserPersonalVault Component (SCRUM-50 Personal Credential Manager)', (
   });
 
   it('should toggle favorite status of a credential', () => {
+    dashboardService.addVaultItem({
+      title: 'Fav Service',
+      category: 'Login',
+      username: 'user@fav.com',
+      password: 'FavPassword123!',
+      favorite: false,
+    });
+    fixture.detectChanges();
+
     const item = component.vaultItems()[0];
     const initialFavorite = !!item.favorite;
 
@@ -111,6 +148,14 @@ describe('UserPersonalVault Component (SCRUM-50 Personal Credential Manager)', (
   });
 
   it('should edit an existing credential', () => {
+    dashboardService.addVaultItem({
+      title: 'Original Title',
+      category: 'Login',
+      username: 'edit@test.com',
+      password: 'OriginalPassword123!',
+    });
+    fixture.detectChanges();
+
     const target = component.vaultItems()[0];
     component.openEditModal(target);
     expect(component.showAddModal()).toBe(true);

@@ -55,10 +55,10 @@ describe('UserMyApps Component (SCRUM-52 Multi-Workspace & Personal App Launcher
     expect(component).toBeTruthy();
   });
 
-  it('should reflect personal workspace mode correctly', () => {
+  it('should reflect personal workspace mode correctly with zero hardcoded apps', () => {
     expect(component.isPersonalWorkspace()).toBe(true);
-    expect(component.personalApps().length).toBeGreaterThanOrEqual(4);
-    expect(component.activeAppsList().length).toBe(component.personalApps().length);
+    expect(component.personalApps().length).toBe(0);
+    expect(component.activeAppsList().length).toBe(0);
   });
 
   it('should apply quick presets for popular applications like Figma and Facebook', () => {
@@ -110,11 +110,24 @@ describe('UserMyApps Component (SCRUM-52 Multi-Workspace & Personal App Launcher
   });
 
   it('should match domain credentials for web extension autofill integration', () => {
+    dashboardService.addVaultItem({
+      title: 'Figma Cloud',
+      category: 'Login',
+      username: 'designer@test.com',
+      password: 'FigmaPassword123!',
+      url: 'https://www.figma.com/login',
+    });
+    dashboardService.addPersonalApp({
+      name: 'Figma',
+      launchUrl: 'https://www.figma.com/login',
+      category: 'collaboration',
+    });
+    fixture.detectChanges();
+
     const figmaApp = component.personalApps().find((a) => a.name.toLowerCase().includes('figma'));
     expect(figmaApp).toBeDefined();
     if (figmaApp) {
       const matched = component.getMatchingVaultCredentials(figmaApp);
-      // The default seed vault contains Figma credentials
       expect(matched.length).toBeGreaterThanOrEqual(1);
       expect(matched[0].url).toContain('figma.com');
     }
@@ -131,6 +144,18 @@ describe('UserMyApps Component (SCRUM-52 Multi-Workspace & Personal App Launcher
   });
 
   it('should filter personal applications by category', () => {
+    dashboardService.addPersonalApp({
+      name: 'GitHub',
+      launchUrl: 'https://github.com',
+      category: 'developer',
+    });
+    dashboardService.addPersonalApp({
+      name: 'Slack',
+      launchUrl: 'https://slack.com',
+      category: 'collaboration',
+    });
+    fixture.detectChanges();
+
     component.setCategory('developer');
     const devApps = component.filteredApps();
     expect(devApps.every((a) => a.category === 'developer')).toBe(true);
