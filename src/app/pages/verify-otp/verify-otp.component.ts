@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, computed, ViewChildren, Q
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { AuthService, ApproveSsoPayload, UserProfile } from '../../services/auth.service';
 
 export type VerificationMethod = 'email_otp' | 'totp';
 
@@ -25,6 +25,15 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
   readonly mode = signal<'signup' | 'signin' | 'recovery'>('signup');
   readonly method = signal<VerificationMethod>('email_otp');
   readonly hasTotp = signal<boolean>(false);
+
+  // SSO state signals
+  readonly ssoParams = signal<Record<string, string> | null>(null);
+  readonly clientDisplayName = computed<string>(() => {
+    const sso = this.ssoParams();
+    if (!sso) return '';
+    if (sso['client_id'] === 'vanguard-dummy-portal') return 'Acme Enterprise Portal';
+    return sso['client_id'] || 'Client Application';
+  });
   
   // Dynamic code length: TOTP is 6 digits, Email OTP is 8 digits (matching Supabase email template)
   readonly codeLength = computed<number>(() => (this.method() === 'totp' ? 6 : 8));
@@ -48,12 +57,25 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
         | 'signin'
         | 'recovery';
       const hasTotpParam = params['hasTotp'] === 'true';
-      const methodParam = (params['method'] || 'email_otp') as VerificationMethod;
+      const methodParam = (params['method'] || (hasTotpParam ? 'totp' : 'email_otp')) as VerificationMethod;
 
       this.email.set(emailParam);
       this.mode.set(modeParam);
       this.hasTotp.set(hasTotpParam);
       this.method.set(methodParam);
+
+      if (params['client_id'] && params['redirect_uri']) {
+        this.ssoParams.set({
+          client_id: params['client_id'],
+          redirect_uri: params['redirect_uri'],
+          response_type: params['response_type'] || 'code',
+          scope: params['scope'] || 'openid profile email roles',
+          state: params['state'] || '',
+          code_challenge: params['code_challenge'] || '',
+          code_challenge_method: params['code_challenge_method'] || 'S256',
+          nonce: params['nonce'] || '',
+        });
+      }
 
       this.clearOtpInputs();
       this.startResendTimer(30);
@@ -240,12 +262,8 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
 
     if (currentMethod === 'totp') {
       this.authService.verifyTotp(email, code).subscribe({
-        next: () => {
-          this.isLoading.set(false);
-          this.showNotification('success', 'Authenticator verified! Redirecting to secure vault...', 3000);
-          setTimeout(() => {
-            this.router.navigate(['/dashboard']);
-          }, 800);
+        next: (res) => {
+          this.handleVerificationSuccess(res?.user);
         },
         error: (err: Error) => {
           this.isLoading.set(false);
@@ -269,18 +287,84 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
     } else {
       const otpType = this.mode() === 'signup' ? 'signup' : 'email';
       this.authService.verifyOtp(email, code, otpType).subscribe({
-        next: () => {
-          this.isLoading.set(false);
-          this.showNotification('success', 'Email verified successfully! Redirecting to dashboard...', 3000);
-          setTimeout(() => {
-            this.router.navigate(['/dashboard']);
-          }, 800);
+        next: (res) => {
+          this.handleVerificationSuccess(res?.user);
         },
         error: (err: Error) => {
           this.isLoading.set(false);
           this.showNotification('error', err.message || 'Invalid or expired verification code.');
         },
       });
+    }
+  }
+
+  private handleVerificationSuccess(user?: UserProfile): void {
+    const sso = this.ssoParams();
+    if (sso && sso['client_id'] && sso['redirect_uri']) {
+      this.isLoading.set(true);
+      this.showNotification('success', 'Identity and 2FA verified! Authorizing access to client application...', 4000);
+
+      const currentUser = user || this.authService.currentUser();
+      const fullName = currentUser
+        ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email.split('@')[0]
+        : this.email().split('@')[0];
+      const role = currentUser?.role || 'user';
+      const dept = currentUser?.user_metadata?.['department'] || 'Corporate Security';
+
+      const payload: ApproveSsoPayload = {
+        client_id: sso['client_id'],
+        redirect_uri: sso['redirect_uri'],
+        response_type: sso['response_type'] || 'code',
+        scope: sso['scope'] || 'openid profile email roles',
+        state: sso['state'] || '',
+        nonce: sso['nonce'] || '',
+        code_challenge: sso['code_challenge'] || '',
+        code_challenge_method: sso['code_challenge_method'] || 'S256',
+        email: currentUser?.email || this.email(),
+        name: fullName,
+        role: role,
+        roles: [role, 'Vanguard Authenticated'],
+        department: dept,
+        userId: currentUser?.id,
+      };
+
+      this.authService.approveSsoAuthorization(payload).subscribe({
+        next: (res) => {
+          if (res.redirectUrl) {
+            window.location.href = res.redirectUrl;
+          } else {
+            window.location.href = `${sso['redirect_uri']}?code=${res.code}${sso['state'] ? '&state=' + encodeURIComponent(sso['state']) : ''}`;
+          }
+        },
+        error: (err: Error) => {
+          this.isLoading.set(false);
+          this.showNotification('error', err.message || 'SSO authorization failed.');
+        },
+      });
+      return;
+    }
+
+    this.isLoading.set(false);
+    this.showNotification('success', 'Verification successful! Redirecting to secure vault...', 3000);
+    setTimeout(() => {
+      this.router.navigate(['/dashboard']);
+    }, 800);
+  }
+
+  onCancelSso(): void {
+    const sso = this.ssoParams();
+    if (!sso) return;
+
+    try {
+      const redirectUri = new URL(sso['redirect_uri']);
+      redirectUri.searchParams.set('error', 'access_denied');
+      redirectUri.searchParams.set('error_description', 'User cancelled MFA verification for Vanguard SSO');
+      if (sso['state']) {
+        redirectUri.searchParams.set('state', sso['state']);
+      }
+      window.location.href = redirectUri.toString();
+    } catch {
+      window.location.href = `${sso['redirect_uri']}?error=access_denied&error_description=User+cancelled+MFA+verification+for+Vanguard+SSO${sso['state'] ? '&state=' + encodeURIComponent(sso['state']) : ''}`;
     }
   }
 }

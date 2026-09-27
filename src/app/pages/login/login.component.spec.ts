@@ -1,4 +1,4 @@
-﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -72,5 +72,40 @@ describe('LoginComponent', () => {
 
     component.dismissNotification();
     expect(component.notification()).toBeNull();
+  });
+
+  it('should parse SSO query params and set clientDisplayName', () => {
+    component.ssoParams.set({
+      client_id: 'vanguard-dummy-portal',
+      redirect_uri: 'http://localhost:4201/auth/callback',
+      state: 'test_state_123',
+    });
+    expect(component.clientDisplayName()).toBe('Acme Enterprise Portal');
+
+    component.ssoParams.set({
+      client_id: 'custom-partner-app',
+      redirect_uri: 'https://partner.com/callback',
+    });
+    expect(component.clientDisplayName()).toBe('custom-partner-app');
+  });
+
+  it('should handle cancel SSO redirect', () => {
+    component.ssoParams.set({
+      client_id: 'vanguard-dummy-portal',
+      redirect_uri: 'http://localhost:4201/auth/callback',
+      state: 'state_xyz',
+    });
+
+    // Mock window.location
+    const originalLocation = window.location;
+    delete (window as any).location;
+    (window as any).location = { href: '' };
+
+    component.onCancelSso();
+    expect(window.location.href).toContain('http://localhost:4201/auth/callback');
+    expect(window.location.href).toContain('error=access_denied');
+    expect(window.location.href).toContain('state=state_xyz');
+
+    (window as any).location = originalLocation;
   });
 });

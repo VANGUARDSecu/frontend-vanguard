@@ -680,6 +680,77 @@
   to { opacity: 1; }
 }
 
+/* ==========================================================================
+   SSO Single Sign-On Styling
+   ========================================================================== */
+
+.sso-banner {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(30, 58, 138, 0.3) 100%);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 14px;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.sso-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(147, 197, 253, 0.4);
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-bottom: 6px;
+}
+
+.sso-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #60a5fa;
+  box-shadow: 0 0 6px #60a5fa;
+}
+
+.sso-banner-text {
+  color: #e2e8f0;
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.sso-banner-text strong {
+  color: #60a5fa;
+}
+
+.sso-cancel-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.sso-cancel-link {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.2s ease;
+}
+
+.sso-cancel-link:hover {
+  color: #f87171;
+}
+
 /* Responsive */
 @media (max-width: 520px) {
   .verify-wrapper {
