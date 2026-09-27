@@ -108,4 +108,29 @@ describe('LoginComponent', () => {
 
     (window as any).location = originalLocation;
   });
+
+  it('should detect account mismatch when active user email differs from login_hint', () => {
+    (component.authService as any).currentUser.set({
+      id: 'usr_1',
+      email: 'johnroben.manayon21@gmail.com',
+      firstName: 'John',
+      lastName: 'Manayon',
+    });
+
+    component.ssoParams.set({
+      client_id: 'vanguard-dummy-portal',
+      redirect_uri: 'http://localhost:4201/auth/callback',
+      login_hint: 'johnroben.manayon31@gmail.com',
+    });
+
+    expect(component.isAccountMismatch()).toBe(true);
+
+    component.ssoParams.set({
+      client_id: 'vanguard-dummy-portal',
+      redirect_uri: 'http://localhost:4201/auth/callback',
+      login_hint: 'johnroben.manayon21@gmail.com',
+    });
+
+    expect(component.isAccountMismatch()).toBe(false);
+  });
 });

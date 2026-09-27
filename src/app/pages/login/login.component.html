@@ -71,6 +71,22 @@
       <!-- Active SSO Session Option (if already logged in to Vanguard) -->
       @if (authService.isLoggedIn() && ssoParams()) {
         <div class="sso-active-session">
+          @if (isAccountMismatch()) {
+            <div class="account-mismatch-banner">
+              <div class="mismatch-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>Account Discrepancy</span>
+              </div>
+              <p class="mismatch-text">
+                Signed in as <strong>{{ currentUser()?.email }}</strong>. {{ clientDisplayName() }} requested integration with <strong>{{ ssoParams()?.['login_hint'] }}</strong>.
+              </p>
+            </div>
+          }
+
           <div class="sso-user-box">
             <div class="sso-avatar">
               {{ (currentUser()?.firstName?.charAt(0) || currentUser()?.email?.charAt(0) || 'U') | uppercase }}
@@ -93,7 +109,11 @@
             </button>
 
             <button type="button" class="sso-switch-btn" (click)="switchAccount()" [disabled]="isLoading()">
-              Sign in with a different account
+              @if (isAccountMismatch()) {
+                Switch to {{ ssoParams()?.['login_hint'] }} (Sign in with requested account)
+              } @else {
+                Sign in with a different account
+              }
             </button>
 
             <button type="button" class="sso-cancel-btn" (click)="onCancelSso()" [disabled]="isLoading()">

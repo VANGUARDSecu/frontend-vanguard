@@ -40,6 +40,14 @@ export class LoginComponent implements OnInit {
     return sso['client_id'] || 'Client Application';
   });
 
+  readonly isAccountMismatch = computed<boolean>(() => {
+    const sso = this.ssoParams();
+    const user = this.currentUser();
+    const hint = sso?.['login_hint'];
+    if (!sso || !hint || !user) return false;
+    return user.email.toLowerCase().trim() !== hint.toLowerCase().trim();
+  });
+
   // Single timed notification state with auto-dismiss
   readonly notification = signal<{ type: 'success' | 'error'; message: string } | null>(null);
   private notificationTimer: any = null;
@@ -48,7 +56,7 @@ export class LoginComponent implements OnInit {
     // Check if URL contains SSO/OIDC parameters
     this.route.queryParams.subscribe((params) => {
       if (params['client_id'] && params['redirect_uri']) {
-        this.ssoParams.set({
+        const ssoData = {
           client_id: params['client_id'],
           redirect_uri: params['redirect_uri'],
           response_type: params['response_type'] || 'code',
@@ -57,7 +65,15 @@ export class LoginComponent implements OnInit {
           code_challenge: params['code_challenge'] || '',
           code_challenge_method: params['code_challenge_method'] || 'S256',
           nonce: params['nonce'] || '',
-        });
+          login_hint: params['login_hint'] || '',
+          prompt: params['prompt'] || '',
+        };
+        this.ssoParams.set(ssoData);
+
+        // Pre-fill email from login_hint if provided and not yet authenticated
+        if (!this.authService.isLoggedIn() && params['login_hint']) {
+          this.loginForm.patchValue({ email: params['login_hint'] });
+        }
       }
 
       // If user is already logged in:
@@ -78,9 +94,9 @@ export class LoginComponent implements OnInit {
       }
     });
 
-    // Pre-fill remembered email if cached
+    // Pre-fill remembered email if cached (and not already filled from login_hint)
     const rememberedEmail = this.authService.getRememberedEmail();
-    if (rememberedEmail) {
+    if (rememberedEmail && !this.loginForm.get('email')?.value) {
       this.loginForm.patchValue({
         email: rememberedEmail,
         rememberMe: true,
@@ -232,10 +248,14 @@ export class LoginComponent implements OnInit {
 
   switchAccount(): void {
     const sso = this.ssoParams();
+    const hint = sso?.['login_hint'];
     this.authService.logout();
     if (sso) {
       setTimeout(() => {
         this.router.navigate(['/login'], { queryParams: sso });
+        if (hint) {
+          this.loginForm.patchValue({ email: hint });
+        }
       }, 50);
     }
   }
