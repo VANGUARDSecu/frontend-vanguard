@@ -62,6 +62,19 @@
         </p>
       </div>
 
+      <!-- SSO Integration Banner -->
+      @if (ssoParams()) {
+        <div class="sso-banner">
+          <div class="sso-badge">
+            <span class="sso-badge-dot"></span>
+            <span>SSO Verification</span>
+          </div>
+          <p class="sso-banner-text">
+            Second-factor verification required before granting access to <strong>{{ clientDisplayName() }}</strong>.
+          </p>
+        </div>
+      }
+
       <div class="header-divider"></div>
 
       <!-- Single Timed Feedback Alert with Auto-Dismiss & Close Button -->
@@ -136,7 +149,7 @@
             <span class="spinner"></span>
             <span>Verifying...</span>
           } @else {
-            <span>Verify & Continue</span>
+            <span>{{ ssoParams() ? 'Verify & Authorize SSO' : 'Verify & Continue' }}</span>
           }
         </button>
 
@@ -174,6 +187,15 @@
                 <span>Send code to email instead</span>
               </button>
             }
+          </div>
+        }
+
+        <!-- SSO Cancel Link -->
+        @if (ssoParams()) {
+          <div class="sso-cancel-row">
+            <button type="button" class="sso-cancel-link" (click)="onCancelSso()">
+              &larr; Cancel and return to {{ clientDisplayName() }}
+            </button>
           </div>
         }
 

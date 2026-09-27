@@ -1,13 +1,107 @@
         <section class="dash-section" *ngIf="activeTab() === 'my-apps' || activeTab() === 'overview'">
           <div class="section-header">
             <div class="section-title-wrap">
-              <h2 class="section-title">My Applications (Single Sign-On)</h2>
-              <p class="section-subtitle">Launch your assigned enterprise SaaS apps with zero-trust credentials.</p>
+              <h2 class="section-title">
+                {{ isPersonalWorkspace() ? 'Personal Applications & Bookmarks' : 'My Applications (Single Sign-On)' }}
+              </h2>
+              <p class="section-subtitle">
+                {{ isPersonalWorkspace() 
+                  ? 'Manage personal web app shortcuts configured for dynamic autofill via browser extension.'
+                  : 'Launch your assigned enterprise SaaS apps with zero-trust credentials.' }}
+              </p>
             </div>
-            <button type="button" class="btn-primary-action" (click)="openRequestAppModal()">
+            <button
+              type="button"
+              class="btn-primary-action"
+              (click)="isPersonalWorkspace() ? openAddPersonalAppModal() : openRequestAppModal()"
+            >
               <span class="btn-plus">+</span>
-              <span>Request Application</span>
+              <span>{{ isPersonalWorkspace() ? 'Add Application' : 'Request Application' }}</span>
             </button>
+          </div>
+
+          <!-- ================================================================
+               SCRUM-57: Active SSO Integrations & Connected Client Applications
+               ================================================================ -->
+          <div class="connected-integrations-section" *ngIf="activeConnectedApps().length > 0">
+            <div class="sub-section-header">
+              <div class="sub-section-title-wrap">
+                <h3 class="sub-section-title">
+                  <span>Active SSO Integrations & Connected Applications</span>
+                  <span class="active-pulse-badge">
+                    <span class="pulse-dot"></span>
+                    {{ activeConnectedApps().length }} Active Connection
+                  </span>
+                </h3>
+                <p class="sub-section-desc">
+                  External client applications actively connected to your Vanguard Security identity via Single Sign-On.
+                </p>
+              </div>
+            </div>
+
+            <div class="connected-apps-grid">
+              <div class="connected-app-card" *ngFor="let conn of activeConnectedApps()">
+                <div class="connected-card-top">
+                  <div class="connected-icon-box">{{ conn.icon || '🌐' }}</div>
+                  <div class="connected-card-badges">
+                    <span class="status-live-pill">
+                      <span class="pulse-dot"></span>
+                      Currently Connected
+                    </span>
+                    <span class="proto-tag">{{ conn.protocol }}</span>
+                  </div>
+                </div>
+
+                <div class="connected-card-body">
+                  <h4 class="connected-app-title">{{ conn.clientName }}</h4>
+                  <div class="connected-target-pill">
+                    <span class="target-label">Target URL:</span>
+                    <a [href]="conn.originUrl" target="_blank" class="target-link">{{ conn.originUrl }}</a>
+                  </div>
+                  <p class="connected-app-desc">{{ conn.description }}</p>
+
+                  <div class="connected-meta-table">
+                    <div class="meta-row">
+                      <span class="meta-k">Client ID:</span>
+                      <code class="meta-v-code">{{ conn.clientId }}</code>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-k">Redirect URI:</span>
+                      <span class="meta-v">{{ conn.redirectUri }}</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-k">Authorized Scopes:</span>
+                      <div class="scopes-wrap">
+                        <span class="scope-chip" *ngFor="let sc of conn.scopes">{{ sc }}</span>
+                      </div>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-k">Connection Status:</span>
+                      <span class="meta-v-active">Active Session • {{ conn.lastActiveAt || 'Just now' }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="connected-card-actions">
+                  <button type="button" class="btn-launch-connected" (click)="launchConnectedApp(conn)">
+                    <span>Open {{ conn.clientName }}</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="launch-icon">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-disconnect-conn"
+                    (click)="disconnectApp(conn.clientId)"
+                    title="Disconnect this application from your Vanguard account"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="category-filter-bar">
@@ -17,7 +111,7 @@
               [class.active]="selectedCategory() === 'all'"
               (click)="setCategory('all')"
             >
-              All Applications ({{ apps().length }})
+              All Applications ({{ activeAppsList().length }})
             </button>
             <button
               type="button"
@@ -53,13 +147,36 @@
                   <span class="group-inherited-tag" *ngIf="app.inheritedViaGroup" [title]="'Assigned via ' + app.inheritedViaGroup">
                     👥 {{ app.inheritedViaGroup }}
                   </span>
+                  <span class="vault-matched-tag" *ngIf="isPersonalWorkspace() && getMatchingVaultCredentials(app).length > 0" title="Auto-fill credentials detected in personal vault">
+                    ⚡ Auto-fill Ready
+                  </span>
+                  <span class="status-live-pill" *ngIf="app.isIntegrated || app.connectionStatus === 'Currently Connected'" title="Currently connected to this application">
+                    <span class="pulse-dot"></span>
+                    Currently Connected
+                  </span>
                   <span class="proto-tag">{{ app.protocol }}</span>
+                  <button
+                    type="button"
+                    class="btn-card-del"
+                    *ngIf="isPersonalWorkspace()"
+                    (click)="deletePersonalApp(app.id, $event)"
+                    title="Remove shortcut"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
               <h3 class="app-name">{{ app.name }}</h3>
               <p class="app-desc">{{ app.description }}</p>
+
+              <div class="app-meta-row" *ngIf="isPersonalWorkspace() && getMatchingVaultCredentials(app).length > 0">
+                <span class="vault-linked-info">
+                  🔑 Linked: {{ getMatchingVaultCredentials(app)[0].username || getMatchingVaultCredentials(app)[0].title }}
+                </span>
+              </div>
+
               <button type="button" class="btn-launch-app" (click)="launchApp(app)">
-                <span>Launch App</span>
+                <span>Launch & Auto-fill</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="launch-icon">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                   <polyline points="15 3 21 3 21 9"></polyline>
@@ -70,18 +187,219 @@
 
             <div class="empty-card-wrap" *ngIf="filteredApps().length === 0">
               <span class="empty-icon">📦</span>
-              <h4 class="empty-title">No applications assigned</h4>
-              <p class="empty-desc">You do not have any single sign-on applications assigned to your account. You can request access using the button below.</p>
-              <button type="button" class="btn-primary-action btn-sm" (click)="openRequestAppModal()">
+              <h4 class="empty-title">
+                {{ isPersonalWorkspace() ? 'No personal applications saved' : 'No applications assigned' }}
+              </h4>
+              <p class="empty-desc">
+                {{ isPersonalWorkspace()
+                  ? 'Add your favorite web applications (Figma, Facebook, GitHub, AWS, etc.) for dynamic autofill via the Vanguard browser extension.'
+                  : 'You do not have any single sign-on applications assigned to your account. You can request access using the button below.' }}
+              </p>
+              <button
+                type="button"
+                class="btn-primary-action btn-sm"
+                (click)="isPersonalWorkspace() ? openAddPersonalAppModal() : openRequestAppModal()"
+              >
                 <span class="btn-plus">+</span>
-                <span>Request Application</span>
+                <span>{{ isPersonalWorkspace() ? 'Add Application' : 'Request Application' }}</span>
               </button>
+            </div>
+          </div>
+
+          <!-- ================================================================
+               SCRUM-42: Requested Applications (Pending Approval & Access Queue)
+               ================================================================ -->
+          <div class="requested-apps-section" *ngIf="!isPersonalWorkspace() && myAccessRequests().length > 0">
+            <div class="sub-section-header">
+              <div class="sub-section-title-wrap">
+                <h3 class="sub-section-title">
+                  <span>Requested Applications & Access Status</span>
+                  <span class="pending-count-badge" *ngIf="pendingRequestsCount() > 0">
+                    {{ pendingRequestsCount() }} Pending Review
+                  </span>
+                </h3>
+                <p class="sub-section-desc">
+                  Zero-trust access requests submitted for administrator review and governance approval.
+                </p>
+              </div>
+            </div>
+
+            <div class="requests-grid">
+              <div
+                class="request-card"
+                *ngFor="let req of myAccessRequests()"
+                [class.pending]="req.status === 'Pending Approval'"
+                [class.approved]="req.status === 'Approved'"
+                [class.rejected]="req.status === 'Rejected'"
+              >
+                <div class="request-card-top">
+                  <div class="request-icon-box">{{ req.icon || '🚀' }}</div>
+                  <div class="request-card-badges">
+                    <span class="request-status-badge pending" *ngIf="req.status === 'Pending Approval'">
+                      ⏳ Pending Approval
+                    </span>
+                    <span class="request-status-badge approved" *ngIf="req.status === 'Approved'">
+                      ✓ Approved & Assigned
+                    </span>
+                    <span class="request-status-badge rejected" *ngIf="req.status === 'Rejected'">
+                      ✕ Access Rejected
+                    </span>
+                    <span class="proto-tag">{{ req.protocol }}</span>
+                  </div>
+                </div>
+
+                <h4 class="request-app-name">{{ req.appName }}</h4>
+                <p class="request-justification">
+                  <span class="justification-label">Business Justification:</span>
+                  {{ req.justification }}
+                </p>
+
+                <div class="request-meta-row">
+                  <span class="meta-label">Submitted: {{ req.submittedAt | date:'mediumDate' }}</span>
+                  <span class="meta-reviewed" *ngIf="req.reviewedBy && req.status !== 'Pending Approval'">
+                    • Reviewer: {{ req.reviewedBy }}
+                  </span>
+                </div>
+
+                <div class="request-admin-note" *ngIf="req.status === 'Rejected' && req.adminNotes">
+                  <span class="note-icon">⚠️</span>
+                  <span><strong>Reason:</strong> {{ req.adminNotes }}</span>
+                </div>
+
+                <div class="request-action-area">
+                  <!-- Disabled Launch for Pending requests per SCRUM-42 -->
+                  <button
+                    type="button"
+                    class="btn-request-disabled"
+                    *ngIf="req.status === 'Pending Approval'"
+                    disabled
+                    title="Access is pending administrator review. Launch disabled until approval."
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lock-icon">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span>Pending Review (Launch Disabled)</span>
+                  </button>
+
+                  <!-- Active Launch for Approved requests -->
+                  <button
+                    type="button"
+                    class="btn-launch-app"
+                    *ngIf="req.status === 'Approved'"
+                    (click)="launchApprovedRequest(req)"
+                  >
+                    <span>Launch & Auto-fill</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="launch-icon">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                  </button>
+
+                  <!-- Zero-Trust Assertion Guard Notice for Rejected -->
+                  <div class="request-denied-badge" *ngIf="req.status === 'Rejected'">
+                    <span>🔒 Zero-Trust Guard: Assertion Blocked</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- USER TAB 2: SECURITY & MFA -->
+  <!-- ========================================================================
+       MODAL: ADD PERSONAL APPLICATION (SCRUM-52)
+       ======================================================================== -->
+  <div class="modal-backdrop" *ngIf="showAddPersonalAppModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Add Personal Application</h3>
+          <p class="modal-desc" style="margin: 4px 0 0 0; font-size: 12px;">Configure a web app bookmark for browser extension autofill</p>
+        </div>
+        <button type="button" class="modal-close-btn" (click)="closeAddPersonalAppModal()">✕</button>
+      </div>
 
+      <div class="modal-body">
+        <!-- Quick Presets -->
+        <div class="preset-section">
+          <label class="form-label">Quick Presets</label>
+          <div class="preset-pill-group">
+            <button type="button" class="preset-pill" (click)="applyPreset('figma')">🎨 Figma</button>
+            <button type="button" class="preset-pill" (click)="applyPreset('facebook')">📘 Facebook</button>
+            <button type="button" class="preset-pill" (click)="applyPreset('github')">🐙 GitHub</button>
+            <button type="button" class="preset-pill" (click)="applyPreset('notion')">📝 Notion</button>
+            <button type="button" class="preset-pill" (click)="applyPreset('google')">🔍 Google</button>
+            <button type="button" class="preset-pill" (click)="applyPreset('custom')">🌐 Custom</button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label class="form-label">Application Name *</label>
+            <input
+              type="text"
+              [(ngModel)]="newAppName"
+              placeholder="e.g. Figma, Facebook, Jira"
+              class="form-input"
+            />
+          </div>
+          <div class="form-group" style="width: 80px;">
+            <label class="form-label">Icon</label>
+            <input
+              type="text"
+              [(ngModel)]="newAppIcon"
+              placeholder="Icon"
+              class="form-input text-center"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Login / Web URL *</label>
+          <input
+            type="url"
+            [(ngModel)]="newAppUrl"
+            placeholder="https://example.com/login"
+            class="form-input"
+          />
+          <span class="form-helper">The Vanguard browser extension uses this domain to autofill your credentials</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select [(ngModel)]="newAppCategory" class="form-select">
+            <option value="collaboration">Team Collaboration</option>
+            <option value="developer">Developer Tools</option>
+            <option value="cloud">Cloud & Infrastructure</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description (Optional)</label>
+          <input
+            type="text"
+            [(ngModel)]="newAppDescription"
+            placeholder="Personal workspace, projects, etc."
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-error-alert" *ngIf="addAppError()">
+          ⚠️ {{ addAppError() }}
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="closeAddPersonalAppModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" (click)="submitAddPersonalApp()">Add to Applications</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: REQUEST APPLICATION (ENTERPRISE ORG)
+       ======================================================================== -->
   <div class="modal-backdrop" *ngIf="showRequestAppModal()">
     <div class="modal-card">
       <div class="modal-header">
@@ -125,7 +443,3 @@
       </div>
     </div>
   </div>
-
-  <!-- ========================================================================
-       MODAL: ENROLL AUTHENTICATOR APP (USER)
-       ======================================================================== -->

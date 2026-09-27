@@ -28,6 +28,24 @@ export const passwordMatchValidator: ValidatorFn = (
     : { passwordMismatch: true };
 };
 
+/**
+ * Custom validator enforcing at least 8 characters, uppercase, lowercase, and special character
+ */
+export const strongPasswordValidator: ValidatorFn = (
+  control: AbstractControl
+): ValidationErrors | null => {
+  const value = control.value;
+  if (!value) return null;
+
+  const errors: ValidationErrors = {};
+  if (value.length < 8) errors['minlength'] = true;
+  if (!/[a-z]/.test(value)) errors['missingLower'] = true;
+  if (!/[A-Z]/.test(value)) errors['missingUpper'] = true;
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(value)) errors['missingSpecial'] = true;
+
+  return Object.keys(errors).length > 0 ? errors : null;
+};
+
 @Component({
   selector: 'app-register',
   standalone: true,
@@ -40,20 +58,38 @@ export class RegisterComponent {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
-  // Registration Form definition with JumpCloud fields
+  // Account Type Selection: 'individual' (Personal Vault) vs 'company' (Enterprise Directory)
+  readonly accountType = signal<'individual' | 'company'>('individual');
+
+  // Registration Form definition
   readonly registerForm: FormGroup = this.fb.group(
     {
       firstName: ['', [Validators.required, Validators.minLength(2)]],
       lastName: ['', [Validators.required, Validators.minLength(2)]],
-      companyName: ['', [Validators.required, Validators.minLength(2)]],
+      companyName: [''],
       email: ['', [Validators.required, Validators.email]],
-      phone: ['', [Validators.required, Validators.pattern(/^[+]?[\d\s().-]{7,20}$/)]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+      phone: [''],
+      password: ['', [Validators.required, strongPasswordValidator]],
       confirmPassword: ['', [Validators.required]],
       agreeTerms: [false, [Validators.requiredTrue]],
     },
     { validators: passwordMatchValidator }
   );
+
+  setAccountType(type: 'individual' | 'company'): void {
+    this.accountType.set(type);
+    const companyControl = this.registerForm.get('companyName');
+    const phoneControl = this.registerForm.get('phone');
+    if (type === 'individual') {
+      companyControl?.clearValidators();
+      phoneControl?.clearValidators();
+    } else {
+      companyControl?.setValidators([Validators.required, Validators.minLength(2)]);
+      phoneControl?.setValidators([Validators.required, Validators.pattern(/^[+]?[\d\s().-]{7,20}$/)]);
+    }
+    companyControl?.updateValueAndValidity();
+    phoneControl?.updateValueAndValidity();
+  }
 
   // State signals
   readonly showPassword = signal<boolean>(false);
@@ -116,11 +152,44 @@ export class RegisterComponent {
     this.notification.set(null);
   }
 
+  get passwordControl() {
+    return this.registerForm.get('password');
+  }
+
+  get passwordValue(): string {
+    return this.passwordControl?.value || '';
+  }
+
+  get hasMinLength(): boolean {
+    return this.passwordValue.length >= 8;
+  }
+
+  get hasLower(): boolean {
+    return /[a-z]/.test(this.passwordValue);
+  }
+
+  get hasUpper(): boolean {
+    return /[A-Z]/.test(this.passwordValue);
+  }
+
+  get hasSpecial(): boolean {
+    return /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(this.passwordValue);
+  }
+
+  get allPasswordRulesMet(): boolean {
+    return this.hasMinLength && this.hasLower && this.hasUpper && this.hasSpecial;
+  }
+
   onSubmit(): void {
     this.submitted.set(true);
 
     if (this.registerForm.invalid) {
-      if (this.registerForm.errors?.['passwordMismatch']) {
+      if (this.registerForm.get('password')?.invalid) {
+        this.showNotification(
+          'error',
+          'Password must be at least 8 characters long with uppercase, lowercase, and a special character.'
+        );
+      } else if (this.registerForm.errors?.['passwordMismatch']) {
         this.showNotification('error', 'Passwords do not match. Please verify both fields.');
       } else if (this.registerForm.get('agreeTerms')?.invalid) {
         this.showNotification('error', 'Please accept the Terms of Service and Privacy Policy.');
@@ -132,14 +201,18 @@ export class RegisterComponent {
 
     this.isLoading.set(true);
     const formVal = this.registerForm.value;
+    const type = this.accountType();
 
     const payload = {
       email: formVal.email.trim(),
       password: formVal.password,
       firstName: formVal.firstName.trim(),
       lastName: formVal.lastName.trim(),
-      companyName: formVal.companyName.trim(),
-      phone: formVal.phone.trim(),
+      companyName: type === 'company'
+        ? (formVal.companyName?.trim() || '')
+        : (formVal.companyName?.trim() || `${formVal.firstName.trim()}'s Personal Vault`),
+      phone: formVal.phone?.trim() || '',
+      accountType: type,
     };
 
     this.authService.signup(payload).subscribe({

@@ -14,10 +14,52 @@ export interface SaaSApp {
   category: 'cloud' | 'developer' | 'collaboration' | 'custom';
   description: string;
   icon: string;
-  protocol: 'SAML 2.0' | 'OIDC';
+  protocol: 'SAML 2.0' | 'OIDC' | 'OAuth 2.0' | 'Web Auth';
   launchUrl: string;
   assigned: boolean;
   inheritedViaGroup?: string;
+  status?: string;
+  isIntegrated?: boolean;
+  connectedUrl?: string;
+  connectionStatus?: string;
+}
+
+export interface UserConnectedApp {
+  id: string;
+  clientId: string;
+  clientName: string;
+  userEmail?: string;
+  protocol: string;
+  scopes: string[];
+  redirectUri: string;
+  originUrl: string;
+  status: 'Connected' | 'Active' | 'Disconnected';
+  connectedAt: string;
+  lastActiveAt?: string;
+  icon?: string;
+  description?: string;
+}
+
+export type AccessRequestStatus = 'Pending Approval' | 'Approved' | 'Rejected';
+
+export interface AppAccessRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  department: string;
+  role: string;
+  appName: string;
+  protocol: 'SAML 2.0' | 'OIDC' | 'OAuth 2.0' | 'Web Auth';
+  category: 'cloud' | 'developer' | 'collaboration' | 'custom';
+  icon?: string;
+  launchUrl?: string;
+  justification: string;
+  status: AccessRequestStatus;
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  adminNotes?: string;
 }
 
 export interface SignInEvent {
@@ -347,7 +389,7 @@ export interface TenantOrganization {
   id: string;
   name: string;
   slug: string;
-  tier: 'Enterprise' | 'Business' | 'Starter' | 'Trial';
+  tier: 'Enterprise' | 'Business' | 'Starter' | 'Trial' | 'Personal';
   domain?: string;
   logoUrl?: string;
   primaryContactEmail?: string;
@@ -368,3 +410,27 @@ export interface TenantBranding {
   emailButtonText?: string;
   supportEmail?: string;
 }
+
+export interface PersonalVaultItem {
+  id: string;
+  userId?: string;
+  title: string;
+  category: 'Login' | 'Card' | 'Identity' | 'Secure Note';
+  username: string;
+  password?: string;
+  totpSecret?: string;
+  url?: string;
+  notes?: string;
+  favorite?: boolean;
+  updatedAt: string;
+}
+
+export interface TotpAccount {
+  id: string;
+  issuer: string;
+  accountName: string;
+  secret: string;
+  currentCode?: string;
+  remainingSeconds?: number;
+}
+

@@ -1,4 +1,4 @@
-﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -38,7 +38,7 @@ describe('RegisterComponent', () => {
       companyName: 'Acme Security',
       email: 'john@acme.com',
       phone: '+15550192834',
-      password: 'Password123',
+      password: 'Password123!',
       confirmPassword: 'MismatchPassword',
       agreeTerms: true,
     });
@@ -46,10 +46,48 @@ describe('RegisterComponent', () => {
     expect(component.registerForm.errors?.['passwordMismatch']).toBeTruthy();
 
     component.registerForm.patchValue({
-      confirmPassword: 'Password123',
+      confirmPassword: 'Password123!',
     });
 
     expect(component.registerForm.errors?.['passwordMismatch']).toBeFalsy();
     expect(component.registerForm.valid).toBeTruthy();
+  });
+
+  it('should enforce password complexity: 8+ chars, lowercase, uppercase, and special char', () => {
+    const passwordControl = component.registerForm.get('password');
+
+    // Too short (< 8 chars)
+    passwordControl?.setValue('Short1!');
+    expect(passwordControl?.hasError('minlength')).toBe(true);
+
+    // Missing lowercase
+    passwordControl?.setValue('PASSWORD123!');
+    expect(passwordControl?.hasError('missingLower')).toBe(true);
+
+    // Missing uppercase
+    passwordControl?.setValue('password123!');
+    expect(passwordControl?.hasError('missingUpper')).toBe(true);
+
+    // Missing special character
+    passwordControl?.setValue('Password123');
+    expect(passwordControl?.hasError('missingSpecial')).toBe(true);
+
+    // Valid strong password (like user's example Manayon123!)
+    passwordControl?.setValue('Manayon123!');
+    expect(passwordControl?.valid).toBe(true);
+    expect(component.allPasswordRulesMet).toBe(true);
+  });
+
+  it('should switch account type between individual and company and adjust validators', () => {
+    expect(component.accountType()).toBe('individual');
+    expect(component.registerForm.get('companyName')?.hasError('required')).toBeFalsy();
+
+    component.setAccountType('company');
+    expect(component.accountType()).toBe('company');
+    expect(component.registerForm.get('companyName')?.hasError('required')).toBeTruthy();
+
+    component.setAccountType('individual');
+    expect(component.accountType()).toBe('individual');
+    expect(component.registerForm.get('companyName')?.hasError('required')).toBeFalsy();
   });
 });

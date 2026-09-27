@@ -1,12 +1,15 @@
-/* ==========================================================================
-   TOP CYBER HEADER
-   ========================================================================== */
-
-.dashboard-header {
+:host {
+  display: block;
   width: 100%;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 1000;
+}
+
+.dashboard-header {
+  width: 100%;
+  position: relative;
+  z-index: 1000;
   background: linear-gradient(180deg, #091136 0%, #060c28 100%);
   border-bottom: 1px solid rgba(59, 130, 246, 0.2);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
@@ -16,7 +19,7 @@
   justify-content: space-between;
   gap: 20px;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .header-cyber-pattern {
@@ -61,7 +64,7 @@
 /* Left: Branding */
 .header-left {
   position: relative;
-  z-index: 2;
+  z-index: 1002;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -246,6 +249,14 @@
   color: #60a5fa;
 }
 
+.user-role-tag.individual-tag {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
 .logout-btn-header {
   display: flex;
   align-items: center;
@@ -279,6 +290,7 @@
 
 .org-switcher-container {
   position: relative;
+  z-index: 1003;
   margin-left: 12px;
 }
 
@@ -321,7 +333,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 140px;
+  max-width: clamp(140px, 20vw, 260px);
 }
 
 .org-name-text {
@@ -360,16 +372,17 @@
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  width: 280px;
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: 320px;
+  background: #0b1130;
+  border: 1px solid rgba(59, 130, 246, 0.4);
   border-radius: 12px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
-  z-index: 999;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(59, 130, 246, 0.25);
+  z-index: 99999;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: fadeInDown 0.15s ease-out;
+  backdrop-filter: blur(16px);
 }
 
 @keyframes fadeInDown {
@@ -528,4 +541,276 @@
   width: 14px;
   height: 14px;
   color: #60a5fa;
+}
+
+/* SCRUM-50: Individual Personal Vault Header Elements */
+.individual-vault-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: rgba(14, 23, 62, 0.7);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+}
+
+.indiv-icon-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.indiv-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.indiv-name-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.indiv-pill {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.btn-upgrade-org {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(168, 85, 247, 0.15));
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 7px;
+  color: #c084fc;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-upgrade-org:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(168, 85, 247, 0.25));
+  border-color: #c084fc;
+  color: #f3e8ff;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+}
+
+.upgrade-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.upgrade-modal {
+  max-width: 520px;
+}
+
+.upgrade-intro {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.upgrade-feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.feat-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 6px;
+  color: #93c5fd;
+}
+
+/* SCRUM-52: Universal Workspace Switcher */
+.dropdown-sub-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  padding: 8px 12px 4px 12px;
+  text-transform: uppercase;
+}
+
+.avatar-personal {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  font-size: 14px !important;
+}
+
+.personal-badge {
+  background: rgba(16, 185, 129, 0.2) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  font-size: 14px;
+}
+
+.pill-personal {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+/* Upgrade Modal Backdrop & Form Styles */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.modal-box.cyber-modal {
+  background: #0b1130;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(59, 130, 246, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeInDown 0.2s ease-out;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal-heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.modal-close-btn:hover {
+  color: #ffffff;
+}
+
+.modal-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(2, 6, 23, 0.3);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.cyber-input {
+  background: rgba(14, 23, 62, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cyber-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.form-hint {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.btn-cyber-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border: 1px solid rgba(59, 130, 246, 0.6);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cyber-primary:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+}
+
+.btn-cyber-secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cyber-secondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f1f5f9;
 }

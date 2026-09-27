@@ -38,7 +38,7 @@
       <div *ngIf="viewMode() === 'admin'">
         <app-admin-overview *ngIf="activeTab() === 'overview'"></app-admin-overview>
         <app-admin-directory *ngIf="activeTab() === 'directory'"></app-admin-directory>
-        <app-admin-saml-oidc *ngIf="activeTab() === 'saml-oidc'"></app-admin-saml-oidc>
+        <app-admin-saml-oidc *ngIf="activeTab() === 'saml-oidc' || activeTab() === 'access-requests'"></app-admin-saml-oidc>
         <app-admin-cloud-ldap *ngIf="activeTab() === 'cloud-ldap'"></app-admin-cloud-ldap>
         <app-admin-cloud-radius *ngIf="activeTab() === 'cloud-radius'"></app-admin-cloud-radius>
         <app-admin-audit-logs *ngIf="activeTab() === 'audit-logs'"></app-admin-audit-logs>
@@ -48,14 +48,22 @@
       </div>
 
       <!-- ====================================================================
-           VIEW 2: USER PORTAL
+           VIEW 2: USER PORTAL & PERSONAL VAULT
            ==================================================================== -->
       <div *ngIf="viewMode() === 'user'">
-        <app-user-my-apps *ngIf="activeTab() === 'my-apps' || activeTab() === 'overview'"></app-user-my-apps>
+        <!-- Personal Credential Vault (Individual & Company Users) -->
+        <app-user-personal-vault *ngIf="activeTab() === 'personal-vault'"></app-user-personal-vault>
+
+        <!-- 2FA Authenticator (Individual & Company Users) -->
+        <app-user-authenticator *ngIf="activeTab() === 'authenticator'"></app-user-authenticator>
+
+        <!-- Applications Launcher (Personal Apps or Enterprise SSO) -->
+        <app-user-my-apps *ngIf="activeTab() === 'my-apps' || (!isPersonalWorkspace() && activeTab() === 'overview')"></app-user-my-apps>
+
         <app-user-security *ngIf="activeTab() === 'user-security'"></app-user-security>
-        <app-user-network *ngIf="activeTab() === 'user-network'"></app-user-network>
+        <app-user-network *ngIf="!isIndividual() && activeTab() === 'user-network'"></app-user-network>
         <app-user-ssh *ngIf="activeTab() === 'user-ssh'"></app-user-ssh>
-        <app-user-activity *ngIf="activeTab() === 'user-activity'"></app-user-activity>
+        <app-user-activity *ngIf="!isIndividual() && activeTab() === 'user-activity'"></app-user-activity>
         <app-user-devices *ngIf="activeTab() === 'user-devices'"></app-user-devices>
       </div>
     </main>

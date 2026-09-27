@@ -1,4 +1,4 @@
-﻿<div class="register-wrapper">
+<div class="register-wrapper">
   
   <!-- Cyber Grid Background Overlay -->
   <div class="cyber-grid-overlay" aria-hidden="true"></div>
@@ -60,6 +60,40 @@
       <!-- Registration Form -->
       <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="register-form" novalidate>
         
+        <!-- Account Type Selector Cards (SCRUM-50) -->
+        <div class="account-type-section">
+          <label class="form-label">CHOOSE YOUR ACCOUNT TYPE</label>
+          <div class="account-type-grid">
+            <button
+              type="button"
+              class="account-type-card"
+              [class.active]="accountType() === 'individual'"
+              (click)="setAccountType('individual')"
+            >
+              <div class="account-type-badge">👤</div>
+              <div class="account-type-info">
+                <strong class="account-type-name">Individual / Personal</strong>
+                <span class="account-type-desc">Password vault, 2FA authenticator & SSH keys</span>
+              </div>
+              <span class="type-check-indicator" *ngIf="accountType() === 'individual'">✓</span>
+            </button>
+
+            <button
+              type="button"
+              class="account-type-card"
+              [class.active]="accountType() === 'company'"
+              (click)="setAccountType('company')"
+            >
+              <div class="account-type-badge">🏢</div>
+              <div class="account-type-info">
+                <strong class="account-type-name">Company / Organization</strong>
+                <span class="account-type-desc">Enterprise directory, SSO, SAML, RADIUS & LDAP</span>
+              </div>
+              <span class="type-check-indicator" *ngIf="accountType() === 'company'">✓</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Name Row: First Name & Last Name (2-Column) -->
         <div class="form-row-two-col">
           
@@ -111,8 +145,8 @@
 
         </div>
 
-        <!-- Company / Organization -->
-        <div class="form-group">
+        <!-- Company / Organization (Only required for Company Mode) -->
+        <div class="form-group" *ngIf="accountType() === 'company'">
           <label for="companyName" class="form-label">COMPANY / ORGANIZATION</label>
           <div class="input-wrapper" [class.input-error]="submitted() && registerForm.get('companyName')?.invalid">
             <span class="input-icon" aria-hidden="true">
@@ -134,9 +168,9 @@
           }
         </div>
 
-        <!-- Work Email Address -->
+        <!-- Email Address -->
         <div class="form-group">
-          <label for="email" class="form-label">WORK EMAIL ADDRESS</label>
+          <label for="email" class="form-label">{{ accountType() === 'individual' ? 'EMAIL ADDRESS' : 'WORK EMAIL ADDRESS' }}</label>
           <div class="input-wrapper" [class.input-error]="submitted() && registerForm.get('email')?.invalid">
             <span class="input-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="currentColor">
@@ -147,22 +181,22 @@
               id="email"
               type="email"
               formControlName="email"
-              placeholder="you@company.com"
+              [placeholder]="accountType() === 'individual' ? 'you@example.com' : 'you@company.com'"
               autocomplete="email"
               class="form-input"
             />
           </div>
           @if (submitted() && registerForm.get('email')?.errors) {
             <span class="field-error">
-              @if (registerForm.get('email')?.hasError('required')) { Work email is required }
+              @if (registerForm.get('email')?.hasError('required')) { Email address is required }
               @else if (registerForm.get('email')?.hasError('email')) { Please enter a valid email address }
             </span>
           }
         </div>
 
-        <!-- Phone Number (Required for MFA & Mobile app) -->
+        <!-- Phone Number -->
         <div class="form-group">
-          <label for="phone" class="form-label">PHONE NUMBER (FOR MFA & MOBILE APP)</label>
+          <label for="phone" class="form-label">{{ accountType() === 'individual' ? 'PHONE NUMBER (OPTIONAL)' : 'PHONE NUMBER (FOR MFA & MOBILE APP)' }}</label>
           <div class="input-wrapper" [class.input-error]="submitted() && registerForm.get('phone')?.invalid">
             <span class="input-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="currentColor">
@@ -196,7 +230,7 @@
               id="password"
               [type]="showPassword() ? 'text' : 'password'"
               formControlName="password"
-              placeholder="Enter strong password (min 6 characters)"
+              placeholder="Enter strong password (min 8 characters)"
               autocomplete="new-password"
               class="form-input"
             />
@@ -220,10 +254,34 @@
               }
             </button>
           </div>
+
+          <!-- Real-Time Password Security Criteria Checklist -->
+          <div class="password-criteria-list" *ngIf="passwordValue.length > 0 || submitted()">
+            <div class="criteria-item" [class.met]="hasMinLength">
+              <span class="criteria-icon">{{ hasMinLength ? '✓' : '○' }}</span>
+              <span>8+ characters</span>
+            </div>
+            <div class="criteria-item" [class.met]="hasLower">
+              <span class="criteria-icon">{{ hasLower ? '✓' : '○' }}</span>
+              <span>Lowercase letter (a-z)</span>
+            </div>
+            <div class="criteria-item" [class.met]="hasUpper">
+              <span class="criteria-icon">{{ hasUpper ? '✓' : '○' }}</span>
+              <span>Uppercase letter (A-Z)</span>
+            </div>
+            <div class="criteria-item" [class.met]="hasSpecial">
+              <span class="criteria-icon">{{ hasSpecial ? '✓' : '○' }}</span>
+              <span>Special letter (!@#$...)</span>
+            </div>
+          </div>
+
           @if (submitted() && registerForm.get('password')?.errors) {
             <span class="field-error">
-              @if (registerForm.get('password')?.hasError('required')) { Password is required }
-              @else if (registerForm.get('password')?.hasError('minlength')) { Password must be at least 6 characters }
+              @if (registerForm.get('password')?.hasError('required')) {
+                Password is required
+              } @else {
+                Password must be at least 8 characters with upper, lower, and special character
+              }
             </span>
           }
         </div>

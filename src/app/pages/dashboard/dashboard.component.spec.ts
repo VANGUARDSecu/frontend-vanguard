@@ -109,7 +109,7 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
   // ==========================================
   // PHASE 2 TESTS
   // ==========================================
-  it('should initialize with empty applications and handle app requests dynamically', () => {
+  it('should initialize with empty applications and handle app requests dynamically via approval workflow (SCRUM-42)', () => {
     expect(component.apps().length).toBe(0);
     expect(component.filteredApps().length).toBe(0);
 
@@ -117,13 +117,26 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
     component.requestAppJustification = 'Cloud infrastructure access';
     component.submitAppRequest();
 
+    // Verified: request queued with Pending Approval status and not immediately granted
+    expect(component.apps().length).toBe(0);
+    const req = component.pendingAccessRequests().find((r) => r.appName === 'AWS IAM Identity Center');
+    expect(req).toBeDefined();
+    expect(req?.status).toBe('Pending Approval');
+
+    // Admin approves request -> assigns app to active launchpad
+    component.approveAccessRequest(req!.id);
     expect(component.apps().length).toBe(1);
     expect(component.apps()[0].name).toBe('AWS IAM Identity Center');
+    expect(component.apps()[0].assigned).toBe(true);
   });
 
   it('should filter applications by category', () => {
     component.requestedAppName = 'AWS IAM';
     component.submitAppRequest();
+    const req = component.pendingAccessRequests().find((r) => r.appName === 'AWS IAM');
+    if (req) {
+      component.approveAccessRequest(req.id);
+    }
 
     component.setCategory('cloud');
     expect(component.selectedCategory()).toBe('cloud');
@@ -136,6 +149,10 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
   it('should trigger SSO launch simulation notification', () => {
     component.requestedAppName = 'AWS Cloud';
     component.submitAppRequest();
+    const req = component.pendingAccessRequests().find((r) => r.appName === 'AWS Cloud');
+    if (req) {
+      component.approveAccessRequest(req.id);
+    }
     const app = component.apps()[0];
     component.launchApp(app);
     expect(component.ssoLaunchingNotice()).toContain(app.name);
@@ -282,6 +299,72 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
 
     component.closeInviteModal();
     expect(component.showInviteModal()).toBe(false);
+  });
+
+  it('should support dynamic department and role entry, suggestions, and filtering (SCRUM-37)', () => {
+    const sendSpy = vi.spyOn(authService, 'sendInviteEmail').mockReturnValue(
+      of({ success: true, message: 'Invite sent' })
+    );
+
+    // Verify baseline defaults are present
+    expect(component.availableDepartments()).toContain('Engineering');
+    expect(component.availableDepartments()).toContain('Security Ops');
+    expect(component.availableDepartments()).toContain('Human Resources');
+    expect(component.availableRoles()).toContain('Directory Member');
+    expect(component.availableRoles()).toContain('Security Officer');
+
+    // Validation: blank department or role is rejected
+    component.openInviteModal();
+    component.inviteFirstName = 'Legal';
+    component.inviteLastName = 'Counsel';
+    component.inviteEmail = 'counsel@vanguard.security';
+    component.inviteDepartment = '   ';
+    component.submitInviteUser();
+    expect(component.inviteError()).toContain('fill out all required fields');
+    expect(component.inviteSuccess()).toBe(false);
+
+    component.inviteDepartment = 'Corporate Legal';
+    component.inviteRole = '   ';
+    component.submitInviteUser();
+    expect(component.inviteError()).toContain('fill out all required fields');
+    expect(component.inviteSuccess()).toBe(false);
+
+    // Valid submission with custom department and custom role
+    component.inviteDepartment = 'Corporate Legal';
+    component.inviteRole = 'General Counsel & DPO';
+    component.submitInviteUser();
+
+    expect(component.inviteSuccess()).toBe(true);
+    expect(component.inviteError()).toBeNull();
+
+    // Verify user is provisioned with exact custom department and role
+    const provisionedUser = component.directoryUsers().find((u) => u.email === 'counsel@vanguard.security');
+    expect(provisionedUser).toBeDefined();
+    expect(provisionedUser?.department).toBe('Corporate Legal');
+    expect(provisionedUser?.role).toBe('General Counsel & DPO');
+
+    // Verify invitation email payload received the custom strings
+    expect(sendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'counsel@vanguard.security',
+        department: 'Corporate Legal',
+        role: 'General Counsel & DPO',
+      })
+    );
+
+    // Verify availableDepartments dynamically includes the new custom department
+    expect(component.availableDepartments()).toContain('Corporate Legal');
+    // Verify availableRoles dynamically includes the new custom role
+    expect(component.availableRoles()).toContain('General Counsel & DPO');
+
+    // Verify directory filtering by custom department
+    component.setDirectoryDepartment('Corporate Legal');
+    expect(component.directoryDepartmentFilter()).toBe('Corporate Legal');
+    expect(component.filteredDirectoryUsers().length).toBeGreaterThanOrEqual(1);
+    expect(component.filteredDirectoryUsers().every((u) => u.department === 'Corporate Legal')).toBe(true);
+
+    // Reset filter
+    component.setDirectoryDepartment('all');
   });
 
   it('should prevent duplicate user creation when active email already exists (SCRUM-40)', () => {
@@ -1477,6 +1560,77 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
       component.deleteGroup(targetGroup.id);
       expect(component.directoryGroups().length).toBe(initialCount - 1);
       expect(component.directoryGroups().some((g) => g.id === targetGroup.id)).toBe(false);
+    });
+  });
+
+  describe('SCRUM-42: Admin Approval Workflow & Access Request Queue', () => {
+    it('should filter access requests by search query and status badge', () => {
+      component.setAccessRequestStatusFilter('all');
+      expect(component.filteredAccessRequests().length).toBeGreaterThanOrEqual(1);
+
+      component.setAccessRequestStatusFilter('Pending Approval');
+      expect(component.filteredAccessRequests().every((r) => r.status === 'Pending Approval')).toBe(true);
+
+      component.accessRequestSearch = 'Elena';
+      expect(component.filteredAccessRequests().every((r) => r.userName.includes('Elena') || r.userEmail.includes('Elena'))).toBe(true);
+
+      component.accessRequestSearch = '';
+      component.setAccessRequestStatusFilter('all');
+    });
+
+    it('should open Access Requests queue directly via sidebar navigation', () => {
+      component.openAccessRequestsQueue();
+      expect(component.dashboardService.viewMode()).toBe('admin');
+      expect(component.dashboardService.activeTab()).toBe('saml-oidc');
+      expect(component.dashboardService.samlSubTab()).toBe('access-requests');
+    });
+
+    it('should approve an access request, assign SaaS app, and log audit event', () => {
+      component.requestedAppName = 'Slack Enterprise Grid';
+      component.requestAppJustification = 'Org-wide security incident channels';
+      component.submitAppRequest();
+
+      const req = component.pendingAccessRequests().find((r) => r.appName === 'Slack Enterprise Grid');
+      expect(req).toBeDefined();
+
+      component.approveAccessRequest(req!.id, 'Approved for Incident Responders');
+
+      const approvedReq = component.appAccessRequests().find((r) => r.id === req!.id);
+      expect(approvedReq?.status).toBe('Approved');
+      expect(approvedReq?.adminNotes).toBe('Approved for Incident Responders');
+
+      // Check app assigned
+      const app = component.apps().find((a) => a.name === 'Slack Enterprise Grid');
+      expect(app).toBeDefined();
+      expect(app?.assigned).toBe(true);
+
+      // Check audit log
+      const auditLog = component.tenantAuditEvents().find((e) => e.action?.includes('Slack Enterprise Grid'));
+      expect(auditLog).toBeDefined();
+    });
+
+    it('should reject an access request, prevent assignment, and record rejection audit log', () => {
+      component.requestedAppName = 'High Risk Unsanctioned SaaS';
+      component.requestAppJustification = 'Personal use';
+      component.submitAppRequest();
+
+      const req = component.pendingAccessRequests().find((r) => r.appName === 'High Risk Unsanctioned SaaS');
+      expect(req).toBeDefined();
+
+      component.rejectAccessRequest(req!.id, 'Violates corporate security policy');
+
+      const rejectedReq = component.appAccessRequests().find((r) => r.id === req!.id);
+      expect(rejectedReq?.status).toBe('Rejected');
+      expect(rejectedReq?.adminNotes).toBe('Violates corporate security policy');
+
+      // Check app is NOT assigned
+      const app = component.apps().find((a) => a.name === 'High Risk Unsanctioned SaaS');
+      expect(app).toBeUndefined();
+
+      // Check audit log
+      const auditLog = component.tenantAuditEvents().find((e) => e.action?.includes('High Risk Unsanctioned SaaS'));
+      expect(auditLog).toBeDefined();
+      expect(auditLog?.status).toBe('blocked');
     });
   });
 });

@@ -108,4 +108,26 @@ describe('DashboardHeader Component (SCRUM-28 Header Org Switcher)', () => {
     expect(tabSpy).toHaveBeenCalledWith('settings');
     expect(component.showOrgDropdown()).toBe(false);
   });
+
+  it('should display Individual role tag and hide organization switcher for individual accounts', () => {
+    authService.currentUser.set({
+      id: 'usr-individual-1',
+      email: 'alex@personal.vault',
+      firstName: 'Alex',
+      lastName: 'Mercer',
+      role: 'user',
+      accountType: 'individual',
+    });
+    fixture.detectChanges();
+
+    expect(component.isIndividual()).toBe(true);
+    expect(component.userRoleLabel()).toBe('Individual');
+
+    // Workspace switcher and upgrade button should not be rendered
+    const orgSwitcher = fixture.nativeElement.querySelector('.org-switcher-container');
+    expect(orgSwitcher).toBeNull();
+
+    const upgradeBtn = fixture.nativeElement.querySelector('.individual-upgrade-wrapper');
+    expect(upgradeBtn).toBeNull();
+  });
 });

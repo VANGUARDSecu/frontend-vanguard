@@ -1,10 +1,10 @@
     <aside class="dashboard-sidebar">
       <div class="sidebar-section-label">
-        {{ viewMode() === 'admin' ? 'GOVERNANCE & PROTOCOLS' : 'PERSONAL WORKSPACE' }}
+        {{ isIndividual() ? 'PERSONAL SECURITY SUITE' : (isPersonalWorkspace() ? 'PERSONAL WORKSPACE' : (viewMode() === 'admin' ? 'GOVERNANCE & PROTOCOLS' : 'ORGANIZATION PORTAL')) }}
       </div>
 
       <!-- Navigation Links for Admin Mode -->
-      <nav class="sidebar-nav" *ngIf="viewMode() === 'admin'">
+      <nav class="sidebar-nav" *ngIf="viewMode() === 'admin' && !isPersonalWorkspace()">
         <button
           type="button"
           class="nav-link-btn"
@@ -54,6 +54,21 @@
         <button
           type="button"
           class="nav-link-btn"
+          [class.active]="activeTab() === 'access-requests' || (activeTab() === 'saml-oidc' && samlSubTab() === 'access-requests')"
+          (click)="openAccessRequestsQueue()"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <polyline points="16 11 18 13 22 9"></polyline>
+          </svg>
+          <span>Access Requests</span>
+          <span class="nav-count-badge" *ngIf="pendingAccessRequests().length > 0">{{ pendingAccessRequests().length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-link-btn"
           [class.active]="activeTab() === 'cloud-ldap'"
           (click)="setActiveTab('cloud-ldap')"
         >
@@ -87,7 +102,7 @@
           (click)="setActiveTab('audit-logs')"
         >
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
             <line x1="16" y1="13" x2="8" y2="13"></line>
             <line x1="16" y1="17" x2="8" y2="17"></line>
@@ -138,8 +153,95 @@
         </button>
       </nav>
 
-      <!-- Navigation Links for User Portal Mode -->
-      <nav class="sidebar-nav" *ngIf="viewMode() === 'user'">
+      <!-- Navigation Links for Personal Workspace Mode -->
+      <nav class="sidebar-nav" *ngIf="isPersonalWorkspace()">
+        <button
+          type="button"
+          class="nav-link-btn"
+          [class.active]="activeTab() === 'personal-vault'"
+          (click)="setActiveTab('personal-vault')"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Personal Vault</span>
+          <span class="nav-count-badge" *ngIf="vaultItems().length > 0">{{ vaultItems().length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-link-btn"
+          [class.active]="activeTab() === 'my-apps'"
+          (click)="setActiveTab('my-apps')"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span>My Applications</span>
+          <span class="nav-count-badge" *ngIf="personalApps().length > 0">{{ personalApps().length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-link-btn"
+          [class.active]="activeTab() === 'authenticator'"
+          (click)="setActiveTab('authenticator')"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+          <span>2FA Authenticator</span>
+          <span class="nav-count-badge" *ngIf="totpAccounts().length > 0">{{ totpAccounts().length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-link-btn"
+          [class.active]="activeTab() === 'user-ssh'"
+          (click)="setActiveTab('user-ssh')"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+          <span>SSH Keys</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-link-btn"
+          [class.active]="activeTab() === 'user-devices'"
+          (click)="setActiveTab('user-devices')"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span>Mobile & Devices</span>
+          <span class="nav-count-badge">{{ userDevices().length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-link-btn"
+          [class.active]="activeTab() === 'user-security'"
+          (click)="setActiveTab('user-security')"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <polyline points="9 12 11 14 15 10"></polyline>
+          </svg>
+          <span>Security & MFA</span>
+        </button>
+      </nav>
+
+      <!-- Navigation Links for Company User Portal Mode -->
+      <nav class="sidebar-nav" *ngIf="viewMode() === 'user' && !isPersonalWorkspace()">
         <button
           type="button"
           class="nav-link-btn"
@@ -150,6 +252,34 @@
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
           <span>My Applications (SSO)</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-link-btn"
+          [class.active]="activeTab() === 'personal-vault'"
+          (click)="setActiveTab('personal-vault')"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Personal Vault</span>
+          <span class="nav-count-badge" *ngIf="vaultItems().length > 0">{{ vaultItems().length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-link-btn"
+          [class.active]="activeTab() === 'authenticator'"
+          (click)="setActiveTab('authenticator')"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+          <span>2FA Authenticator</span>
+          <span class="nav-count-badge" *ngIf="totpAccounts().length > 0">{{ totpAccounts().length }}</span>
         </button>
 
         <button
@@ -227,8 +357,8 @@
       <div class="sidebar-status-box">
         <div class="status-indicator-dot"></div>
         <div class="status-text">
-          <span class="status-title">Zero-Trust Vault</span>
-          <span class="status-sub">All Protocols Online</span>
+          <span class="status-title">{{ isIndividual() ? 'Personal Security Vault' : 'Zero-Trust Vault' }}</span>
+          <span class="status-sub">{{ isIndividual() ? 'End-to-End Encrypted' : 'All Protocols Online' }}</span>
         </div>
       </div>
     </aside>

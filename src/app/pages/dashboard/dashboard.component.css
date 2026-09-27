@@ -25,14 +25,16 @@
   display: flex;
   flex: 1;
   min-height: calc(100vh - 65px);
+  width: 100%;
+  min-width: 0;
 }
 
 .dashboard-viewport {
   flex: 1;
-  padding: 32px clamp(20px, 3vw, 48px);
-  max-width: 1200px;
+  width: 100%;
+  min-width: 0;
+  padding: 24px clamp(16px, 2.5vw, 36px);
   box-sizing: border-box;
-  overflow-y: auto;
 }
 
 /* Toast Alerts */

@@ -75,11 +75,9 @@
                   (ngModelChange)="setDirectoryDepartment($event)"
                 >
                   <option value="all">All Departments</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="Security Ops">Security Ops</option>
-                  <option value="IT Infrastructure">IT Infrastructure</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Executive">Executive</option>
+                  <option *ngFor="let dept of availableDepartments()" [value]="dept">
+                    {{ dept }}
+                  </option>
                 </select>
 
                 <select
@@ -102,19 +100,19 @@
                 <table class="activity-table">
                   <thead>
                     <tr>
-                      <th>Employee Name</th>
-                      <th>Department</th>
-                      <th>Role</th>
-                      <th>Assigned Groups</th>
-                      <th>MFA Status</th>
-                      <th>Account Status</th>
-                      <th>Last Active</th>
-                      <th>Actions</th>
+                      <th class="col-user">Employee Name</th>
+                      <th class="col-dept">Department</th>
+                      <th class="col-role">Role</th>
+                      <th class="col-groups">Assigned Groups</th>
+                      <th class="col-mfa">MFA Status</th>
+                      <th class="col-account-status">Account Status</th>
+                      <th class="col-time">Last Active</th>
+                      <th class="col-actions">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr *ngFor="let u of filteredDirectoryUsers()">
-                      <td>
+                      <td class="col-user">
                         <div class="user-row-meta">
                           <div class="user-row-avatar">{{ u.initials }}</div>
                           <div class="user-row-info">
@@ -123,15 +121,15 @@
                           </div>
                         </div>
                       </td>
-                      <td>
+                      <td class="col-dept">
                         <span class="dept-chip">{{ u.department }}</span>
                       </td>
-                      <td>
+                      <td class="col-role">
                         <span class="role-badge" [class.admin-badge]="u.role === 'Super Administrator'">
                           {{ u.role }}
                         </span>
                       </td>
-                      <td>
+                      <td class="col-groups">
                         <div class="user-groups-preview" *ngIf="getUserGroups(u).length > 0">
                           <span class="user-group-tag" *ngFor="let g of getUserGroups(u)">
                             {{ g.name }}
@@ -139,12 +137,12 @@
                         </div>
                         <span class="no-group-text" *ngIf="getUserGroups(u).length === 0">No groups</span>
                       </td>
-                      <td>
+                      <td class="col-mfa">
                         <span class="mfa-badge" [class.mfa-active]="u.mfaStatus.includes('TOTP')">
                           {{ u.mfaStatus }}
                         </span>
                       </td>
-                      <td>
+                      <td class="col-account-status">
                         <span
                           class="badge"
                           [class.badge-success]="u.accountStatus === 'Active'"
@@ -152,7 +150,8 @@
                           [class.badge-danger]="u.accountStatus === 'Suspended'"
                           [class.badge-expired]="u.accountStatus === 'Expired'"
                         >
-                          ● {{ u.accountStatus }}
+                          <span class="badge-dot">●</span>
+                          <span>{{ u.accountStatus }}</span>
                         </span>
                         <div class="expiry-subtext" *ngIf="u.accountStatus === 'Pending' || u.accountStatus === 'Expired'">
                           {{ getInviteExpiryText(u) }}
@@ -453,23 +452,108 @@
           </div>
 
           <div class="modal-row-grid">
-            <div class="form-group">
-              <label class="form-label">Department</label>
-              <select [(ngModel)]="inviteDepartment" class="form-input">
-                <option value="Engineering">Engineering</option>
-                <option value="Security Ops">Security Ops</option>
-                <option value="IT Infrastructure">IT Infrastructure</option>
-                <option value="Finance">Finance</option>
-                <option value="Executive">Executive</option>
-              </select>
+            <!-- Department Custom Combobox -->
+            <div class="form-group custom-combobox">
+              <label class="form-label" for="inviteDepartmentInput">Department *</label>
+              <div class="combobox-control">
+                <input
+                  id="inviteDepartmentInput"
+                  type="text"
+                  [(ngModel)]="inviteDepartment"
+                  (focus)="deptDropdownOpen.set(true)"
+                  placeholder="e.g. Engineering, Legal, HR..."
+                  class="form-input combobox-input"
+                  autocomplete="off"
+                />
+                <button
+                  type="button"
+                  class="combobox-toggle-btn"
+                  (click)="toggleDeptDropdown($event)"
+                  aria-label="Toggle department suggestions"
+                  tabindex="-1"
+                >
+                  <svg class="chevron-icon" [class.rotated]="deptDropdownOpen()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Custom Dropdown Menu -->
+              <div class="combobox-menu" *ngIf="deptDropdownOpen()">
+                <div class="combobox-menu-header">
+                  <span>Suggested Departments</span>
+                  <span class="combobox-count">{{ filteredDeptSuggestions().length }}</span>
+                </div>
+                <div class="combobox-options-list">
+                  <div
+                    class="combobox-option-item"
+                    *ngFor="let dept of filteredDeptSuggestions()"
+                    [class.selected]="inviteDepartment === dept"
+                    (mousedown)="selectDept(dept)"
+                  >
+                    <span class="combobox-option-text">{{ dept }}</span>
+                    <span class="combobox-option-tag" [class.custom-tag]="!isStandardDept(dept)">
+                      {{ isStandardDept(dept) ? 'Standard' : 'Custom' }}
+                    </span>
+                  </div>
+                  <div class="combobox-empty-state" *ngIf="filteredDeptSuggestions().length === 0">
+                    <span>No preset match. <strong>"{{ inviteDepartment }}"</strong> will be created as a custom department.</span>
+                  </div>
+                </div>
+              </div>
+              <span class="form-hint-text">Select a standard department or enter a custom one.</span>
             </div>
-            <div class="form-group">
-              <label class="form-label">Role</label>
-              <select [(ngModel)]="inviteRole" class="form-input">
-                <option value="Directory Member">Directory Member</option>
-                <option value="Security Officer">Security Officer</option>
-                <option value="Super Administrator">Super Administrator</option>
-              </select>
+
+            <!-- Role / Job Title Custom Combobox -->
+            <div class="form-group custom-combobox">
+              <label class="form-label" for="inviteRoleInput">Role / Job Title *</label>
+              <div class="combobox-control">
+                <input
+                  id="inviteRoleInput"
+                  type="text"
+                  [(ngModel)]="inviteRole"
+                  (focus)="roleDropdownOpen.set(true)"
+                  placeholder="e.g. Directory Member, Lead Counsel..."
+                  class="form-input combobox-input"
+                  autocomplete="off"
+                />
+                <button
+                  type="button"
+                  class="combobox-toggle-btn"
+                  (click)="toggleRoleDropdown($event)"
+                  aria-label="Toggle role suggestions"
+                  tabindex="-1"
+                >
+                  <svg class="chevron-icon" [class.rotated]="roleDropdownOpen()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Custom Dropdown Menu -->
+              <div class="combobox-menu" *ngIf="roleDropdownOpen()">
+                <div class="combobox-menu-header">
+                  <span>Suggested Roles</span>
+                  <span class="combobox-count">{{ filteredRoleSuggestions().length }}</span>
+                </div>
+                <div class="combobox-options-list">
+                  <div
+                    class="combobox-option-item"
+                    *ngFor="let role of filteredRoleSuggestions()"
+                    [class.selected]="inviteRole === role"
+                    (mousedown)="selectRole(role)"
+                  >
+                    <span class="combobox-option-text">{{ role }}</span>
+                    <span class="combobox-option-tag" [class.custom-tag]="!isStandardRole(role)">
+                      {{ isStandardRole(role) ? 'Default' : 'Custom' }}
+                    </span>
+                  </div>
+                  <div class="combobox-empty-state" *ngIf="filteredRoleSuggestions().length === 0">
+                    <span>No preset match. <strong>"{{ inviteRole }}"</strong> will be saved as a custom title.</span>
+                  </div>
+                </div>
+              </div>
+              <span class="form-hint-text">Select a standard role or enter an organizational title.</span>
             </div>
           </div>
 
@@ -666,15 +750,50 @@
                 class="form-input"
               />
             </div>
-            <div class="form-group">
-              <label class="form-label">Department</label>
-              <select [(ngModel)]="groupFormDepartment" class="form-input">
-                <option value="Engineering">Engineering</option>
-                <option value="Security Ops">Security Ops</option>
-                <option value="IT Infrastructure">IT Infrastructure</option>
-                <option value="Finance">Finance</option>
-                <option value="Executive">Executive</option>
-              </select>
+            <div class="form-group custom-combobox">
+              <label class="form-label" for="groupDepartmentInput">Department</label>
+              <div class="combobox-control">
+                <input
+                  id="groupDepartmentInput"
+                  type="text"
+                  [(ngModel)]="groupFormDepartment"
+                  (focus)="groupDeptDropdownOpen.set(true)"
+                  placeholder="e.g. Engineering, Legal, Sales..."
+                  class="form-input combobox-input"
+                  autocomplete="off"
+                />
+                <button
+                  type="button"
+                  class="combobox-toggle-btn"
+                  (click)="toggleGroupDeptDropdown($event)"
+                  aria-label="Toggle group department suggestions"
+                  tabindex="-1"
+                >
+                  <svg class="chevron-icon" [class.rotated]="groupDeptDropdownOpen()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Custom Dropdown Menu -->
+              <div class="combobox-menu" *ngIf="groupDeptDropdownOpen()">
+                <div class="combobox-options-list">
+                  <div
+                    class="combobox-option-item"
+                    *ngFor="let dept of filteredGroupDeptSuggestions()"
+                    [class.selected]="groupFormDepartment === dept"
+                    (mousedown)="selectGroupDept(dept)"
+                  >
+                    <span class="combobox-option-text">{{ dept }}</span>
+                    <span class="combobox-option-tag" [class.custom-tag]="!isStandardDept(dept)">
+                      {{ isStandardDept(dept) ? 'Standard' : 'Custom' }}
+                    </span>
+                  </div>
+                  <div class="combobox-empty-state" *ngIf="filteredGroupDeptSuggestions().length === 0">
+                    <span>No preset match. Group will be assigned to <strong>"{{ groupFormDepartment }}"</strong>.</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

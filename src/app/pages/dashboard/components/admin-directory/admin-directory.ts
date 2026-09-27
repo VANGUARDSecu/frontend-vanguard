@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from '../../services/dashboard.service';
@@ -32,6 +32,8 @@ export class AdminDirectory {
 
   readonly activeTab = this.dashboardService.activeTab;
   readonly directoryDepartmentFilter = this.dashboardService.directoryDepartmentFilter;
+  readonly availableDepartments = this.dashboardService.availableDepartments;
+  readonly availableRoles = this.dashboardService.availableRoles;
   readonly directoryStatusFilter = this.dashboardService.directoryStatusFilter;
   readonly directoryUsers = this.dashboardService.directoryUsers;
   readonly filteredDirectoryUsers = this.dashboardService.filteredDirectoryUsers;
@@ -68,10 +70,10 @@ export class AdminDirectory {
   set inviteEmail(v: string) { this.dashboardService.inviteEmail = v; }
   get invitePassword() { return this.dashboardService.invitePassword; }
   set invitePassword(v: string) { this.dashboardService.invitePassword = v; }
-  get inviteDepartment() { return this.dashboardService.inviteDepartment; }
-  set inviteDepartment(v: any) { this.dashboardService.inviteDepartment = v; }
-  get inviteRole() { return this.dashboardService.inviteRole; }
-  set inviteRole(v: any) { this.dashboardService.inviteRole = v; }
+  get inviteDepartment(): string { return this.dashboardService.inviteDepartment; }
+  set inviteDepartment(v: string) { this.dashboardService.inviteDepartment = v; }
+  get inviteRole(): string { return this.dashboardService.inviteRole; }
+  set inviteRole(v: string) { this.dashboardService.inviteRole = v; }
 
   // Group Form Getters & Setters
   get groupFormName() { return this.dashboardService.groupFormName; }
@@ -94,6 +96,86 @@ export class AdminDirectory {
 
   readonly existingPendingUser = this.dashboardService.existingPendingUser;
 
+  // SCRUM-37: Custom Combobox state for Department and Role
+  readonly deptDropdownOpen = signal<boolean>(false);
+  readonly roleDropdownOpen = signal<boolean>(false);
+  readonly groupDeptDropdownOpen = signal<boolean>(false);
+
+  readonly filteredDeptSuggestions = computed(() => {
+    const query = (this.inviteDepartment || '').trim().toLowerCase();
+    const all = this.availableDepartments();
+    if (!query) return all;
+    return all.filter((d) => d.toLowerCase().includes(query));
+  });
+
+  readonly filteredRoleSuggestions = computed(() => {
+    const query = (this.inviteRole || '').trim().toLowerCase();
+    const all = this.availableRoles();
+    if (!query) return all;
+    return all.filter((r) => r.toLowerCase().includes(query));
+  });
+
+  readonly filteredGroupDeptSuggestions = computed(() => {
+    const query = (this.groupFormDepartment || '').trim().toLowerCase();
+    const all = this.availableDepartments();
+    if (!query) return all;
+    return all.filter((d) => d.toLowerCase().includes(query));
+  });
+
+  isStandardDept(dept: string): boolean {
+    return this.dashboardService.defaultDepartments.some(
+      (d) => d.toLowerCase() === dept.trim().toLowerCase()
+    );
+  }
+
+  isStandardRole(role: string): boolean {
+    return this.dashboardService.defaultRoles.some(
+      (r) => r.toLowerCase() === role.trim().toLowerCase()
+    );
+  }
+
+  selectDept(dept: string) {
+    this.inviteDepartment = dept;
+    this.deptDropdownOpen.set(false);
+  }
+
+  selectRole(role: string) {
+    this.inviteRole = role;
+    this.roleDropdownOpen.set(false);
+  }
+
+  selectGroupDept(dept: string) {
+    this.groupFormDepartment = dept;
+    this.groupDeptDropdownOpen.set(false);
+  }
+
+  toggleDeptDropdown(event?: Event) {
+    if (event) event.stopPropagation();
+    this.deptDropdownOpen.update((v) => !v);
+    this.roleDropdownOpen.set(false);
+  }
+
+  toggleRoleDropdown(event?: Event) {
+    if (event) event.stopPropagation();
+    this.roleDropdownOpen.update((v) => !v);
+    this.deptDropdownOpen.set(false);
+  }
+
+  toggleGroupDeptDropdown(event?: Event) {
+    if (event) event.stopPropagation();
+    this.groupDeptDropdownOpen.update((v) => !v);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (target && !target.closest('.custom-combobox')) {
+      this.deptDropdownOpen.set(false);
+      this.roleDropdownOpen.set(false);
+      this.groupDeptDropdownOpen.set(false);
+    }
+  }
+
   setDirectoryDepartment(dept: string) { this.dashboardService.setDirectoryDepartment(dept); }
   setDirectoryStatus(status: string) { this.dashboardService.setDirectoryStatus(status); }
   suspendUser(user: DirectoryUser) { this.dashboardService.suspendUser(user); }
@@ -101,8 +183,16 @@ export class AdminDirectory {
   changeUserRole(user: DirectoryUser, role: any) { this.dashboardService.changeUserRole(user, role); }
   forceUserPasswordReset(user: DirectoryUser) { this.dashboardService.forceUserPasswordReset(user); }
   adminRevokeUserSessions(user: DirectoryUser) { this.dashboardService.adminRevokeUserSessions(user); }
-  openInviteModal() { this.dashboardService.openInviteModal(); }
-  closeInviteModal() { this.dashboardService.closeInviteModal(); }
+  openInviteModal() {
+    this.deptDropdownOpen.set(false);
+    this.roleDropdownOpen.set(false);
+    this.dashboardService.openInviteModal();
+  }
+  closeInviteModal() {
+    this.deptDropdownOpen.set(false);
+    this.roleDropdownOpen.set(false);
+    this.dashboardService.closeInviteModal();
+  }
   submitInviteUser() { this.dashboardService.submitInviteUser(); }
   generateRandomPassword() { return this.dashboardService.generateRandomPassword(); }
   copyTemporaryPassword() { this.dashboardService.copyTemporaryPassword(); }

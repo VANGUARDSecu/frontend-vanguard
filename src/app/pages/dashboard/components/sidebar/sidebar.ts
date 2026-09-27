@@ -35,8 +35,16 @@ export class DashboardSidebar {
   readonly fleetDevices = this.dashboardService.fleetDevices;
   readonly userDevices = this.dashboardService.userDevices;
   readonly webhookEndpoints = this.dashboardService.webhookEndpoints;
+  readonly isIndividual = this.dashboardService.isIndividual;
+  readonly isPersonalWorkspace = this.dashboardService.isPersonalWorkspace;
+  readonly personalApps = this.dashboardService.personalApps;
+  readonly vaultItems = this.dashboardService.vaultItems;
+  readonly totpAccounts = this.dashboardService.totpAccounts;
+  readonly pendingAccessRequests = this.dashboardService.pendingAccessRequests;
+  readonly samlSubTab = this.dashboardService.samlSubTab;
 
   setActiveTab(tab: string) { this.dashboardService.setActiveTab(tab); }
+  openAccessRequestsQueue() { this.dashboardService.openAccessRequestsQueue(); }
 
 }
 

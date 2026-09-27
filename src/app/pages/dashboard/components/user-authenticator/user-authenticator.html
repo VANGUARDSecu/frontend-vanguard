@@ -1,0 +1,184 @@
+<div class="authenticator-container">
+  <!-- Hero Banner -->
+  <div class="auth-hero-banner">
+    <div class="hero-left">
+      <div class="hero-title-row">
+        <div class="hero-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="auth-hero-icon">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+        </div>
+        <div>
+          <h1 class="hero-heading">2FA Authenticator Vault</h1>
+          <p class="hero-subtitle">
+            Time-based One-Time Passwords (RFC 6238 TOTP) with live 30-second rolling code generation.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <!-- Live Rolling Timer Badge -->
+      <div class="totp-timer-badge" [class.urgent]="totpSecondsRemaining() <= 7">
+        <div class="pulse-ring"></div>
+        <span class="timer-clock-icon">⏱️</span>
+        <span class="timer-value">{{ totpSecondsRemaining() }}s</span>
+        <span class="timer-label">Rolling Refresh</span>
+      </div>
+
+      <button type="button" class="btn-cyber-primary" (click)="openAddModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Add 2FA Account</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Global Countdown Progress Bar -->
+  <div class="global-timer-bar-wrapper">
+    <div
+      class="global-timer-bar"
+      [style.width.%]="timePercent()"
+      [class.bar-urgent]="totpSecondsRemaining() <= 7"
+    ></div>
+  </div>
+
+  <!-- Accounts List / Grid -->
+  <div class="totp-list-container">
+    <div class="empty-totp-card" *ngIf="activeTotpAccounts().length === 0">
+      <div class="empty-icon-circle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+          <line x1="12" y1="18" x2="12.01" y2="18"></line>
+        </svg>
+      </div>
+      <h3 class="empty-title">No 2FA accounts registered</h3>
+      <p class="empty-desc">
+        Add your first Two-Factor Authenticator token for services like Google, AWS, GitHub, or Cloudflare to generate live rolling codes.
+      </p>
+      <button type="button" class="btn-cyber-primary" (click)="openAddModal()">
+        + Add First 2FA Account
+      </button>
+    </div>
+
+    <div class="totp-grid" *ngIf="activeTotpAccounts().length > 0">
+      <div class="totp-card" *ngFor="let acc of activeTotpAccounts()">
+        <div class="totp-card-header">
+          <div class="account-badge">
+            <div class="issuer-avatar">
+              {{ acc.issuer.substring(0, 1).toUpperCase() }}
+            </div>
+            <div class="issuer-meta">
+              <h3 class="issuer-title">{{ acc.issuer }}</h3>
+              <span class="account-name">{{ acc.accountName }}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn-revoke-acc"
+            (click)="deleteAccount(acc.id, acc.issuer)"
+            title="Revoke 2FA Account"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- 6-digit rolling code -->
+        <div class="code-viewport">
+          <div class="code-digits font-mono" [class.code-urgent]="totpSecondsRemaining() <= 7">
+            {{ formatCode(acc.currentCode) }}
+          </div>
+
+          <button
+            type="button"
+            class="btn-copy-code"
+            (click)="copyCode(acc.currentCode, acc.id)"
+            title="Copy 6-digit code"
+          >
+            <span *ngIf="copiedAccountId() === acc.id" class="copied-badge">Copied!</span>
+            <svg *ngIf="copiedAccountId() !== acc.id" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="copy-icon">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Card Footer with countdown ring indicator -->
+        <div class="totp-card-footer">
+          <div class="cycle-info">
+            <div class="mini-progress-track">
+              <div
+                class="mini-progress-fill"
+                [style.width.%]="timePercent()"
+                [class.bar-urgent]="totpSecondsRemaining() <= 7"
+              ></div>
+            </div>
+            <span class="cycle-text">
+              Valid for {{ totpSecondsRemaining() }}s
+            </span>
+          </div>
+
+          <span class="standard-pill">RFC 6238</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD 2FA ACCOUNT MODAL -->
+  <div class="modal-backdrop" *ngIf="showAddModal()">
+    <div class="modal-box cyber-modal">
+      <div class="modal-header">
+        <h2 class="modal-heading">Add Two-Factor Authenticator Account</h2>
+        <button type="button" class="modal-close-btn" (click)="closeAddModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="alert-error" *ngIf="formErrorMessage()">
+          {{ formErrorMessage() }}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Service / Issuer Name *</label>
+          <input
+            type="text"
+            [(ngModel)]="formIssuer"
+            placeholder="e.g. GitHub, Google Cloud, AWS, Proton"
+            class="cyber-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Account / Email Identifier</label>
+          <input
+            type="text"
+            [(ngModel)]="formAccountName"
+            placeholder="e.g. user@example.com or username"
+            class="cyber-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Base32 Secret Key *</label>
+          <input
+            type="text"
+            [(ngModel)]="formSecret"
+            placeholder="e.g. JBSWY3DPEHPK3PXP"
+            class="cyber-input font-mono"
+          />
+          <span class="form-hint">Paste the alphanumeric secret key provided when setting up 2FA on your service.</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cyber-secondary" (click)="closeAddModal()">Cancel</button>
+        <button type="button" class="btn-cyber-primary" (click)="saveAccount()">
+          Enroll Authenticator
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

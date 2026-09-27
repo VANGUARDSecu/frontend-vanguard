@@ -1,134 +1,372 @@
-        <section class="dash-section" *ngIf="activeTab() === 'user-security'">
-          <div class="section-header">
-            <div class="section-title-wrap">
-              <h2 class="section-title">Personal Security & Multi-Factor Vault</h2>
-              <p class="section-subtitle">Manage your Authenticator Apps, emergency recovery backup codes, and credentials.</p>
-            </div>
-          </div>
-
-          <div class="security-cards-grid">
-            <div class="security-card">
-              <div class="sec-card-header">
-                <div class="sec-icon-box">🔐</div>
-                <div class="sec-header-meta">
-                  <h3 class="sec-title">Authenticator App (TOTP)</h3>
-                  <span class="badge" [class.badge-success]="hasTotpEnrolled()" [class.badge-orange]="!hasTotpEnrolled()">
-                    {{ hasTotpEnrolled() ? 'Enrolled & Active' : 'Not Configured' }}
-                  </span>
-                </div>
-              </div>
-              <p class="sec-desc">
-                Use Google Authenticator, JumpCloud Protect, or Microsoft Authenticator to generate 6-digit verification codes for sign-in step-up.
-              </p>
-              <button type="button" class="btn-sec-action" (click)="startEnrollTotp()">
-                {{ hasTotpEnrolled() ? 'Reconfigure Authenticator' : 'Enroll Authenticator App' }}
-              </button>
-            </div>
-
-            <div class="security-card">
-              <div class="sec-card-header">
-                <div class="sec-icon-box">📧</div>
-                <div class="sec-header-meta">
-                  <h3 class="sec-title">Email OTP Verification</h3>
-                  <span class="badge badge-success">Active Primary</span>
-                </div>
-              </div>
-              <p class="sec-desc">
-                8-digit verification codes are dispatched to <strong>{{ user()?.email }}</strong> upon sign-in or password reset recovery.
-              </p>
-              <div class="sec-stat-box">
-                <span class="sec-stat-label">Delivery Channel:</span>
-                <span class="sec-stat-val">Supabase GoTrue Mailer</span>
-              </div>
-            </div>
-
-            <div class="security-card full-span">
-              <div class="sec-card-header">
-                <div class="sec-icon-box">🛡️</div>
-                <div class="sec-header-meta">
-                  <h3 class="sec-title">Emergency Single-Use Recovery Codes</h3>
-                  <span class="badge" [class.badge-accent]="recoveryCodes().length > 0" [class.badge-orange]="recoveryCodes().length === 0">
-                    {{ recoveryCodes().length }} Unused Codes
-                  </span>
-                </div>
-                <div class="recovery-actions" *ngIf="recoveryCodes().length > 0">
-                  <button type="button" class="btn-ghost-sm" (click)="copyRecoveryCodes()">
-                    {{ copiedCodes() ? 'Copied All!' : 'Copy Codes' }}
-                  </button>
-                  <button type="button" class="btn-ghost-sm" (click)="downloadRecoveryCodes()">
-                    Download .TXT
-                  </button>
-                  <button type="button" class="btn-ghost-sm" (click)="generateRecoveryCodes()">
-                    Regenerate
-                  </button>
-                </div>
-              </div>
-              <p class="sec-desc">
-                Store these single-use emergency backup codes in a safe offline location. If you lose access to your email or authenticator device, you can use these codes to regain vault access.
-              </p>
-              <div class="recovery-codes-grid" *ngIf="recoveryCodes().length > 0">
-                <code class="rec-code" *ngFor="let code of recoveryCodes()">{{ code }}</code>
-              </div>
-              <div class="empty-codes-box" *ngIf="recoveryCodes().length === 0">
-                <h4 class="empty-title">No recovery codes generated</h4>
-                <p class="empty-desc">Generate single-use emergency backup codes to ensure you never lose access to your account if your authenticator device is unavailable.</p>
-                <button type="button" class="btn-primary-action btn-sm" (click)="generateRecoveryCodes()">
-                  Generate Recovery Codes
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- USER TAB 3: WI-FI & VPN -->
-
-  <div class="modal-backdrop" *ngIf="showEnrollTotpModal()">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 class="modal-title">Configure Authenticator App (TOTP)</h3>
-        <button type="button" class="modal-close-btn" (click)="closeEnrollTotpModal()">✕</button>
-      </div>
-
-      <div class="modal-body qr-modal-body">
-        <p class="modal-desc">
-          Scan this QR code with <strong>Google Authenticator</strong>, <strong>JumpCloud Protect</strong>, or <strong>Microsoft Authenticator</strong>:
-        </p>
-
-        <div class="qr-container" *ngIf="totpQrUrl()">
-          <img [src]="totpQrUrl()" alt="Authenticator QR Code" class="qr-img" />
-        </div>
-
-        <div class="secret-box" *ngIf="totpSecret()">
-          <span class="secret-label">Manual Secret Key:</span>
-          <code class="secret-code">{{ totpSecret() }}</code>
-        </div>
-
-        <div class="verify-step-box">
-          <label class="form-label">Enter 6-digit code from authenticator app:</label>
-          <input
-            type="text"
-            [(ngModel)]="totpVerifyCode"
-            placeholder="e.g. 123456"
-            maxlength="6"
-            class="form-input totp-input"
-          />
-        </div>
-
-        <div class="form-error-text" *ngIf="totpEnrollError()">
-          {{ totpEnrollError() }}
-        </div>
-        <div class="form-success-text" *ngIf="totpEnrollSuccess()">
-          ✓ Authenticator App paired and verified successfully!
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn-ghost" (click)="closeEnrollTotpModal()">Cancel</button>
-        <button type="button" class="btn-primary-action" (click)="confirmEnrollTotp()">Verify & Save</button>
-      </div>
+<section class="dash-section" *ngIf="activeTab() === 'user-security'">
+  <div class="section-header">
+    <div class="section-title-wrap">
+      <h2 class="section-title">Personal Security & Multi-Factor Vault</h2>
+      <p class="section-subtitle">Manage your Authenticator Apps, emergency recovery backup codes, and credentials.</p>
     </div>
   </div>
 
-  <!-- ========================================================================
-       MODAL: CREATE FEDERATED APP CONNECTOR (ADMIN)
-       ======================================================================== -->
+  <div class="security-cards-grid">
+    <!-- CARD 1: TOTP Authenticator App -->
+    <div class="security-card">
+      <div class="sec-card-header">
+        <div class="sec-icon-box">🔐</div>
+        <div class="sec-header-meta">
+          <h3 class="sec-title">Authenticator App (TOTP)</h3>
+          <span class="badge" [class.badge-success]="hasTotpEnrolled()" [class.badge-orange]="!hasTotpEnrolled()">
+            {{ hasTotpEnrolled() ? 'Enrolled & Active' : 'Not Configured' }}
+          </span>
+        </div>
+      </div>
+      <p class="sec-desc">
+        Use Google Authenticator, JumpCloud Protect, or Microsoft Authenticator to generate RFC 6238 6-digit verification codes for sign-in step-up.
+      </p>
+      <div class="sec-btn-row">
+        <button type="button" class="btn-sec-action" (click)="startEnrollTotp()">
+          {{ hasTotpEnrolled() ? 'Reconfigure Authenticator' : 'Enroll Authenticator App' }}
+        </button>
+        <button type="button" class="btn-ghost-danger-sm" *ngIf="hasTotpEnrolled()" (click)="disableTotp()">
+          De-enroll
+        </button>
+      </div>
+    </div>
+
+    <!-- CARD 2: Self-Service Password Management -->
+    <div class="security-card">
+      <div class="sec-card-header">
+        <div class="sec-icon-box">🔑</div>
+        <div class="sec-header-meta">
+          <h3 class="sec-title">Account Password</h3>
+          <span class="badge badge-success">Active & Protected</span>
+        </div>
+      </div>
+      <p class="sec-desc">
+        Update your enterprise login password with real-time zero-trust complexity validation. Synchronizes immediately with directory and SSO.
+      </p>
+      <div class="sec-btn-row">
+        <button type="button" class="btn-sec-action" (click)="openChangePasswordModal()">
+          Change Password
+        </button>
+      </div>
+    </div>
+
+    <!-- CARD 3: Email OTP Verification -->
+    <div class="security-card">
+      <div class="sec-card-header">
+        <div class="sec-icon-box">📧</div>
+        <div class="sec-header-meta">
+          <h3 class="sec-title">Email OTP Verification</h3>
+          <span class="badge badge-success">Active Primary</span>
+        </div>
+      </div>
+      <p class="sec-desc">
+        8-digit verification codes are dispatched to <strong>{{ user()?.email }}</strong> upon sign-in or password reset recovery.
+      </p>
+      <div class="sec-stat-box">
+        <span class="sec-stat-label">Delivery Channel:</span>
+        <span class="sec-stat-val">Supabase GoTrue Mailer</span>
+      </div>
+    </div>
+
+    <!-- CARD 4: Emergency Single-Use Recovery Codes (Full Span) -->
+    <div class="security-card full-span">
+      <div class="sec-card-header">
+        <div class="sec-icon-box">🛡️</div>
+        <div class="sec-header-meta">
+          <h3 class="sec-title">Emergency Single-Use Recovery Codes</h3>
+          <span class="badge" [class.badge-accent]="recoveryCodes().length > 0" [class.badge-orange]="recoveryCodes().length === 0">
+            {{ recoveryCodes().length }} Unused Codes
+          </span>
+        </div>
+        <div class="recovery-actions" *ngIf="recoveryCodes().length > 0">
+          <button type="button" class="btn-ghost-sm" (click)="copyRecoveryCodes()">
+            {{ copiedCodes() ? 'Copied All!' : 'Copy All Codes' }}
+          </button>
+          <button type="button" class="btn-ghost-sm" (click)="downloadRecoveryCodes()">
+            Download .TXT
+          </button>
+          <button type="button" class="btn-ghost-sm" (click)="generateRecoveryCodes()">
+            Regenerate
+          </button>
+        </div>
+      </div>
+      <p class="sec-desc">
+        Store these single-use emergency backup codes in a safe offline location. If you lose access to your email or authenticator device, you can use these codes to regain vault access. Each code is invalidated once used.
+      </p>
+
+      <div class="recovery-codes-grid" *ngIf="recoveryCodes().length > 0">
+        <div class="rec-code-item" *ngFor="let code of recoveryCodes()">
+          <code class="rec-code">{{ code }}</code>
+        </div>
+      </div>
+
+      <!-- Single-Use Code Redemption Tester -->
+      <div class="recovery-redeem-strip" *ngIf="recoveryCodes().length > 0">
+        <span class="redeem-strip-label">Test Single-Use Redemption:</span>
+        <div class="redeem-input-group">
+          <input
+            type="text"
+            [(ngModel)]="testRecoveryCodeInput"
+            placeholder="Enter code (e.g. VANG-XXXX-XXXX)"
+            class="form-input form-input-sm"
+          />
+          <button type="button" class="btn-primary-action btn-sm" (click)="redeemRecoveryCode()" [disabled]="!testRecoveryCodeInput.trim()">
+            Redeem Code
+          </button>
+        </div>
+        <div class="redeem-result-msg" *ngIf="recoveryCodeRedeemResult()" [class.result-success]="recoveryCodeRedeemResult()?.startsWith('✓')">
+          {{ recoveryCodeRedeemResult() }}
+        </div>
+      </div>
+
+      <div class="empty-codes-box" *ngIf="recoveryCodes().length === 0">
+        <h4 class="empty-title">No recovery codes generated</h4>
+        <p class="empty-desc">Generate 10 cryptographically secure single-use emergency backup codes to ensure you never lose access to your account.</p>
+        <button type="button" class="btn-primary-action btn-sm" (click)="generateRecoveryCodes()">
+          Generate Recovery Codes
+        </button>
+      </div>
+    </div>
+
+    <!-- CARD 5: Connected Applications & OAuth SSO Integrations (SCRUM-57) -->
+    <div class="security-card full-span">
+      <div class="sec-card-header">
+        <div class="sec-icon-box">🌐</div>
+        <div class="sec-header-meta">
+          <h3 class="sec-title">Connected External Applications & OAuth Services</h3>
+          <span class="badge badge-success">
+            {{ activeConnectedApps().length }} Active Integration{{ activeConnectedApps().length === 1 ? '' : 's' }}
+          </span>
+        </div>
+      </div>
+      <p class="sec-desc">
+        External services and client applications currently authorized to access your Vanguard Security identity via OpenID Connect (OIDC) Single Sign-On and OAuth 2.0 PKCE.
+      </p>
+
+      <div class="connected-sec-list" *ngIf="activeConnectedApps().length > 0">
+        <div class="connected-sec-item" *ngFor="let conn of activeConnectedApps()">
+          <div class="conn-item-left">
+            <span class="conn-sec-icon">{{ conn.icon || '🌐' }}</span>
+            <div class="conn-sec-details">
+              <div class="conn-sec-title-row">
+                <h4 class="conn-sec-name">{{ conn.clientName }}</h4>
+                <span class="status-live-pill">
+                  <span class="pulse-dot"></span>
+                  Currently Connected
+                </span>
+                <span class="proto-tag">{{ conn.protocol }}</span>
+              </div>
+              <p class="conn-sec-desc">{{ conn.description }}</p>
+              <div class="conn-sec-specs">
+                <span class="spec-chip"><strong>URL:</strong> <a [href]="conn.originUrl" target="_blank" class="spec-link">{{ conn.originUrl }}</a></span>
+                <span class="spec-chip"><strong>Client ID:</strong> <code>{{ conn.clientId }}</code></span>
+                <span class="spec-chip"><strong>Redirect URI:</strong> {{ conn.redirectUri }}</span>
+                <span class="spec-chip"><strong>Authorized Account:</strong> {{ user()?.email }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="conn-item-right">
+            <button type="button" class="btn-launch-connected-sm" (click)="launchConnectedApp(conn)">
+              <span>Launch App</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="launch-icon-sm">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </button>
+            <button type="button" class="btn-ghost-danger-sm" (click)="disconnectApp(conn.clientId)">
+              Disconnect
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-codes-box" *ngIf="activeConnectedApps().length === 0">
+        <h4 class="empty-title">No external applications connected</h4>
+        <p class="empty-desc">When you connect external web or mobile applications (like Acme Dummy Web) using Vanguard SSO, they will appear here with active session status.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================================
+     MODAL: CONFIGURE AUTHENTICATOR APP (TOTP)
+     ======================================================================== -->
+<div class="modal-backdrop" *ngIf="showEnrollTotpModal()">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 class="modal-title">Configure Authenticator App (TOTP)</h3>
+      <button type="button" class="modal-close-btn" (click)="closeEnrollTotpModal()">✕</button>
+    </div>
+
+    <div class="modal-body qr-modal-body">
+      <p class="modal-desc">
+        Scan this QR code with <strong>Google Authenticator</strong>, <strong>JumpCloud Protect</strong>, or <strong>Microsoft Authenticator</strong>:
+      </p>
+
+      <div class="qr-container" *ngIf="totpQrUrl()">
+        <img [src]="totpQrUrl()" alt="Authenticator QR Code" class="qr-img" />
+      </div>
+
+      <div class="secret-box" *ngIf="totpSecret()">
+        <span class="secret-label">Manual Secret Key:</span>
+        <code class="secret-code">{{ totpSecret() }}</code>
+      </div>
+
+      <div class="verify-step-box">
+        <label class="form-label">Enter 6-digit code from authenticator app:</label>
+        <input
+          type="text"
+          [(ngModel)]="totpVerifyCode"
+          placeholder="e.g. 123456"
+          maxlength="6"
+          class="form-input totp-input"
+        />
+      </div>
+
+      <div class="form-error-text" *ngIf="totpEnrollError()">
+        {{ totpEnrollError() }}
+      </div>
+      <div class="form-success-text" *ngIf="totpEnrollSuccess()">
+        ✓ Authenticator App paired and verified successfully!
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" (click)="closeEnrollTotpModal()">Cancel</button>
+      <button type="button" class="btn-primary-action" (click)="confirmEnrollTotp()">Verify & Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================
+     MODAL: SELF-SERVICE PASSWORD UPDATE (SCRUM-32)
+     ======================================================================== -->
+<div class="modal-backdrop" *ngIf="showPasswordModal()">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 class="modal-title">Update Account Password</h3>
+      <button type="button" class="modal-close-btn" (click)="closeChangePasswordModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <p class="modal-desc">
+        Update your login password. Your new password will immediately synchronize across your enterprise directory, SSO, and user profile.
+      </p>
+
+      <!-- Current Password -->
+      <div class="form-group">
+        <label class="form-label">Current Password <span class="required-star">*</span></label>
+        <div class="password-input-wrap">
+          <input
+            [type]="showCurrentPassword() ? 'text' : 'password'"
+            [(ngModel)]="currentPassword"
+            placeholder="Enter current password"
+            class="form-input"
+            autocomplete="current-password"
+          />
+          <button type="button" class="btn-toggle-eye" (click)="toggleShowCurrentPassword()">
+            {{ showCurrentPassword() ? '👁️' : '🔒' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- New Password -->
+      <div class="form-group">
+        <label class="form-label">New Password <span class="required-star">*</span></label>
+        <div class="password-input-wrap">
+          <input
+            [type]="showNewPassword() ? 'text' : 'password'"
+            [(ngModel)]="newPassword"
+            placeholder="Enter new password (min. 8 characters)"
+            class="form-input"
+            autocomplete="new-password"
+          />
+          <button type="button" class="btn-toggle-eye" (click)="toggleShowNewPassword()">
+            {{ showNewPassword() ? '👁️' : '🔒' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Real-time Complexity & Strength Meter -->
+      <div class="password-meter-wrap" *ngIf="newPassword">
+        <div class="meter-bar-header">
+          <span class="meter-label">Password Strength:</span>
+          <span class="meter-strength" [style.color]="passwordStrength().color">
+            {{ passwordStrength().label }}
+          </span>
+        </div>
+        <div class="meter-progress-track">
+          <div
+            class="meter-progress-fill"
+            [style.width.%]="passwordStrength().score"
+            [style.background-color]="passwordStrength().color"
+          ></div>
+        </div>
+
+        <!-- Complexity Checklist -->
+        <div class="complexity-checklist">
+          <div class="criteria-item" [class.valid]="hasMinLength()">
+            <span class="crit-icon">{{ hasMinLength() ? '✓' : '○' }}</span>
+            <span>At least 8 characters</span>
+          </div>
+          <div class="criteria-item" [class.valid]="hasUppercase()">
+            <span class="crit-icon">{{ hasUppercase() ? '✓' : '○' }}</span>
+            <span>At least one uppercase letter (A-Z)</span>
+          </div>
+          <div class="criteria-item" [class.valid]="hasNumber()">
+            <span class="crit-icon">{{ hasNumber() ? '✓' : '○' }}</span>
+            <span>At least one number (0-9)</span>
+          </div>
+          <div class="criteria-item" [class.valid]="hasSpecialChar()">
+            <span class="crit-icon">{{ hasSpecialChar() ? '✓' : '○' }}</span>
+            <span>At least one special character (!@#$%^&*)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Confirm Password -->
+      <div class="form-group">
+        <label class="form-label">Confirm New Password <span class="required-star">*</span></label>
+        <div class="password-input-wrap">
+          <input
+            [type]="showConfirmPassword() ? 'text' : 'password'"
+            [(ngModel)]="confirmPassword"
+            placeholder="Confirm new password"
+            class="form-input"
+            autocomplete="new-password"
+          />
+          <button type="button" class="btn-toggle-eye" (click)="toggleShowConfirmPassword()">
+            {{ showConfirmPassword() ? '👁️' : '🔒' }}
+          </button>
+        </div>
+        <div class="form-hint-error" *ngIf="confirmPassword && newPassword !== confirmPassword">
+          Passwords do not match.
+        </div>
+      </div>
+
+      <!-- Error / Success Alerts -->
+      <div class="form-error-text" *ngIf="passwordUpdateError()">
+        {{ passwordUpdateError() }}
+      </div>
+      <div class="form-success-text" *ngIf="passwordUpdateSuccess()">
+        ✓ Password successfully updated and synchronized!
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" (click)="closeChangePasswordModal()" [disabled]="isSubmittingPassword()">
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn-primary-action"
+        (click)="submitPasswordUpdate()"
+        [disabled]="isSubmittingPassword() || !isPasswordValid()"
+      >
+        <span *ngIf="!isSubmittingPassword()">Update Password</span>
+        <span *ngIf="isSubmittingPassword()">Updating...</span>
+      </button>
+    </div>
+  </div>
+</div>

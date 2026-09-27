@@ -161,4 +161,8 @@ export class ResetPasswordComponent {
       },
     });
   }
+
+  onCancel(): void {
+    this.authService.logout();
+  }
 }

@@ -366,6 +366,63 @@ export class SupabaseService {
   }
 
   // =========================================================================
+  // Access Requests Operations (SCRUM-42)
+  // =========================================================================
+  async getAccessRequests(tenantId?: string): Promise<any[]> {
+    try {
+      let query = this.client.from('access_requests').select('*').order('created_at', { ascending: false });
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.warn('Supabase: getAccessRequests notice:', error.message);
+        return [];
+      }
+      return data || [];
+    } catch (e) {
+      console.warn('Supabase: getAccessRequests exception:', e);
+      return [];
+    }
+  }
+
+  async createAccessRequest(request: any): Promise<any> {
+    try {
+      const { data, error } = await this.client
+        .from('access_requests')
+        .insert(request)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      console.warn('Supabase: createAccessRequest exception:', e);
+      return null;
+    }
+  }
+
+  async updateAccessRequestStatus(id: string, status: string, notes?: string, reviewer?: string): Promise<any> {
+    try {
+      const { data, error } = await this.client
+        .from('access_requests')
+        .update({
+          status,
+          admin_notes: notes,
+          reviewed_by: reviewer,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      console.warn('Supabase: updateAccessRequestStatus exception:', e);
+      return null;
+    }
+  }
+
+  // =========================================================================
   // Managed Endpoint Devices Operations
   // =========================================================================
   async getUserDevices(tenantId?: string): Promise<any[]> {

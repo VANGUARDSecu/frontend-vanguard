@@ -1,8 +1,8 @@
-﻿import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
+import { AuthService, ApproveSsoPayload, UserProfile } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -13,8 +13,9 @@ import { AuthService } from '../../services/auth.service';
 })
 export class LoginComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
-  private readonly authService = inject(AuthService);
+  readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   // Form group definition
   readonly loginForm: FormGroup = this.fb.group({
@@ -28,20 +29,74 @@ export class LoginComponent implements OnInit {
   readonly isLoading = signal<boolean>(false);
   readonly submitted = signal<boolean>(false);
 
+  // SSO state signals
+  readonly ssoParams = signal<Record<string, string> | null>(null);
+  readonly currentUser = this.authService.currentUser;
+
+  readonly clientDisplayName = computed<string>(() => {
+    const sso = this.ssoParams();
+    if (!sso) return '';
+    if (sso['client_id'] === 'vanguard-dummy-portal') return 'Acme Enterprise Portal';
+    return sso['client_id'] || 'Client Application';
+  });
+
+  readonly isAccountMismatch = computed<boolean>(() => {
+    const sso = this.ssoParams();
+    const user = this.currentUser();
+    const hint = sso?.['login_hint'];
+    if (!sso || !hint || !user) return false;
+    return user.email.toLowerCase().trim() !== hint.toLowerCase().trim();
+  });
+
   // Single timed notification state with auto-dismiss
   readonly notification = signal<{ type: 'success' | 'error'; message: string } | null>(null);
   private notificationTimer: any = null;
 
   ngOnInit(): void {
-    // If user is already logged in, redirect straight to dashboard
-    if (this.authService.isLoggedIn()) {
-      this.router.navigate(['/dashboard']);
-      return;
-    }
+    // Check if URL contains SSO/OIDC parameters
+    this.route.queryParams.subscribe((params) => {
+      if (params['client_id'] && params['redirect_uri']) {
+        const ssoData = {
+          client_id: params['client_id'],
+          redirect_uri: params['redirect_uri'],
+          response_type: params['response_type'] || 'code',
+          scope: params['scope'] || 'openid profile email roles',
+          state: params['state'] || '',
+          code_challenge: params['code_challenge'] || '',
+          code_challenge_method: params['code_challenge_method'] || 'S256',
+          nonce: params['nonce'] || '',
+          login_hint: params['login_hint'] || '',
+          prompt: params['prompt'] || '',
+        };
+        this.ssoParams.set(ssoData);
 
-    // Pre-fill remembered email if cached
+        // Pre-fill email from login_hint if provided and not yet authenticated
+        if (!this.authService.isLoggedIn() && params['login_hint']) {
+          this.loginForm.patchValue({ email: params['login_hint'] });
+        }
+      }
+
+      // If user is already logged in:
+      // If NOT SSO, redirect straight to dashboard
+      // If SSO, stay on login page to prompt one-click approval or switch account
+      if (this.authService.isLoggedIn() && !this.ssoParams()) {
+        const user = this.authService.currentUser();
+        const meta = user?.user_metadata || {};
+        const isTemp = meta['is_temporary_password'] === true || meta['isTemporaryPassword'] === true;
+        if (!isTemp) {
+          this.authService.isPasswordResetRequired.set(false);
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('vanguard_reset_required');
+          }
+        }
+        this.router.navigate(['/dashboard']);
+        return;
+      }
+    });
+
+    // Pre-fill remembered email if cached (and not already filled from login_hint)
     const rememberedEmail = this.authService.getRememberedEmail();
-    if (rememberedEmail) {
+    if (rememberedEmail && !this.loginForm.get('email')?.value) {
       this.loginForm.patchValue({
         email: rememberedEmail,
         rememberMe: true,
@@ -87,6 +142,12 @@ export class LoginComponent implements OnInit {
       return;
     }
 
+    // Clear stale reset-required flag upon fresh login attempt
+    this.authService.isPasswordResetRequired.set(false);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('vanguard_reset_required');
+    }
+
     this.isLoading.set(true);
     const { email, password, rememberMe } = this.loginForm.value;
 
@@ -101,17 +162,23 @@ export class LoginComponent implements OnInit {
           this.authService.clearRememberedEmail();
         }
 
+        const sso = this.ssoParams();
+
         if (response.requireMfa) {
           this.showNotification('success', 'Credentials verified! Redirecting to 2-Step Verification...', 3000);
           setTimeout(() => {
-            this.router.navigate(['/verify-otp'], {
-              queryParams: {
-                email: email.trim(),
-                mode: 'signin',
-                hasTotp: response.hasTotp ? 'true' : 'false',
-              },
-            });
+            const queryParams: any = {
+              email: email.trim(),
+              mode: 'signin',
+              hasTotp: response.hasTotp ? 'true' : 'false',
+            };
+            if (sso) {
+              Object.assign(queryParams, sso);
+            }
+            this.router.navigate(['/verify-otp'], { queryParams });
           }, 600);
+        } else if (sso) {
+          this.approveSsoForUser(response.user);
         } else {
           this.showNotification('success', 'Login successful! Redirecting...', 3000);
           setTimeout(() => {
@@ -124,6 +191,116 @@ export class LoginComponent implements OnInit {
         this.showNotification('error', err.message || 'Invalid email or password.');
       },
     });
+  }
+
+  onContinueSso(): void {
+    const user = this.currentUser();
+    if (user) {
+      this.approveSsoForUser(user);
+    }
+  }
+
+  approveSsoForUser(user?: UserProfile): void {
+    const sso = this.ssoParams();
+    if (!sso) return;
+
+    this.isLoading.set(true);
+    this.showNotification('success', 'Authorizing SSO access to application...', 4000);
+
+    const currentUser = user || this.authService.currentUser();
+    const fullName = currentUser
+      ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email.split('@')[0]
+      : this.loginForm.get('email')?.value?.trim()?.split('@')[0] || 'Enterprise User';
+    const role = currentUser?.role || 'user';
+    const dept = currentUser?.user_metadata?.['department'] || 'Corporate Security';
+
+    const payload: ApproveSsoPayload = {
+      client_id: sso['client_id'],
+      redirect_uri: sso['redirect_uri'],
+      response_type: sso['response_type'] || 'code',
+      scope: sso['scope'] || 'openid profile email roles',
+      state: sso['state'] || '',
+      nonce: sso['nonce'] || '',
+      code_challenge: sso['code_challenge'] || '',
+      code_challenge_method: sso['code_challenge_method'] || 'S256',
+      email: currentUser?.email || this.loginForm.get('email')?.value?.trim(),
+      name: fullName,
+      role: role,
+      roles: [role, 'Vanguard Authenticated'],
+      department: dept,
+      userId: currentUser?.id,
+    };
+
+    this.authService.approveSsoAuthorization(payload).subscribe({
+      next: (res) => {
+        try {
+          const originUrl = new URL(sso['redirect_uri']).origin;
+          const stored = JSON.parse(localStorage.getItem('vanguard_connected_apps') || '[]');
+          const appName = sso['client_id']?.includes('dummy') ? 'Acme Dummy Web' : 'External Application';
+          const newConn = {
+            id: `conn_${sso['client_id']}`,
+            clientId: sso['client_id'],
+            clientName: appName,
+            protocol: 'OpenID Connect 1.0 (PKCE)',
+            scopes: (sso['scope'] || 'openid profile email roles').split(' '),
+            redirectUri: sso['redirect_uri'],
+            originUrl,
+            status: 'Connected',
+            connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            lastActiveAt: 'Active Session',
+            icon: '🌐',
+            description: `${appName} integrated via Vanguard SSO with account ${payload.email}.`,
+          };
+          const normOrigin = originUrl.toLowerCase().trim().replace(/\/$/, '');
+          const filtered = stored.filter((c: any) => {
+            const cOrigin = (c.originUrl || '').toLowerCase().trim().replace(/\/$/, '');
+            return c.clientId !== sso['client_id'] && (!normOrigin || cOrigin !== normOrigin) && c.clientName !== appName;
+          });
+          localStorage.setItem('vanguard_connected_apps', JSON.stringify([newConn, ...filtered]));
+        } catch {}
+
+        if (res.redirectUrl) {
+          window.location.href = res.redirectUrl;
+        } else {
+          window.location.href = `${sso['redirect_uri']}?code=${res.code}${sso['state'] ? '&state=' + encodeURIComponent(sso['state']) : ''}`;
+        }
+      },
+      error: (err: Error) => {
+        this.isLoading.set(false);
+        this.showNotification('error', err.message || 'Failed to authorize SSO session.');
+      },
+    });
+  }
+
+  switchAccount(): void {
+    const sso = this.ssoParams();
+    const hint = sso?.['login_hint'];
+    this.authService.logout();
+    if (sso) {
+      setTimeout(() => {
+        this.router.navigate(['/login'], { queryParams: sso });
+        if (hint) {
+          this.loginForm.patchValue({ email: hint });
+        }
+      }, 50);
+    }
+  }
+
+  onCancelSso(): void {
+    const sso = this.ssoParams();
+    if (!sso) return;
+
+    try {
+      const redirectUri = new URL(sso['redirect_uri']);
+      redirectUri.searchParams.set('error', 'access_denied');
+      redirectUri.searchParams.set('error_description', 'User cancelled Vanguard SSO authentication');
+      if (sso['state']) {
+        redirectUri.searchParams.set('state', sso['state']);
+      }
+      window.location.href = redirectUri.toString();
+    } catch {
+      window.location.href = `${sso['redirect_uri']}?error=access_denied&error_description=User+cancelled+Vanguard+SSO+authentication${sso['state'] ? '&state=' + encodeURIComponent(sso['state']) : ''}`;
+    }
   }
 
   onGoogleLogin(): void {

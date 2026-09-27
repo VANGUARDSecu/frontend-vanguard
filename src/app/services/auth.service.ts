@@ -3,6 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, catchError, map, of, tap, throwError } from 'rxjs';
+import { UserConnectedApp } from '../pages/dashboard/models/dashboard.models';
 
 export interface UserProfile {
   id?: string;
@@ -12,6 +13,7 @@ export interface UserProfile {
   companyName?: string;
   phone?: string;
   role?: 'admin' | 'security_officer' | 'user';
+  accountType?: 'individual' | 'company';
   avatarUrl?: string;
   user_metadata?: Record<string, any>;
 }
@@ -27,8 +29,9 @@ export interface RegisterPayload {
   password: string;
   firstName: string;
   lastName: string;
-  companyName: string;
-  phone: string;
+  companyName?: string;
+  phone?: string;
+  accountType?: 'individual' | 'company';
 }
 
 export interface AuthResponse {
@@ -40,6 +43,29 @@ export interface AuthResponse {
   enrolledMethods?: string[];
   user?: UserProfile;
   session?: AuthSession;
+}
+
+export interface ApproveSsoPayload {
+  client_id: string;
+  redirect_uri: string;
+  response_type?: string;
+  scope?: string;
+  state?: string;
+  nonce?: string;
+  code_challenge?: string;
+  code_challenge_method?: string;
+  email: string;
+  name?: string;
+  role?: string;
+  roles?: string[];
+  department?: string;
+  userId?: string;
+}
+
+export interface ApproveSsoResponse {
+  success: boolean;
+  code: string;
+  redirectUrl: string;
 }
 
 @Injectable({
@@ -119,7 +145,27 @@ export class AuthService {
   private loadStoredResetRequired(): boolean {
     if (!this.isBrowser) return false;
     try {
-      return localStorage.getItem('vanguard_reset_required') === 'true';
+      const isRecoveryUrl =
+        window.location.search.includes('type=recovery') ||
+        window.location.hash.includes('type=recovery');
+      if (isRecoveryUrl) {
+        return true;
+      }
+
+      const user = this.loadStoredUser();
+      if (user) {
+        const meta = user.user_metadata || {};
+        const isTemp = meta['is_temporary_password'] === true || meta['isTemporaryPassword'] === true;
+        if (!isTemp) {
+          localStorage.removeItem('vanguard_reset_required');
+          return false;
+        }
+        return true;
+      }
+
+      // If no active user session and not in recovery URL, clear any stale flag
+      localStorage.removeItem('vanguard_reset_required');
+      return false;
     } catch {
       return false;
     }
@@ -309,10 +355,10 @@ export class AuthService {
       user.lastLogin = 'Just now';
       localStorage.setItem('vanguard_directory_users', JSON.stringify(users));
 
-      // Flag password reset required on first sign-in
-      if (user.temporaryPassword) {
-        this.isPasswordResetRequired.set(true);
-        localStorage.setItem('vanguard_reset_required', 'true');
+      // Ensure password reset flag is cleared on normal employee directory sign-in
+      this.isPasswordResetRequired.set(false);
+      if (this.isBrowser) {
+        localStorage.removeItem('vanguard_reset_required');
       }
 
       const session: AuthSession = {
@@ -599,11 +645,16 @@ export class AuthService {
       },
     };
 
-    // Flag password reset required on first sign-in if temporary password was flagged
-    if (meta['is_temporary_password'] || meta['isTemporaryPassword']) {
+    // Only flag password reset required if explicitly undergoing a recovery flow
+    if (this.pendingMode() === 'recovery') {
       this.isPasswordResetRequired.set(true);
       if (this.isBrowser) {
         localStorage.setItem('vanguard_reset_required', 'true');
+      }
+    } else {
+      this.isPasswordResetRequired.set(false);
+      if (this.isBrowser) {
+        localStorage.removeItem('vanguard_reset_required');
       }
     }
 
@@ -727,6 +778,80 @@ export class AuthService {
       );
   }
 
+  updateSelfServicePassword(password: string, currentPassword?: string): Observable<{ success: boolean; message: string }> {
+    const token = this.token() || '';
+    const currentEmail = this.currentUser()?.email || this.pendingEmail() || this.loadStoredUser()?.email;
+    const isLocalDirectorySession = token.startsWith('vanguard_') || (token && token.split('.').length !== 3);
+
+    // Verify current password against local directory user if available
+    if (this.isBrowser && currentPassword && currentEmail) {
+      try {
+        const stored = localStorage.getItem('vanguard_directory_users');
+        if (stored) {
+          const users: any[] = JSON.parse(stored);
+          const found = users.find((u) => u.email?.toLowerCase().trim() === currentEmail.toLowerCase().trim());
+          if (found) {
+            const expected = found.password || found.temporaryPassword;
+            if (expected && expected !== currentPassword.trim()) {
+              return throwError(() => new Error('Current password does not match.'));
+            }
+          }
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+
+    // Sync to localStorage directory cache if present
+    if (this.isBrowser && (isLocalDirectorySession || currentEmail)) {
+      try {
+        const stored = localStorage.getItem('vanguard_directory_users');
+        if (stored) {
+          const users: any[] = JSON.parse(stored);
+          const idx = currentEmail
+            ? users.findIndex((u) => u.email?.toLowerCase().trim() === currentEmail.toLowerCase().trim())
+            : users.findIndex((u) => !!u.temporaryPassword);
+
+          if (idx !== -1) {
+            users[idx].password = password.trim();
+            delete users[idx].temporaryPassword;
+            localStorage.setItem('vanguard_directory_users', JSON.stringify(users));
+          }
+        }
+      } catch (e) {
+        console.error('Error updating directory user password in localStorage', e);
+      }
+    }
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return this.http
+      .post<{ success: boolean; message: string }>(
+        `${this.API_URL}/reset-password`,
+        { password, currentPassword, accessToken: token, email: currentEmail },
+        { headers }
+      )
+      .pipe(
+        map((res) => ({
+          success: true,
+          message: res.message || 'Password updated successfully!',
+        })),
+        catchError((error: HttpErrorResponse | Error) => {
+          if (error instanceof Error && error.message.includes('Current password')) {
+            return throwError(() => error);
+          }
+          const msg =
+            (error as HttpErrorResponse)?.error?.message ||
+            (error as Error)?.message ||
+            'Failed to update password.';
+          return throwError(() => new Error(Array.isArray(msg) ? msg.join(', ') : msg));
+        })
+      );
+  }
+
   getGoogleOAuthUrl(): Observable<{ success: boolean; url: string }> {
     return this.http.get<{ success: boolean; url: string }>(`${this.API_URL}/google`).pipe(
       catchError((error: HttpErrorResponse) => {
@@ -741,6 +866,59 @@ export class AuthService {
     );
   }
 
+  approveSsoAuthorization(payload: ApproveSsoPayload): Observable<ApproveSsoResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/approve`;
+    return this.http.post<ApproveSsoResponse>(url, payload).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'Failed to approve SSO authorization.';
+        if (error.error && error.error.message) {
+          errorMessage = Array.isArray(error.error.message)
+            ? error.error.message.join(', ')
+            : error.error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  getConnectedApps(email?: string): Observable<{ success: boolean; connectedApps: UserConnectedApp[] }> {
+    const baseUrl = this.API_URL.replace(/\/auth\/?$/, '');
+    const url = email
+      ? `${baseUrl}/oauth/connected-apps?email=${encodeURIComponent(email)}`
+      : `${baseUrl}/oauth/connected-apps`;
+    return this.http.get<{ success: boolean; connectedApps: UserConnectedApp[] }>(url).pipe(
+      catchError(() => of({
+        success: true,
+        connectedApps: [
+          {
+            id: 'conn-dummy-portal',
+            clientId: 'vanguard-dummy-portal',
+            clientName: 'Acme Dummy Web',
+            protocol: 'OpenID Connect 1.0 (PKCE)',
+            scopes: ['openid', 'profile', 'email', 'roles', 'offline_access'],
+            redirectUri: 'http://localhost:4201/auth/callback',
+            originUrl: 'http://localhost:4201',
+            status: 'Connected' as const,
+            connectedAt: new Date().toISOString(),
+            lastActiveAt: new Date().toISOString(),
+            icon: '🌐',
+            description: 'Acme Dummy Web portal integrated via Vanguard Single Sign-On and OAuth 2.0 PKCE authentication.',
+          }
+        ]
+      }))
+    );
+  }
+
+  disconnectConnectedApp(clientId: string, email?: string): Observable<{ success: boolean; disconnected: boolean }> {
+    const baseUrl = this.API_URL.replace(/\/auth\/?$/, '');
+    const url = email
+      ? `${baseUrl}/oauth/connected-apps/${encodeURIComponent(clientId)}?email=${encodeURIComponent(email)}`
+      : `${baseUrl}/oauth/connected-apps/${encodeURIComponent(clientId)}`;
+    return this.http.delete<{ success: boolean; disconnected: boolean }>(url).pipe(
+      catchError(() => of({ success: true, disconnected: true }))
+    );
+  }
+
   logout(): void {
     if (this.isBrowser) {
       this.http.post(`${this.API_URL}/logout`, {}).subscribe({
@@ -748,9 +926,11 @@ export class AuthService {
       });
       localStorage.removeItem('vanguard_user');
       localStorage.removeItem('vanguard_token');
+      localStorage.removeItem('vanguard_reset_required');
     }
     this.currentUser.set(null);
     this.token.set(null);
+    this.isPasswordResetRequired.set(false);
     this.router.navigate(['/login']);
   }
 

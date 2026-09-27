@@ -21,10 +21,33 @@ export class DashboardHeader {
   readonly displayName = this.dashboardService.displayName;
   readonly userInitials = this.dashboardService.userInitials;
   readonly userRoleLabel = this.dashboardService.userRoleLabel;
+  readonly isIndividual = this.dashboardService.isIndividual;
 
-  // SCRUM-28: Multi-tenant organization switcher
+  // SCRUM-50: Upgrade Personal Vault to Organization
+  readonly showUpgradeModal = signal<boolean>(false);
+  upgradeCompanyName = '';
+
+  openUpgradeModal(): void {
+    this.upgradeCompanyName = '';
+    this.showUpgradeModal.set(true);
+  }
+
+  closeUpgradeModal(): void {
+    this.showUpgradeModal.set(false);
+  }
+
+  confirmUpgrade(): void {
+    this.dashboardService.upgradeToOrganization(this.upgradeCompanyName);
+    this.closeUpgradeModal();
+  }
+
+  // SCRUM-28 & SCRUM-52: Multi-tenant organization & workspace switcher
   readonly organizations = this.dashboardService.organizations;
   readonly activeOrganization = this.dashboardService.activeOrganization;
+  readonly activeWorkspaceId = this.dashboardService.activeWorkspaceId;
+  readonly isPersonalWorkspace = this.dashboardService.isPersonalWorkspace;
+  readonly allWorkspaces = this.dashboardService.allWorkspaces;
+  readonly personalWorkspace = this.dashboardService.personalWorkspace;
   readonly tenantBranding = this.dashboardService.tenantBranding;
   readonly showOrgDropdown = signal<boolean>(false);
 
@@ -46,7 +69,7 @@ export class DashboardHeader {
   }
 
   switchOrg(orgId: string): void {
-    this.dashboardService.switchOrganization(orgId);
+    this.dashboardService.switchWorkspace(orgId);
     this.showOrgDropdown.set(false);
   }
 
