@@ -21,6 +21,28 @@ export interface SaaSApp {
   status?: string;
 }
 
+export type AccessRequestStatus = 'Pending Approval' | 'Approved' | 'Rejected';
+
+export interface AppAccessRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  department: string;
+  role: string;
+  appName: string;
+  protocol: 'SAML 2.0' | 'OIDC' | 'OAuth 2.0' | 'Web Auth';
+  category: 'cloud' | 'developer' | 'collaboration' | 'custom';
+  icon?: string;
+  launchUrl?: string;
+  justification: string;
+  status: AccessRequestStatus;
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  adminNotes?: string;
+}
+
 export interface SignInEvent {
   id: string;
   timestamp: string;

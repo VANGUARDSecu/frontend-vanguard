@@ -1,11 +1,17 @@
 /* ==========================================================================
-   USER TAB 2: SECURITY & MFA
+   USER TAB 2: SECURITY & MFA VAULT (SCRUM-32)
    ========================================================================== */
 
 .security-cards-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .security-cards-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .security-card {
@@ -57,6 +63,7 @@
 .recovery-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sec-desc {
@@ -65,6 +72,12 @@
   line-height: 1.5;
   margin: 0 0 18px 0;
   flex: 1;
+}
+
+.sec-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .btn-sec-action {
@@ -85,6 +98,23 @@
   color: #ffffff;
 }
 
+.btn-ghost-danger-sm {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost-danger-sm:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+}
+
 .sec-stat-box {
   display: flex;
   align-items: center;
@@ -101,6 +131,7 @@
   font-weight: 600;
 }
 
+/* Recovery Codes */
 .recovery-codes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -109,6 +140,17 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   padding: 16px;
+  margin-bottom: 16px;
+}
+
+.rec-code-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.15);
 }
 
 .rec-code {
@@ -116,4 +158,160 @@
   font-size: 13px;
   color: #38bdf8;
   letter-spacing: 1px;
+  font-weight: 600;
+}
+
+/* Single-Use Code Redemption Tester */
+.recovery-redeem-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px dashed rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.redeem-strip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.redeem-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.redeem-input-group .form-input-sm {
+  max-width: 320px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.redeem-result-msg {
+  font-size: 12.5px;
+  color: #f87171;
+  font-weight: 500;
+}
+
+.redeem-result-msg.result-success {
+  color: #34d399;
+}
+
+/* Password Modal Inputs & Eye Toggle */
+.password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrap .form-input {
+  width: 100%;
+  padding-right: 42px;
+}
+
+.btn-toggle-eye {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  color: #94a3b8;
+  transition: opacity 0.2s;
+}
+
+.btn-toggle-eye:hover {
+  opacity: 0.8;
+}
+
+/* Password Strength & Complexity Checklist */
+.password-meter-wrap {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.meter-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.meter-label {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.meter-strength {
+  font-weight: 700;
+}
+
+.meter-progress-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.meter-progress-fill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.complexity-checklist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+@media (max-width: 600px) {
+  .complexity-checklist {
+    grid-template-columns: 1fr;
+  }
+}
+
+.criteria-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #64748b;
+  transition: color 0.2s ease;
+}
+
+.criteria-item.valid {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.crit-icon {
+  font-weight: 800;
+  width: 14px;
+  text-align: center;
+}
+
+.criteria-item.valid .crit-icon {
+  color: #10b981;
+}
+
+.form-hint-error {
+  font-size: 11.5px;
+  color: #f87171;
+  margin-top: 4px;
+}
+
+.required-star {
+  color: #ef4444;
 }

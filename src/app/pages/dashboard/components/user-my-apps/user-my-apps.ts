@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from '../../services/dashboard.service';
@@ -18,6 +18,7 @@ import {
   EnrolledDevice,
   MobilePolicyConfig,
   PersonalVaultItem,
+  AppAccessRequest,
 } from '../../models/dashboard.models';
 
 @Component({
@@ -39,6 +40,10 @@ export class UserMyApps {
   readonly filteredApps = this.dashboardService.filteredApps;
   readonly showRequestAppModal = this.dashboardService.showRequestAppModal;
   readonly requestAppSuccess = this.dashboardService.requestAppSuccess;
+  readonly myAccessRequests = this.dashboardService.myAccessRequests;
+  readonly pendingRequestsCount = computed(() =>
+    this.myAccessRequests().filter((r) => r.status === 'Pending Approval').length
+  );
 
   // Personal Application Modal State
   readonly showAddPersonalAppModal = signal<boolean>(false);
@@ -59,6 +64,26 @@ export class UserMyApps {
   openRequestAppModal() { this.dashboardService.openRequestAppModal(); }
   closeRequestAppModal() { this.dashboardService.closeRequestAppModal(); }
   submitAppRequest() { this.dashboardService.submitAppRequest(); }
+
+  launchApprovedRequest(req: AppAccessRequest): void {
+    const existing = this.apps().find((a) => a.name.toLowerCase() === req.appName.toLowerCase());
+    if (existing) {
+      this.launchApp(existing);
+    } else {
+      const app: SaaSApp = {
+        id: req.id,
+        name: req.appName,
+        category: req.category,
+        description: req.justification,
+        icon: req.icon || '🚀',
+        protocol: req.protocol,
+        launchUrl: req.launchUrl || 'https://vanguard.security',
+        assigned: true,
+        status: 'Approved',
+      };
+      this.launchApp(app);
+    }
+  }
 
   // Personal App Launcher Actions
   openAddPersonalAppModal(): void {

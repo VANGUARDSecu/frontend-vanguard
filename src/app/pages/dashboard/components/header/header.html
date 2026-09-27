@@ -19,11 +19,12 @@
       </div>
       <div class="branding-text">
         <span class="brand-title">VANGUARD</span>
-        <span class="brand-subtitle">Zero-Trust Directory Vault</span>
+        <span class="brand-subtitle" *ngIf="!isIndividual()">Zero-Trust Directory Vault</span>
+        <span class="brand-subtitle" *ngIf="isIndividual()">Personal Security Vault</span>
       </div>
 
-      <!-- Universal Workspace Switcher (Personal Vault & Company Organizations) -->
-      <div class="org-switcher-container">
+      <!-- Universal Workspace Switcher (Only visible to Company / Organization Accounts) -->
+      <div class="org-switcher-container" *ngIf="!isIndividual()">
         <button
           type="button"
           class="org-switcher-btn"
@@ -157,18 +158,6 @@
         </button>
       </div>
 
-      <!-- Upgrade to Organization Button (Individual Accounts) -->
-      <div class="individual-upgrade-wrapper" *ngIf="isIndividual()">
-        <button type="button" class="btn-upgrade-org" (click)="openUpgradeModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upgrade-icon">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <line x1="10" y1="14" x2="21" y2="3"></line>
-          </svg>
-          <span>Upgrade to Org</span>
-        </button>
-      </div>
-
       <!-- User Profile Pill -->
       <div class="user-profile-pill">
         <div class="avatar-circle">
@@ -176,7 +165,7 @@
         </div>
         <div class="user-meta-text">
           <span class="user-name">{{ displayName() }}</span>
-          <span class="user-role-tag" [class.admin-tag]="isAdmin()">{{ userRoleLabel() }}</span>
+          <span class="user-role-tag" [class.admin-tag]="isAdmin() && !isIndividual()" [class.individual-tag]="isIndividual()">{{ userRoleLabel() }}</span>
         </div>
       </div>
 

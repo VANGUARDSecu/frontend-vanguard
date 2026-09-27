@@ -38,6 +38,8 @@ import {
   VlanMapping,
   EnrolledDevice,
   MobilePolicyConfig,
+  AppAccessRequest,
+  AccessRequestStatus,
 } from './models/dashboard.models';
 
 export type {
@@ -57,6 +59,8 @@ export type {
   VlanMapping,
   EnrolledDevice,
   MobilePolicyConfig,
+  AppAccessRequest,
+  AccessRequestStatus,
 };
 
 @Component({
@@ -213,6 +217,28 @@ export class DashboardComponent implements OnInit {
   get sandboxInspectorMode() { return this.dashboardService.sandboxInspectorMode; }
   set sandboxInspectorMode(v: 'saml' | 'oidc') { this.dashboardService.sandboxInspectorMode = v; }
 
+  // SCRUM-42: Access Requests Signals & Actions
+  readonly appAccessRequests = this.dashboardService.appAccessRequests;
+  readonly filteredAccessRequests = this.dashboardService.filteredAccessRequests;
+  readonly pendingAccessRequests = this.dashboardService.pendingAccessRequests;
+  readonly pendingAccessRequestsCount = this.dashboardService.pendingAccessRequestsCount;
+  readonly accessRequestStatusFilter = this.dashboardService.accessRequestStatusFilter;
+  readonly myAccessRequests = this.dashboardService.myAccessRequests;
+
+  get accessRequestSearch() { return this.dashboardService.accessRequestSearch(); }
+  set accessRequestSearch(v: string) { this.dashboardService.accessRequestSearch.set(v); }
+
+  openAccessRequestsQueue() { this.dashboardService.openAccessRequestsQueue(); }
+  setAccessRequestStatusFilter(f: 'all' | 'Pending Approval' | 'Approved' | 'Rejected') {
+    this.dashboardService.setAccessRequestStatusFilter(f);
+  }
+  approveAccessRequest(id: string, notes?: string) {
+    this.dashboardService.approveAccessRequest(id, notes);
+  }
+  rejectAccessRequest(id: string, notes?: string) {
+    this.dashboardService.rejectAccessRequest(id, notes);
+  }
+
   // Cloud LDAP Directory (Phase 5)
   readonly ldapAdminPassword = this.dashboardService.ldapAdminPassword;
   readonly ldapAdminPwRevealed = this.dashboardService.ldapAdminPwRevealed;
@@ -353,6 +379,10 @@ export class DashboardComponent implements OnInit {
   readonly totpEnrollSuccess = this.dashboardService.totpEnrollSuccess;
   readonly recoveryCodes = this.dashboardService.recoveryCodes;
   readonly copiedCodes = this.dashboardService.copiedCodes;
+  readonly showPasswordModal = this.dashboardService.showPasswordModal;
+  readonly passwordUpdateError = this.dashboardService.passwordUpdateError;
+  readonly passwordUpdateSuccess = this.dashboardService.passwordUpdateSuccess;
+  readonly isSubmittingPassword = this.dashboardService.isSubmittingPassword;
 
   // SSH Keys & Sign-In History
   readonly ldapBindDn = this.dashboardService.ldapBindDn;
@@ -508,6 +538,16 @@ export class DashboardComponent implements OnInit {
   copyRecoveryCodes() { return this.dashboardService.copyRecoveryCodes(); }
   downloadRecoveryCodes() { return this.dashboardService.downloadRecoveryCodes(); }
   generateRecoveryCodes() { return this.dashboardService.generateRecoveryCodes(); }
+  useRecoveryCode(code: string) { return this.dashboardService.useRecoveryCode(code); }
+  disableTotp() { return this.dashboardService.disableTotp(); }
+  openChangePasswordModal() { return this.dashboardService.openChangePasswordModal(); }
+  closeChangePasswordModal() { return this.dashboardService.closeChangePasswordModal(); }
+  updatePasswordSelfService(currentPassword: string, newPassword: string) {
+    return this.dashboardService.updatePasswordSelfService(currentPassword, newPassword);
+  }
+  submitPasswordChange(currentPassword: string, newPassword: string) {
+    return this.dashboardService.submitPasswordChange(currentPassword, newPassword);
+  }
   addSshKey() { return this.dashboardService.addSshKey(); }
   removeSshKey(id: string) { return this.dashboardService.removeSshKey(id); }
   copyUserId() { return this.dashboardService.copyUserId(); }

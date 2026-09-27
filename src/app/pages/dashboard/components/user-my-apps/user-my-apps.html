@@ -117,6 +117,106 @@
               </button>
             </div>
           </div>
+
+          <!-- ================================================================
+               SCRUM-42: Requested Applications (Pending Approval & Access Queue)
+               ================================================================ -->
+          <div class="requested-apps-section" *ngIf="!isPersonalWorkspace() && myAccessRequests().length > 0">
+            <div class="sub-section-header">
+              <div class="sub-section-title-wrap">
+                <h3 class="sub-section-title">
+                  <span>Requested Applications & Access Status</span>
+                  <span class="pending-count-badge" *ngIf="pendingRequestsCount() > 0">
+                    {{ pendingRequestsCount() }} Pending Review
+                  </span>
+                </h3>
+                <p class="sub-section-desc">
+                  Zero-trust access requests submitted for administrator review and governance approval.
+                </p>
+              </div>
+            </div>
+
+            <div class="requests-grid">
+              <div
+                class="request-card"
+                *ngFor="let req of myAccessRequests()"
+                [class.pending]="req.status === 'Pending Approval'"
+                [class.approved]="req.status === 'Approved'"
+                [class.rejected]="req.status === 'Rejected'"
+              >
+                <div class="request-card-top">
+                  <div class="request-icon-box">{{ req.icon || '🚀' }}</div>
+                  <div class="request-card-badges">
+                    <span class="request-status-badge pending" *ngIf="req.status === 'Pending Approval'">
+                      ⏳ Pending Approval
+                    </span>
+                    <span class="request-status-badge approved" *ngIf="req.status === 'Approved'">
+                      ✓ Approved & Assigned
+                    </span>
+                    <span class="request-status-badge rejected" *ngIf="req.status === 'Rejected'">
+                      ✕ Access Rejected
+                    </span>
+                    <span class="proto-tag">{{ req.protocol }}</span>
+                  </div>
+                </div>
+
+                <h4 class="request-app-name">{{ req.appName }}</h4>
+                <p class="request-justification">
+                  <span class="justification-label">Business Justification:</span>
+                  {{ req.justification }}
+                </p>
+
+                <div class="request-meta-row">
+                  <span class="meta-label">Submitted: {{ req.submittedAt | date:'mediumDate' }}</span>
+                  <span class="meta-reviewed" *ngIf="req.reviewedBy && req.status !== 'Pending Approval'">
+                    • Reviewer: {{ req.reviewedBy }}
+                  </span>
+                </div>
+
+                <div class="request-admin-note" *ngIf="req.status === 'Rejected' && req.adminNotes">
+                  <span class="note-icon">⚠️</span>
+                  <span><strong>Reason:</strong> {{ req.adminNotes }}</span>
+                </div>
+
+                <div class="request-action-area">
+                  <!-- Disabled Launch for Pending requests per SCRUM-42 -->
+                  <button
+                    type="button"
+                    class="btn-request-disabled"
+                    *ngIf="req.status === 'Pending Approval'"
+                    disabled
+                    title="Access is pending administrator review. Launch disabled until approval."
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lock-icon">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span>Pending Review (Launch Disabled)</span>
+                  </button>
+
+                  <!-- Active Launch for Approved requests -->
+                  <button
+                    type="button"
+                    class="btn-launch-app"
+                    *ngIf="req.status === 'Approved'"
+                    (click)="launchApprovedRequest(req)"
+                  >
+                    <span>Launch & Auto-fill</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="launch-icon">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                  </button>
+
+                  <!-- Zero-Trust Assertion Guard Notice for Rejected -->
+                  <div class="request-denied-badge" *ngIf="req.status === 'Rejected'">
+                    <span>🔒 Zero-Trust Guard: Assertion Blocked</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
   <!-- ========================================================================

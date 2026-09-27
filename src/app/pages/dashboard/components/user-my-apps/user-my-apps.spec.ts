@@ -128,6 +128,7 @@ describe('UserMyApps Component (SCRUM-52 Multi-Workspace & Personal App Launcher
     expect(figmaApp).toBeDefined();
     if (figmaApp) {
       const matched = component.getMatchingVaultCredentials(figmaApp);
+      // The default seed vault contains Figma credentials
       expect(matched.length).toBeGreaterThanOrEqual(1);
       expect(matched[0].url).toContain('figma.com');
     }
@@ -162,5 +163,100 @@ describe('UserMyApps Component (SCRUM-52 Multi-Workspace & Personal App Launcher
 
     component.setCategory('all');
     expect(component.filteredApps().length).toBe(component.personalApps().length);
+  });
+
+  describe('SCRUM-42 Admin Approval Workflow & Access Request Queue', () => {
+    beforeEach(() => {
+      // Switch to organization workspace
+      dashboardService.switchWorkspace('org_root');
+      fixture.detectChanges();
+    });
+
+    it('should queue access request with Pending Approval status instead of immediate auto-provisioning', () => {
+      const initialAppsCount = component.apps().length;
+      component.openRequestAppModal();
+      expect(component.showRequestAppModal()).toBe(true);
+
+      component.requestedAppName = 'Figma Enterprise';
+      component.requestAppJustification = 'Design systems and UI prototyping';
+      component.submitAppRequest();
+
+      // Verified: does NOT immediately grant access / does NOT add to assigned apps
+      expect(component.apps().length).toBe(initialAppsCount);
+
+      // Verified: request recorded in access requests queue with status 'Pending Approval'
+      const pendingReq = dashboardService.appAccessRequests().find((r) => r.appName === 'Figma Enterprise');
+      expect(pendingReq).toBeDefined();
+      expect(pendingReq?.status).toBe('Pending Approval');
+      expect(pendingReq?.justification).toBe('Design systems and UI prototyping');
+      expect(component.pendingRequestsCount()).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should block launching unapproved or pending applications with Zero-Trust Assertion Guard', () => {
+      const unapprovedApp: any = {
+        id: 'app-unapproved-1',
+        name: 'Shadow IT App',
+        assigned: false,
+        status: 'Pending Approval',
+        protocol: 'SAML 2.0',
+        launchUrl: 'https://shadow.security',
+        category: 'cloud',
+        description: 'Unassigned application',
+        icon: '⚠️',
+      };
+
+      component.launchApp(unapprovedApp);
+      expect(dashboardService.adminActionNotice()).toContain('Zero-Trust Assertion Guard');
+      expect(dashboardService.ssoLaunchingNotice()).toBeNull();
+    });
+
+    it('should provision application to user launchpad upon admin approval and enable SSO', () => {
+      // 1. Submit request
+      component.requestedAppName = 'AWS IAM Identity Center';
+      component.requestAppJustification = 'Infrastructure maintenance';
+      component.submitAppRequest();
+
+      const req = dashboardService.appAccessRequests().find((r) => r.appName === 'AWS IAM Identity Center');
+      expect(req).toBeDefined();
+      expect(req?.status).toBe('Pending Approval');
+
+      // 2. Admin approves request
+      dashboardService.approveAccessRequest(req!.id, 'Approved by SecOps Admin');
+
+      // 3. Verify request is updated to Approved
+      const updatedReq = dashboardService.appAccessRequests().find((r) => r.id === req!.id);
+      expect(updatedReq?.status).toBe('Approved');
+      expect(updatedReq?.reviewedBy).toBeDefined();
+      expect(updatedReq?.adminNotes).toBe('Approved by SecOps Admin');
+
+      // 4. Verify application is assigned to user's apps
+      const assignedApp = component.apps().find((a) => a.name === 'AWS IAM Identity Center');
+      expect(assignedApp).toBeDefined();
+      expect(assignedApp?.assigned).toBe(true);
+
+      // 5. Verify launch succeeds for approved app
+      component.launchApp(assignedApp!);
+      expect(dashboardService.ssoLaunchingNotice()).toContain('AWS IAM Identity Center');
+    });
+
+    it('should reject access request and prevent application assignment', () => {
+      component.requestedAppName = 'Unauthorized Cloud DB';
+      component.requestAppJustification = 'Testing unauthorized access';
+      component.submitAppRequest();
+
+      const req = dashboardService.appAccessRequests().find((r) => r.appName === 'Unauthorized Cloud DB');
+      expect(req).toBeDefined();
+
+      // Admin rejects request
+      dashboardService.rejectAccessRequest(req!.id, 'License not granted for this tier');
+
+      const updatedReq = dashboardService.appAccessRequests().find((r) => r.id === req!.id);
+      expect(updatedReq?.status).toBe('Rejected');
+      expect(updatedReq?.adminNotes).toBe('License not granted for this tier');
+
+      // Verified: NOT in assigned apps
+      const assignedApp = component.apps().find((a) => a.name === 'Unauthorized Cloud DB');
+      expect(assignedApp).toBeUndefined();
+    });
   });
 });
