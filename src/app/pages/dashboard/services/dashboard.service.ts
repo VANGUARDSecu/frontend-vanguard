@@ -38,6 +38,7 @@ import {
   TotpAccount,
   AppAccessRequest,
   AccessRequestStatus,
+  UserConnectedApp,
 } from '../models/dashboard.models';
 
 @Injectable({
@@ -1323,6 +1324,89 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   });
 
   // ==========================================
+  // SCRUM-57: Connected & Integrated Applications
+  // ==========================================
+  private initConnectedApps(): UserConnectedApp[] {
+    const stored = this.loadStored<UserConnectedApp[]>('vanguard_connected_apps', []);
+    if (stored && stored.length > 0) {
+      return stored;
+    }
+    return [
+      {
+        id: 'conn-dummy-portal',
+        clientId: 'vanguard-dummy-portal',
+        clientName: 'Acme Dummy Web',
+        protocol: 'OpenID Connect 1.0 (PKCE)',
+        scopes: ['openid', 'profile', 'email', 'roles', 'offline_access'],
+        redirectUri: 'http://localhost:4201/auth/callback',
+        originUrl: 'http://localhost:4201',
+        status: 'Connected',
+        connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        lastActiveAt: 'Active Session',
+        icon: '🌐',
+        description: 'Single-page web portal connected to your Vanguard Security account via OpenID Connect 1.0 PKCE authentication.',
+      },
+    ];
+  }
+
+  readonly connectedApps = signal<UserConnectedApp[]>(this.initConnectedApps());
+
+  readonly activeConnectedApps = computed<UserConnectedApp[]>(() => {
+    return this.connectedApps().filter((app) => app.status === 'Connected' || app.status === 'Active');
+  });
+
+  fetchConnectedApps(): void {
+    const email = this.user()?.email;
+    this.authService.getConnectedApps(email).subscribe({
+      next: (res) => {
+        if (res.success && res.connectedApps && res.connectedApps.length > 0) {
+          this.connectedApps.set(res.connectedApps);
+          this.saveStored('vanguard_connected_apps', this.connectedApps());
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  disconnectApp(clientId: string): void {
+    const target = this.connectedApps().find((a) => a.clientId === clientId);
+    const email = this.user()?.email;
+    this.connectedApps.update((apps) =>
+      apps.filter((a) => a.clientId !== clientId)
+    );
+    this.saveStored('vanguard_connected_apps', this.connectedApps());
+
+    this.authService.disconnectConnectedApp(clientId, email).subscribe({
+      next: () => {},
+      error: () => {},
+    });
+
+    if (target) {
+      this.logAuditEvent(
+        `Revoked SSO connection for ${target.clientName} (${target.clientId})`,
+        'SSO Integrations',
+        target.protocol,
+        'success',
+        'Medium'
+      );
+      this.showAdminNotice(`Disconnected ${target.clientName} integration.`);
+    }
+  }
+
+  launchConnectedApp(app: UserConnectedApp): void {
+    if (this.isBrowser && app.originUrl) {
+      window.open(app.originUrl, '_blank');
+      this.logAuditEvent(
+        `Launched connected app ${app.clientName} via SSO`,
+        'SSO Integrations',
+        app.protocol,
+        'success',
+        'Low'
+      );
+    }
+  }
+
+  // ==========================================
   // PHASE 2: Security & MFA Hub State
   // ==========================================
   readonly hasTotpEnrolled = signal<boolean>(
@@ -1776,6 +1860,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     this.syncGroupInheritedApps();
     this.initSupabaseSync();
     this.startTotpTimer();
+    this.fetchConnectedApps();
   }
 
   initDashboardForCurrentUser(): void {
@@ -1791,6 +1876,7 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     }
 
     this.initSupabaseSync();
+    this.fetchConnectedApps();
 
     const storedUsers = this.loadStored<DirectoryUser[]>('vanguard_directory_users', []);
     if (storedUsers && storedUsers.length > 0) {

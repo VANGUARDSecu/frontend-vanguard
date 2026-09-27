@@ -24,6 +24,18 @@ export class UserSecurity {
   readonly recoveryCodes = this.dashboardService.recoveryCodes;
   readonly copiedCodes = this.dashboardService.copiedCodes;
 
+  // SCRUM-57: Connected & Integrated Applications
+  readonly connectedApps = this.dashboardService.connectedApps;
+  readonly activeConnectedApps = this.dashboardService.activeConnectedApps;
+
+  launchConnectedApp(app: any): void {
+    this.dashboardService.launchConnectedApp(app);
+  }
+
+  disconnectApp(clientId: string): void {
+    this.dashboardService.disconnectApp(clientId);
+  }
+
   // SCRUM-32: Self-Service Password Modal & Status
   readonly showPasswordModal = this.dashboardService.showPasswordModal;
   readonly passwordUpdateError = this.dashboardService.passwordUpdateError;

@@ -19,6 +19,7 @@ import {
   MobilePolicyConfig,
   PersonalVaultItem,
   AppAccessRequest,
+  UserConnectedApp,
 } from '../../models/dashboard.models';
 
 @Component({
@@ -45,6 +46,10 @@ export class UserMyApps {
     this.myAccessRequests().filter((r) => r.status === 'Pending Approval').length
   );
 
+  // SCRUM-57: Connected Applications & Active SSO Integrations
+  readonly connectedApps = this.dashboardService.connectedApps;
+  readonly activeConnectedApps = this.dashboardService.activeConnectedApps;
+
   // Personal Application Modal State
   readonly showAddPersonalAppModal = signal<boolean>(false);
   readonly addAppError = signal<string | null>(null);
@@ -61,6 +66,8 @@ export class UserMyApps {
 
   setCategory(category: 'all' | 'cloud' | 'developer' | 'collaboration') { this.dashboardService.setCategory(category); }
   launchApp(app: SaaSApp) { this.dashboardService.launchApp(app); }
+  launchConnectedApp(app: UserConnectedApp) { this.dashboardService.launchConnectedApp(app); }
+  disconnectApp(clientId: string) { this.dashboardService.disconnectApp(clientId); }
   openRequestAppModal() { this.dashboardService.openRequestAppModal(); }
   closeRequestAppModal() { this.dashboardService.closeRequestAppModal(); }
   submitAppRequest() { this.dashboardService.submitAppRequest(); }

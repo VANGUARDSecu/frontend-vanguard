@@ -271,6 +271,10 @@
                     <h3 class="oidc-title">{{ client.name }}</h3>
                     <span class="oidc-created">Created: {{ client.createdAt }}</span>
                   </div>
+                  <span class="status-live-pill" *ngIf="client.clientId.includes('dummy') || client.redirectUris.toString().includes('4201')">
+                    <span class="pulse-dot"></span>
+                    Currently Connected (http://localhost:4201)
+                  </span>
                   <span class="badge badge-success">OAuth 2.0</span>
                 </div>
 

@@ -19,6 +19,25 @@ export interface SaaSApp {
   assigned: boolean;
   inheritedViaGroup?: string;
   status?: string;
+  isIntegrated?: boolean;
+  connectedUrl?: string;
+  connectionStatus?: string;
+}
+
+export interface UserConnectedApp {
+  id: string;
+  clientId: string;
+  clientName: string;
+  userEmail?: string;
+  protocol: string;
+  scopes: string[];
+  redirectUri: string;
+  originUrl: string;
+  status: 'Connected' | 'Active' | 'Disconnected';
+  connectedAt: string;
+  lastActiveAt?: string;
+  icon?: string;
+  description?: string;
 }
 
 export type AccessRequestStatus = 'Pending Approval' | 'Approved' | 'Rejected';

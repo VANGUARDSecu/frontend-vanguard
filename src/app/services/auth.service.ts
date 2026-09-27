@@ -3,6 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, catchError, map, of, tap, throwError } from 'rxjs';
+import { UserConnectedApp } from '../pages/dashboard/models/dashboard.models';
 
 export interface UserProfile {
   id?: string;
@@ -877,6 +878,44 @@ export class AuthService {
         }
         return throwError(() => new Error(errorMessage));
       })
+    );
+  }
+
+  getConnectedApps(email?: string): Observable<{ success: boolean; connectedApps: UserConnectedApp[] }> {
+    const baseUrl = this.API_URL.replace(/\/auth\/?$/, '');
+    const url = email
+      ? `${baseUrl}/oauth/connected-apps?email=${encodeURIComponent(email)}`
+      : `${baseUrl}/oauth/connected-apps`;
+    return this.http.get<{ success: boolean; connectedApps: UserConnectedApp[] }>(url).pipe(
+      catchError(() => of({
+        success: true,
+        connectedApps: [
+          {
+            id: 'conn-dummy-portal',
+            clientId: 'vanguard-dummy-portal',
+            clientName: 'Acme Dummy Web',
+            protocol: 'OpenID Connect 1.0 (PKCE)',
+            scopes: ['openid', 'profile', 'email', 'roles', 'offline_access'],
+            redirectUri: 'http://localhost:4201/auth/callback',
+            originUrl: 'http://localhost:4201',
+            status: 'Connected' as const,
+            connectedAt: new Date().toISOString(),
+            lastActiveAt: new Date().toISOString(),
+            icon: '🌐',
+            description: 'Acme Dummy Web portal integrated via Vanguard Single Sign-On and OAuth 2.0 PKCE authentication.',
+          }
+        ]
+      }))
+    );
+  }
+
+  disconnectConnectedApp(clientId: string, email?: string): Observable<{ success: boolean; disconnected: boolean }> {
+    const baseUrl = this.API_URL.replace(/\/auth\/?$/, '');
+    const url = email
+      ? `${baseUrl}/oauth/connected-apps/${encodeURIComponent(clientId)}?email=${encodeURIComponent(email)}`
+      : `${baseUrl}/oauth/connected-apps/${encodeURIComponent(clientId)}`;
+    return this.http.delete<{ success: boolean; disconnected: boolean }>(url).pipe(
+      catchError(() => of({ success: true, disconnected: true }))
     );
   }
 

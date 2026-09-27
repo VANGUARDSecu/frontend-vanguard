@@ -275,4 +275,23 @@ describe('UserSecurity Component (SCRUM-32 Self-Service Security & MFA Vault)', 
       expect(component.passwordUpdateSuccess()).toBe(true);
     });
   });
+
+  // ==========================================================================
+  // SCRUM-57: Connected External Applications Display in Security Hub
+  // ==========================================================================
+  describe('Connected External Applications (SCRUM-57)', () => {
+    it('should display active connected applications in security hub', () => {
+      expect(component.activeConnectedApps().length).toBeGreaterThanOrEqual(1);
+      const dummyApp = component.activeConnectedApps().find((a) => a.clientId === 'vanguard-dummy-portal');
+      expect(dummyApp).toBeDefined();
+      expect(dummyApp?.clientName).toBe('Acme Dummy Web');
+      expect(dummyApp?.status).toBe('Connected');
+      expect(dummyApp?.originUrl).toBe('http://localhost:4201');
+    });
+
+    it('should disconnect an application from security hub', () => {
+      component.disconnectApp('vanguard-dummy-portal');
+      expect(component.activeConnectedApps().some((a) => a.clientId === 'vanguard-dummy-portal')).toBe(false);
+    });
+  });
 });

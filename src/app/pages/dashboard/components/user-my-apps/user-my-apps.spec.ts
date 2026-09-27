@@ -259,4 +259,40 @@ describe('UserMyApps Component (SCRUM-52 Multi-Workspace & Personal App Launcher
       expect(assignedApp).toBeUndefined();
     });
   });
+
+  // ==========================================================================
+  // SCRUM-57: Active SSO Integrations & Connected Applications Display
+  // ==========================================================================
+  describe('SCRUM-57 Connected Client Applications & Live Status', () => {
+    it('should display Acme Dummy Web as an active connected integration with live status', () => {
+      expect(component.activeConnectedApps().length).toBeGreaterThanOrEqual(1);
+
+      const dummyApp = component.activeConnectedApps().find((a) => a.clientId === 'vanguard-dummy-portal');
+      expect(dummyApp).toBeDefined();
+      expect(dummyApp?.clientName).toBe('Acme Dummy Web');
+      expect(dummyApp?.status).toBe('Connected');
+      expect(dummyApp?.originUrl).toBe('http://localhost:4201');
+      expect(dummyApp?.redirectUri).toBe('http://localhost:4201/auth/callback');
+      expect(dummyApp?.protocol).toBe('OpenID Connect 1.0 (PKCE)');
+      expect(dummyApp?.scopes).toContain('openid');
+      expect(dummyApp?.scopes).toContain('profile');
+    });
+
+    it('should launch connected app in browser window', () => {
+      const dummyApp = component.activeConnectedApps().find((a) => a.clientId === 'vanguard-dummy-portal')!;
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null as any);
+
+      component.launchConnectedApp(dummyApp);
+      expect(openSpy).toHaveBeenCalledWith('http://localhost:4201', '_blank');
+      openSpy.mockRestore();
+    });
+
+    it('should disconnect an integrated application when requested', () => {
+      expect(component.activeConnectedApps().some((a) => a.clientId === 'vanguard-dummy-portal')).toBe(true);
+
+      component.disconnectApp('vanguard-dummy-portal');
+
+      expect(component.activeConnectedApps().some((a) => a.clientId === 'vanguard-dummy-portal')).toBe(false);
+    });
+  });
 });

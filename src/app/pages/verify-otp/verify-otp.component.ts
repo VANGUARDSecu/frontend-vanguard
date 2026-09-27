@@ -330,6 +330,28 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
 
       this.authService.approveSsoAuthorization(payload).subscribe({
         next: (res) => {
+          try {
+            const originUrl = new URL(sso['redirect_uri']).origin;
+            const stored = JSON.parse(localStorage.getItem('vanguard_connected_apps') || '[]');
+            const appName = sso['client_id']?.includes('dummy') ? 'Acme Dummy Web' : 'External Application';
+            const newConn = {
+              id: `conn_${sso['client_id']}`,
+              clientId: sso['client_id'],
+              clientName: appName,
+              protocol: 'OpenID Connect 1.0 (PKCE)',
+              scopes: (sso['scope'] || 'openid profile email roles').split(' '),
+              redirectUri: sso['redirect_uri'],
+              originUrl,
+              status: 'Connected',
+              connectedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              lastActiveAt: 'Active Session',
+              icon: '🌐',
+              description: `${appName} integrated via Vanguard SSO with account ${payload.email}.`,
+            };
+            const filtered = stored.filter((c: any) => c.clientId !== sso['client_id']);
+            localStorage.setItem('vanguard_connected_apps', JSON.stringify([newConn, ...filtered]));
+          } catch {}
+
           if (res.redirectUrl) {
             window.location.href = res.redirectUrl;
           } else {
