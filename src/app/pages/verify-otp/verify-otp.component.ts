@@ -348,7 +348,11 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
               icon: '🌐',
               description: `${appName} integrated via Vanguard SSO with account ${payload.email}.`,
             };
-            const filtered = stored.filter((c: any) => c.clientId !== sso['client_id']);
+            const normOrigin = originUrl.toLowerCase().trim().replace(/\/$/, '');
+            const filtered = stored.filter((c: any) => {
+              const cOrigin = (c.originUrl || '').toLowerCase().trim().replace(/\/$/, '');
+              return c.clientId !== sso['client_id'] && (!normOrigin || cOrigin !== normOrigin) && c.clientName !== appName;
+            });
             localStorage.setItem('vanguard_connected_apps', JSON.stringify([newConn, ...filtered]));
           } catch {}
 

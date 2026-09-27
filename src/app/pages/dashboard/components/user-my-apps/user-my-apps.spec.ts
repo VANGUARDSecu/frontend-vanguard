@@ -294,5 +294,46 @@ describe('UserMyApps Component (SCRUM-52 Multi-Workspace & Personal App Launcher
 
       expect(component.activeConnectedApps().some((a) => a.clientId === 'vanguard-dummy-portal')).toBe(false);
     });
+
+    it('should strictly deduplicate connected applications and prevent duplicates (SCRUM-58)', () => {
+      dashboardService.connectedApps.set([
+        {
+          id: 'conn-1',
+          clientId: 'vanguard-dummy-portal',
+          clientName: 'Acme Dummy Web',
+          protocol: 'OpenID Connect 1.0 (PKCE)',
+          scopes: ['openid'],
+          redirectUri: 'http://localhost:4201/auth/callback',
+          originUrl: 'http://localhost:4201',
+          status: 'Connected',
+          connectedAt: '2026-09-27',
+        },
+        {
+          id: 'conn-2',
+          clientId: 'vg_client_b3121c514e83037d',
+          clientName: 'Acme Dummy Web',
+          protocol: 'OpenID Connect 1.0 (PKCE)',
+          scopes: ['openid', 'email'],
+          redirectUri: 'http://localhost:4201/auth/callback',
+          originUrl: 'http://localhost:4201',
+          status: 'Connected',
+          connectedAt: '2026-09-27',
+        },
+        {
+          id: 'conn-3',
+          clientId: 'another-dummy-id',
+          clientName: 'Acme Dummy Web',
+          protocol: 'OpenID Connect 1.0 (PKCE)',
+          scopes: ['openid'],
+          redirectUri: 'http://localhost:4201/auth/callback',
+          originUrl: 'http://localhost:4201/',
+          status: 'Connected',
+          connectedAt: '2026-09-27',
+        },
+      ]);
+
+      expect(component.activeConnectedApps().length).toBe(1);
+      expect(component.activeConnectedApps()[0].clientName).toBe('Acme Dummy Web');
+    });
   });
 });

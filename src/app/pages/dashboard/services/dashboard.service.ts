@@ -1304,8 +1304,19 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   );
 
   // Active apps source: personal apps when in personal workspace, company apps when in organization
+  // SCRUM-58: Strict deduplication ensuring no application ever appears twice
   readonly activeAppsList = computed<SaaSApp[]>(() => {
-    return this.isPersonalWorkspace() ? this.personalApps() : this.apps();
+    const source = this.isPersonalWorkspace() ? this.personalApps() : this.apps();
+    const seen = new Set<string>();
+    const deduped: SaaSApp[] = [];
+    for (const app of source) {
+      const key = (app.name || app.id || app.launchUrl).toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(app);
+      }
+    }
+    return deduped;
   });
 
   readonly filteredApps = computed(() => {
@@ -1324,12 +1335,34 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   });
 
   // ==========================================
-  // SCRUM-57: Connected & Integrated Applications
+  // SCRUM-57 & SCRUM-58: Connected & Integrated Applications (Strictly Deduplicated)
   // ==========================================
+  deduplicateConnectedAppsList(apps: UserConnectedApp[]): UserConnectedApp[] {
+    const dedupMap = new Map<string, UserConnectedApp>();
+    for (const app of apps) {
+      const key = (app.originUrl || app.clientName || app.clientId)
+        .toLowerCase()
+        .trim()
+        .replace(/\/$/, '');
+      if (!dedupMap.has(key)) {
+        dedupMap.set(key, app);
+      } else {
+        const existing = dedupMap.get(key)!;
+        // Prioritize active/connected status or newer activity timestamp
+        if (existing.status !== 'Connected' && app.status === 'Connected') {
+          dedupMap.set(key, app);
+        } else if (app.lastActiveAt && (!existing.lastActiveAt || app.lastActiveAt > existing.lastActiveAt)) {
+          dedupMap.set(key, { ...existing, ...app });
+        }
+      }
+    }
+    return Array.from(dedupMap.values());
+  }
+
   private initConnectedApps(): UserConnectedApp[] {
     const stored = this.loadStored<UserConnectedApp[]>('vanguard_connected_apps', []);
     if (stored && stored.length > 0) {
-      return stored;
+      return this.deduplicateConnectedAppsList(stored);
     }
     return [
       {
@@ -1352,7 +1385,10 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   readonly connectedApps = signal<UserConnectedApp[]>(this.initConnectedApps());
 
   readonly activeConnectedApps = computed<UserConnectedApp[]>(() => {
-    return this.connectedApps().filter((app) => app.status === 'Connected' || app.status === 'Active');
+    const active = this.connectedApps().filter(
+      (app) => app.status === 'Connected' || app.status === 'Active'
+    );
+    return this.deduplicateConnectedAppsList(active);
   });
 
   fetchConnectedApps(): void {
@@ -1360,7 +1396,11 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
     this.authService.getConnectedApps(email).subscribe({
       next: (res) => {
         if (res.success && res.connectedApps && res.connectedApps.length > 0) {
-          this.connectedApps.set(res.connectedApps);
+          const merged = this.deduplicateConnectedAppsList([
+            ...res.connectedApps,
+            ...this.connectedApps(),
+          ]);
+          this.connectedApps.set(merged);
           this.saveStored('vanguard_connected_apps', this.connectedApps());
         }
       },
@@ -1370,9 +1410,13 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
 
   disconnectApp(clientId: string): void {
     const target = this.connectedApps().find((a) => a.clientId === clientId);
+    const targetOrigin = target ? (target.originUrl || '').toLowerCase().trim().replace(/\/$/, '') : '';
     const email = this.user()?.email;
     this.connectedApps.update((apps) =>
-      apps.filter((a) => a.clientId !== clientId)
+      apps.filter((a) => {
+        const origin = (a.originUrl || '').toLowerCase().trim().replace(/\/$/, '');
+        return a.clientId !== clientId && (!targetOrigin || origin !== targetOrigin);
+      })
     );
     this.saveStored('vanguard_connected_apps', this.connectedApps());
 
