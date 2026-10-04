@@ -186,6 +186,118 @@
         <p class="empty-desc">When you connect external web or mobile applications (like Acme Dummy Web) using Vanguard SSO, they will appear here with active session status.</p>
       </div>
     </div>
+
+    <!-- CARD 6: Sign-in Security & Automated Email Alerts (SCRUM-60) -->
+    <div class="security-card full-span">
+      <div class="sec-card-header">
+        <div class="sec-icon-box">🚨</div>
+        <div class="sec-header-meta">
+          <h3 class="sec-title">Sign-in Security &amp; Automated Email Alerts</h3>
+          <span class="badge" [class.badge-success]="securityAlertPreferences().emailAlertsEnabled" [class.badge-orange]="!securityAlertPreferences().emailAlertsEnabled">
+            {{ securityAlertPreferences().emailAlertsEnabled ? 'Real-Time Alerts Active' : 'Alerts Disabled' }}
+          </span>
+        </div>
+        <div class="alert-toggle-wrap">
+          <button type="button" class="btn-ghost-sm" (click)="toggleEmailAlerts()">
+            {{ securityAlertPreferences().emailAlertsEnabled ? 'Disable Alerts' : 'Enable Alerts' }}
+          </button>
+        </div>
+      </div>
+      <p class="sec-desc">
+        Receive automated zero-trust security notification emails with device telemetry, IP address, and immediate session revocation links whenever authentication occurs.
+      </p>
+
+      <!-- Preferences Controls Grid -->
+      <div class="security-prefs-grid">
+        <!-- Primary Notification Email -->
+        <div class="pref-box">
+          <label class="pref-label">Primary Notification Mailbox</label>
+          <div class="pref-input-readonly">
+            <span>{{ user()?.email }}</span>
+            <span class="badge badge-success">Verified</span>
+          </div>
+          <span class="pref-hint">Always receives high-priority login security notices and MFA challenges.</span>
+        </div>
+
+        <!-- Secondary Security Email -->
+        <div class="pref-box">
+          <label class="pref-label">Secondary Security Alert Mailbox</label>
+          <div class="pref-input-action-row">
+            <input
+              type="email"
+              class="pref-text-input"
+              [(ngModel)]="secondaryEmailInput"
+              [placeholder]="securityAlertPreferences().secondaryEmail || 'e.g. security-backup@personal.com'"
+            />
+            <button type="button" class="btn-primary-action btn-sm" (click)="saveSecondaryEmail()">
+              {{ secondaryEmailSaved() ? 'Saved!' : 'Save Email' }}
+            </button>
+          </div>
+          <span class="pref-hint" *ngIf="securityAlertPreferences().secondaryEmail">
+            Currently saved: <strong>{{ securityAlertPreferences().secondaryEmail }}</strong>
+          </span>
+          <span class="pref-hint" *ngIf="!securityAlertPreferences().secondaryEmail">
+            Optional emergency mailbox to receive sign-in alerts alongside your primary email.
+          </span>
+        </div>
+
+        <!-- Alert Notification Threshold -->
+        <div class="pref-box full-span-box">
+          <label class="pref-label">Sign-in Alert Notification Threshold</label>
+          <div class="threshold-pill-group">
+            <button
+              type="button"
+              class="threshold-pill"
+              [class.active]="securityAlertPreferences().alertThreshold === 'all'"
+              (click)="setAlertThreshold('all')"
+            >
+              <div class="pill-radio-indicator"></div>
+              <div class="pill-text-wrap">
+                <span class="pill-heading">All Logins (Recommended)</span>
+                <span class="pill-subtext">Dispatch security alert email on every successful authentication across Vanguard and SSO apps.</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              class="threshold-pill"
+              [class.active]="securityAlertPreferences().alertThreshold === 'new_device'"
+              (click)="setAlertThreshold('new_device')"
+            >
+              <div class="pill-radio-indicator"></div>
+              <div class="pill-text-wrap">
+                <span class="pill-heading">New Device / Location Only</span>
+                <span class="pill-subtext">Only dispatch email alerts when authentication originates from an unrecognized device or IP address.</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Recent Sign-in Activity Trail -->
+      <div class="sec-trail-section">
+        <h4 class="sec-trail-title">Recent Authentication Events &amp; Sign-in Trail</h4>
+        <div class="sec-trail-list" *ngIf="userSignInEvents().length > 0">
+          <div class="sec-trail-item" *ngFor="let evt of userSignInEvents()">
+            <div class="trail-item-left">
+              <span class="trail-status-dot" [class.success]="evt.status === 'success'" [class.challenge]="evt.status === 'mfa_required'" [class.blocked]="evt.status === 'blocked'"></span>
+              <div class="trail-info">
+                <span class="trail-app">{{ evt.application }}</span>
+                <span class="trail-meta">{{ evt.device }} • {{ evt.ip }} • {{ evt.location }}</span>
+              </div>
+            </div>
+            <div class="trail-item-right">
+              <span class="trail-badge" [class.badge-success]="evt.status === 'success'" [class.badge-orange]="evt.status === 'mfa_required'" [class.badge-danger]="evt.status === 'blocked'">
+                {{ evt.status === 'success' ? 'Authenticated' : evt.status === 'mfa_required' ? 'MFA Challenged' : 'Blocked' }}
+              </span>
+              <span class="trail-time">{{ evt.timestamp | date:'short' }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="empty-trail" *ngIf="userSignInEvents().length === 0">
+          <p>No recent sign-in events recorded for this user session.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 

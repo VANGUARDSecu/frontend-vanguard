@@ -294,4 +294,71 @@ describe('UserSecurity Component (SCRUM-32 Self-Service Security & MFA Vault)', 
       expect(component.activeConnectedApps().some((a) => a.clientId === 'vanguard-dummy-portal')).toBe(false);
     });
   });
+
+  // ==========================================================================
+  // SCRUM-60: Login Security & Automated Email Alerts
+  // ==========================================================================
+  describe('Login Security & Automated Email Alerts (SCRUM-60)', () => {
+    it('should have default security alert preferences', () => {
+      const prefs = component.securityAlertPreferences();
+      expect(prefs).toBeDefined();
+      expect(prefs.emailAlertsEnabled).toBe(true);
+      expect(prefs.alertThreshold).toBe('all');
+    });
+
+    it('should toggle email alerts enabled state', () => {
+      const initial = component.securityAlertPreferences().emailAlertsEnabled;
+      component.toggleEmailAlerts();
+      expect(component.securityAlertPreferences().emailAlertsEnabled).toBe(!initial);
+      component.toggleEmailAlerts();
+      expect(component.securityAlertPreferences().emailAlertsEnabled).toBe(initial);
+    });
+
+    it('should update alert threshold to new_device and back to all', () => {
+      component.setAlertThreshold('new_device');
+      expect(component.securityAlertPreferences().alertThreshold).toBe('new_device');
+      component.setAlertThreshold('all');
+      expect(component.securityAlertPreferences().alertThreshold).toBe('all');
+    });
+
+    it('should save a valid secondary email address', () => {
+      component.secondaryEmailInput = 'backup-alerts@vanguard.security';
+      component.saveSecondaryEmail();
+      expect(component.securityAlertPreferences().secondaryEmail).toBe('backup-alerts@vanguard.security');
+      expect(component.secondaryEmailSaved()).toBe(true);
+    });
+
+    it('should display user sign-in events trail', () => {
+      dashboardService.tenantAuditEvents.set([
+        {
+          id: 'test-evt-1',
+          actor: 'employee.mfa@vanguard.security',
+          action: 'LOGIN',
+          target: 'Vanguard Identity Portal',
+          status: 'success',
+          protocol: 'OIDC',
+          clientIp: '192.168.1.100',
+          device: 'Chrome / macOS',
+          location: 'San Francisco, CA',
+          timestamp: 'Just now',
+          isoTimestamp: new Date().toISOString(),
+          eventType: 'SSO_LOGIN',
+          severity: 'INFO',
+          riskScore: 'Low',
+          requestId: 'req-123',
+          rawPayload: {},
+        },
+      ]);
+
+      const trail = component.userSignInEvents();
+      expect(trail).toBeDefined();
+      expect(Array.isArray(trail)).toBe(true);
+      expect(trail.length).toBe(1);
+      const firstEvent = trail[0];
+      expect(firstEvent.application).toBe('Vanguard Identity Portal');
+      expect(firstEvent.status).toBe('success');
+      expect(firstEvent.ip).toBe('192.168.1.100');
+    });
+  });
 });
+

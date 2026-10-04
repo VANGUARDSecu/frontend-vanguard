@@ -73,6 +73,13 @@ export interface SignInEvent {
   status: 'success' | 'mfa_required' | 'blocked';
 }
 
+export interface UserSecurityAlertPreferences {
+  secondaryEmail?: string;
+  alertThreshold: 'all' | 'new_device';
+  emailAlertsEnabled: boolean;
+  updatedAt?: string;
+}
+
 export interface SSHKey {
   id: string;
   label: string;

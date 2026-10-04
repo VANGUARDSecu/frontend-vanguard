@@ -39,6 +39,7 @@ import {
   AppAccessRequest,
   AccessRequestStatus,
   UserConnectedApp,
+  UserSecurityAlertPreferences,
 } from '../models/dashboard.models';
 
 @Injectable({
@@ -4827,6 +4828,77 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
       })
     );
   }
+
+  // ==========================================
+  // SCRUM-60: Login Security & Automated Email Alerts
+  // ==========================================
+  private initSecurityAlertPreferences(): UserSecurityAlertPreferences {
+    const email = this.user()?.email || 'default';
+    return this.loadStored<UserSecurityAlertPreferences>(`vanguard_sec_prefs_${email}`, {
+      secondaryEmail: '',
+      alertThreshold: 'all',
+      emailAlertsEnabled: true,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  readonly securityAlertPreferences = signal<UserSecurityAlertPreferences>(this.initSecurityAlertPreferences());
+
+  updateSecurityAlertPreferences(updates: Partial<UserSecurityAlertPreferences>): void {
+    const current = this.securityAlertPreferences();
+    const updated: UserSecurityAlertPreferences = {
+      ...current,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    this.securityAlertPreferences.set(updated);
+    const email = this.user()?.email || 'default';
+    this.saveStored(`vanguard_sec_prefs_${email}`, updated);
+
+    // Sync to backend preferences endpoint if available
+    if (this.isBrowser && this.user()?.email) {
+      fetch('http://localhost:3000/auth/security-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: this.user()?.email,
+          secondaryEmail: updated.secondaryEmail,
+          alertThreshold: updated.alertThreshold,
+          emailAlertsEnabled: updated.emailAlertsEnabled,
+        }),
+      }).catch(() => {});
+    }
+
+    this.showAdminNotice('Security notification preferences updated successfully.');
+  }
+
+  readonly userSignInEvents = computed<SignInEvent[]>(() => {
+    const userEmail = this.user()?.email?.toLowerCase().trim();
+    const events = this.tenantAuditEvents();
+    return events
+      .filter(
+        (e) =>
+          !userEmail ||
+          e.actor.toLowerCase().trim() === userEmail ||
+          e.actor.toLowerCase().includes(userEmail),
+      )
+      .slice(0, 10)
+      .map((e) => ({
+        id: e.id,
+        timestamp: e.timestamp || e.isoTimestamp || new Date().toISOString(),
+        application: e.target || 'Vanguard Identity Portal',
+        protocol: e.protocol || 'OIDC',
+        device: e.device || 'Desktop / Browser',
+        ip: e.clientIp || '127.0.0.1',
+        location: e.location || 'Local Origin Network',
+        status:
+          e.status === 'blocked'
+            ? 'blocked'
+            : e.status === 'challenge'
+              ? 'mfa_required'
+              : 'success',
+      }));
+  });
 
   // ==========================================
   // SSH Key Management
