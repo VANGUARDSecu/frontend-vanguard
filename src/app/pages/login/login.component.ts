@@ -150,8 +150,9 @@ export class LoginComponent implements OnInit {
 
     this.isLoading.set(true);
     const { email, password, rememberMe } = this.loginForm.value;
+    const sso = this.ssoParams();
 
-    this.authService.login({ email: email.trim(), password }).subscribe({
+    this.authService.login({ email: email.trim(), password, isSso: !!sso }).subscribe({
       next: (response) => {
         this.isLoading.set(false);
 
@@ -161,8 +162,6 @@ export class LoginComponent implements OnInit {
         } else {
           this.authService.clearRememberedEmail();
         }
-
-        const sso = this.ssoParams();
 
         if (sso) {
           // Mandatory SSO MFA Enforcement (SCRUM-61)

@@ -322,7 +322,7 @@ export class AuthService {
   /* ==========================================
      Auth Actions
      ========================================== */
-  login(credentials: { email: string; password: string }): Observable<AuthResponse> {
+  login(credentials: { email: string; password: string; isSso?: boolean }): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.API_URL}/login`, credentials).pipe(
       tap((response) => {
         if (response.success) {
