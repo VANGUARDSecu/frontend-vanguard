@@ -58,9 +58,14 @@ Tailored for corporate employees to access organizational resources:
 ### 3. Authentication & Identity Verification
 - **Login Portal (`/login`)**: Email/password entry with "Remember Me" caching and seamless employee directory session recognition.
 - **2-Step Verification (`/verify-otp`)**:
-  - 8-digit Email OTP codes with 60-second cooldown resend countdown.
+  - 8-digit Email OTP codes with 60-second cooldown resend countdown for direct portal logins.
   - 6-digit Authenticator TOTP codes with QR code enrollment.
   - Developer bypass codes (`123456` / `12345678`) for accelerated offline testing.
+- **SSO MFA Verification Challenge (SCRUM-61)**:
+  - Enforced secondary 6-digit numeric OTP / TOTP verification on all single sign-on (OIDC) authentication flows prior to code issuance.
+  - Displays target relying party application name banner (e.g., Vanguard Portal, Dummy Web).
+  - Rate limiting & brute-force mitigation (maximum 5 attempts before challenge invalidation) with 60-second resend cooldown timer.
+  - Seamless redirection back to relying party callback URL upon code issuance.
 - **Enforced Password Reset (`/reset-password`)**: Automatically prompts newly invited employees to replace their temporary password on first sign-in.
 
 ---
@@ -140,8 +145,8 @@ npx ng test --watch=false
 ```
 
 ### Expected Test Results:
-- **13 Test Suites**: All passed (100%)
-- **66 Unit Tests**: All passed (100%)
+- **23 Test Suites**: All passed (100%)
+- **220 Unit Tests**: All passed (100%)
 
 ---
 

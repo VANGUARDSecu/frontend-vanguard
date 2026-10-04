@@ -68,6 +68,58 @@ export interface ApproveSsoResponse {
   redirectUrl: string;
 }
 
+export interface InitiateSsoMfaPayload {
+  client_id: string;
+  redirect_uri: string;
+  email: string;
+  userId?: string;
+  response_type?: string;
+  scope?: string;
+  state?: string;
+  nonce?: string;
+  code_challenge?: string;
+  code_challenge_method?: string;
+  name?: string;
+  role?: string;
+  department?: string;
+}
+
+export interface InitiateSsoMfaResponse {
+  success: boolean;
+  challengeId: string;
+  email: string;
+  clientId: string;
+  clientName: string;
+  redirectUri: string;
+  expiresInSeconds: number;
+  resendCooldownSeconds: number;
+  message: string;
+}
+
+export interface VerifySsoMfaPayload {
+  challengeId: string;
+  code: string;
+  method?: 'email_otp' | 'totp';
+}
+
+export interface VerifySsoMfaResponse {
+  success: boolean;
+  message: string;
+  code: string;
+  redirectUrl: string;
+}
+
+export interface ResendSsoOtpPayload {
+  challengeId: string;
+}
+
+export interface ResendSsoOtpResponse {
+  success: boolean;
+  message: string;
+  expiresInSeconds: number;
+  resendCooldownSeconds: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -871,6 +923,51 @@ export class AuthService {
     return this.http.post<ApproveSsoResponse>(url, payload).pipe(
       catchError((error: HttpErrorResponse) => {
         let errorMessage = 'Failed to approve SSO authorization.';
+        if (error.error && error.error.message) {
+          errorMessage = Array.isArray(error.error.message)
+            ? error.error.message.join(', ')
+            : error.error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  initiateSsoMfa(payload: InitiateSsoMfaPayload): Observable<InitiateSsoMfaResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/challenge`;
+    return this.http.post<InitiateSsoMfaResponse>(url, payload).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'Failed to initiate SSO Multi-Factor Authentication.';
+        if (error.error && error.error.message) {
+          errorMessage = Array.isArray(error.error.message)
+            ? error.error.message.join(', ')
+            : error.error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  verifySsoMfa(payload: VerifySsoMfaPayload): Observable<VerifySsoMfaResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/verify`;
+    return this.http.post<VerifySsoMfaResponse>(url, payload).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'SSO verification failed.';
+        if (error.error && error.error.message) {
+          errorMessage = Array.isArray(error.error.message)
+            ? error.error.message.join(', ')
+            : error.error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  resendSsoOtp(payload: ResendSsoOtpPayload): Observable<ResendSsoOtpResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/resend`;
+    return this.http.post<ResendSsoOtpResponse>(url, payload).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'Failed to resend SSO verification code.';
         if (error.error && error.error.message) {
           errorMessage = Array.isArray(error.error.message)
             ? error.error.message.join(', ')

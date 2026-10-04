@@ -164,21 +164,20 @@ export class LoginComponent implements OnInit {
 
         const sso = this.ssoParams();
 
-        if (response.requireMfa) {
+        if (sso) {
+          // Mandatory SSO MFA Enforcement (SCRUM-61)
+          this.initiateSsoMfaForUser(response.user, response.hasTotp);
+        } else if (response.requireMfa) {
           this.showNotification('success', 'Credentials verified! Redirecting to 2-Step Verification...', 3000);
           setTimeout(() => {
-            const queryParams: any = {
-              email: email.trim(),
-              mode: 'signin',
-              hasTotp: response.hasTotp ? 'true' : 'false',
-            };
-            if (sso) {
-              Object.assign(queryParams, sso);
-            }
-            this.router.navigate(['/verify-otp'], { queryParams });
+            this.router.navigate(['/verify-otp'], {
+              queryParams: {
+                email: email.trim(),
+                mode: 'signin',
+                hasTotp: response.hasTotp ? 'true' : 'false',
+              },
+            });
           }, 600);
-        } else if (sso) {
-          this.approveSsoForUser(response.user);
         } else {
           this.showNotification('success', 'Login successful! Redirecting...', 3000);
           setTimeout(() => {
@@ -196,8 +195,56 @@ export class LoginComponent implements OnInit {
   onContinueSso(): void {
     const user = this.currentUser();
     if (user) {
-      this.approveSsoForUser(user);
+      this.initiateSsoMfaForUser(user);
     }
+  }
+
+  initiateSsoMfaForUser(user?: UserProfile, hasTotp = false): void {
+    const sso = this.ssoParams();
+    if (!sso) return;
+
+    this.isLoading.set(true);
+    this.showNotification('success', 'Credentials verified! Initiating SSO Multi-Factor Authentication challenge...', 3000);
+
+    const currentUser = user || this.authService.currentUser();
+    const email = currentUser?.email || this.loginForm.get('email')?.value?.trim();
+    const fullName = currentUser
+      ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email.split('@')[0]
+      : email.split('@')[0];
+    const role = currentUser?.role || 'user';
+    const dept = currentUser?.user_metadata?.['department'] || 'Corporate Security';
+
+    this.authService.initiateSsoMfa({
+      client_id: sso['client_id'],
+      redirect_uri: sso['redirect_uri'],
+      email,
+      userId: currentUser?.id,
+      name: fullName,
+      role,
+      department: dept,
+      response_type: sso['response_type'] || 'code',
+      scope: sso['scope'] || 'openid profile email roles',
+      state: sso['state'] || '',
+      nonce: sso['nonce'] || '',
+      code_challenge: sso['code_challenge'] || '',
+      code_challenge_method: sso['code_challenge_method'] || 'S256',
+    }).subscribe({
+      next: (res) => {
+        this.isLoading.set(false);
+        const queryParams: any = {
+          challengeId: res.challengeId,
+          email: res.email,
+          mode: 'signin',
+          hasTotp: hasTotp ? 'true' : 'false',
+        };
+        Object.assign(queryParams, sso);
+        this.router.navigate(['/verify-otp'], { queryParams });
+      },
+      error: (err: Error) => {
+        this.isLoading.set(false);
+        this.showNotification('error', err.message || 'Failed to initiate SSO MFA challenge.');
+      },
+    });
   }
 
   approveSsoForUser(user?: UserProfile): void {

@@ -44,6 +44,8 @@
             Authenticator 2-Step Verification
           } @else if (mode() === 'recovery') {
             Password Reset Verification
+          } @else if (isSsoVerification()) {
+            Single Sign-On MFA Verification
           } @else if (mode() === 'signup') {
             Verify Your Email
           } @else {
@@ -56,6 +58,8 @@
             Enter the 6-digit dynamic code from Google Authenticator, JumpCloud Protect, or Microsoft Authenticator.
           } @else if (mode() === 'recovery') {
             Enter the 8-digit recovery code sent to <strong class="highlight-email">{{ email() }}</strong> to verify and authorize password reset.
+          } @else if (isSsoVerification()) {
+            Enter the 6-digit verification code sent to <strong class="highlight-email">{{ email() }}</strong> to authorize sign-in to <strong>{{ clientDisplayName() }}</strong>.
           } @else {
             Enter the 8-digit verification code sent to <strong class="highlight-email">{{ email() }}</strong>
           }
@@ -63,14 +67,14 @@
       </div>
 
       <!-- SSO Integration Banner -->
-      @if (ssoParams()) {
+      @if (isSsoVerification()) {
         <div class="sso-banner">
           <div class="sso-badge">
             <span class="sso-badge-dot"></span>
-            <span>SSO Verification</span>
+            <span>Single Sign-On MFA Challenge</span>
           </div>
           <p class="sso-banner-text">
-            Second-factor verification required before granting access to <strong>{{ clientDisplayName() }}</strong>.
+            Verifying sign-in to <strong>{{ clientDisplayName() }}</strong>. Mandatory second-factor verification is enforced.
           </p>
         </div>
       }
