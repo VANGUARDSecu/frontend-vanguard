@@ -407,6 +407,33 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
     }
   }
 
+  private resolveUserFullName(user?: UserProfile | null, fallbackEmail?: string): string {
+    const meta = (user as any)?.user_metadata || {};
+    const firstName = user?.firstName || meta['first_name'] || meta['firstName'] || meta['given_name'] || '';
+    const lastName = user?.lastName || meta['last_name'] || meta['lastName'] || meta['family_name'] || '';
+    const combined = `${firstName} ${lastName}`.trim();
+    if (combined) return combined;
+
+    if (user?.name && user.name.trim()) return user.name.trim();
+    if (meta['name'] && typeof meta['name'] === 'string' && meta['name'].trim()) {
+      return meta['name'].trim();
+    }
+
+    const email = user?.email || fallbackEmail || '';
+    if (typeof window !== 'undefined' && email) {
+      try {
+        const storedDir = localStorage.getItem('vanguard_directory_users');
+        if (storedDir) {
+          const dirUsers: any[] = JSON.parse(storedDir);
+          const match = dirUsers.find((d) => d.email?.toLowerCase().trim() === email.toLowerCase().trim());
+          if (match?.name?.trim()) return match.name.trim();
+        }
+      } catch {}
+    }
+
+    return email ? email.split('@')[0] : 'Enterprise User';
+  }
+
   private handleVerificationSuccess(user?: UserProfile): void {
     const sso = this.ssoParams();
     if (sso && sso['client_id'] && sso['redirect_uri']) {
@@ -414,9 +441,8 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
       this.showNotification('success', 'Identity and 2FA verified! Authorizing access to client application...', 4000);
 
       const currentUser = user || this.authService.currentUser();
-      const fullName = currentUser
-        ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email.split('@')[0]
-        : this.email().split('@')[0];
+      const email = currentUser?.email || this.email();
+      const fullName = this.resolveUserFullName(currentUser, email);
       const role = currentUser?.role || 'user';
       const dept = currentUser?.user_metadata?.['department'] || 'Corporate Security';
 

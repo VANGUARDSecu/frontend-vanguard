@@ -198,6 +198,33 @@ export class LoginComponent implements OnInit {
     }
   }
 
+  private resolveUserFullName(user?: UserProfile | null, fallbackEmail?: string): string {
+    const meta = (user as any)?.user_metadata || {};
+    const firstName = user?.firstName || meta['first_name'] || meta['firstName'] || meta['given_name'] || '';
+    const lastName = user?.lastName || meta['last_name'] || meta['lastName'] || meta['family_name'] || '';
+    const combined = `${firstName} ${lastName}`.trim();
+    if (combined) return combined;
+
+    if (user?.name && user.name.trim()) return user.name.trim();
+    if (meta['name'] && typeof meta['name'] === 'string' && meta['name'].trim()) {
+      return meta['name'].trim();
+    }
+
+    const email = user?.email || fallbackEmail || '';
+    if (typeof window !== 'undefined' && email) {
+      try {
+        const storedDir = localStorage.getItem('vanguard_directory_users');
+        if (storedDir) {
+          const dirUsers: any[] = JSON.parse(storedDir);
+          const match = dirUsers.find((d) => d.email?.toLowerCase().trim() === email.toLowerCase().trim());
+          if (match?.name?.trim()) return match.name.trim();
+        }
+      } catch {}
+    }
+
+    return email ? email.split('@')[0] : 'Enterprise User';
+  }
+
   initiateSsoMfaForUser(user?: UserProfile, hasTotp = false): void {
     const sso = this.ssoParams();
     if (!sso) return;
@@ -207,9 +234,7 @@ export class LoginComponent implements OnInit {
 
     const currentUser = user || this.authService.currentUser();
     const email = currentUser?.email || this.loginForm.get('email')?.value?.trim();
-    const fullName = currentUser
-      ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email.split('@')[0]
-      : email.split('@')[0];
+    const fullName = this.resolveUserFullName(currentUser, email);
     const role = currentUser?.role || 'user';
     const dept = currentUser?.user_metadata?.['department'] || 'Corporate Security';
 
@@ -254,9 +279,8 @@ export class LoginComponent implements OnInit {
     this.showNotification('success', 'Authorizing SSO access to application...', 4000);
 
     const currentUser = user || this.authService.currentUser();
-    const fullName = currentUser
-      ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email.split('@')[0]
-      : this.loginForm.get('email')?.value?.trim()?.split('@')[0] || 'Enterprise User';
+    const email = currentUser?.email || this.loginForm.get('email')?.value?.trim();
+    const fullName = this.resolveUserFullName(currentUser, email);
     const role = currentUser?.role || 'user';
     const dept = currentUser?.user_metadata?.['department'] || 'Corporate Security';
 

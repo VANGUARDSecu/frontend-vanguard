@@ -8,6 +8,7 @@ import { UserConnectedApp } from '../pages/dashboard/models/dashboard.models';
 export interface UserProfile {
   id?: string;
   email: string;
+  name?: string;
   firstName?: string;
   lastName?: string;
   companyName?: string;
@@ -683,16 +684,42 @@ export class AuthService {
       else if (user.role === 'security_officer' || meta['role'] === 'security_officer') resolvedRole = 'security_officer';
     }
 
+    let firstName = user.firstName || meta['first_name'] || meta['firstName'] || meta['given_name'] || (meta['name'] ? meta['name'].split(' ')[0] : '') || '';
+    let lastName = user.lastName || meta['last_name'] || meta['lastName'] || meta['family_name'] || (meta['name'] ? meta['name'].split(' ').slice(1).join(' ') : '') || '';
+
+    if (!firstName && !lastName && this.isBrowser) {
+      try {
+        const storedDir = localStorage.getItem('vanguard_directory_users');
+        if (storedDir) {
+          const dirUsers: any[] = JSON.parse(storedDir);
+          const matched = dirUsers.find(
+            (d) => d.email?.trim().toLowerCase() === user.email?.trim().toLowerCase(),
+          );
+          if (matched?.name) {
+            const parts = matched.name.trim().split(' ');
+            firstName = parts[0] || '';
+            lastName = parts.slice(1).join(' ') || '';
+          }
+        }
+      } catch {}
+    }
+
+    const resolvedFullName = (user as any).name || (firstName || lastName ? `${firstName} ${lastName}`.trim() : meta['name'] || '');
+
     const normalizedUser: UserProfile = {
       ...user,
-      firstName: user.firstName || meta['first_name'] || meta['firstName'] || meta['given_name'] || meta['name']?.split(' ')[0] || '',
-      lastName: user.lastName || meta['last_name'] || meta['lastName'] || meta['family_name'] || meta['name']?.split(' ').slice(1).join(' ') || '',
+      firstName,
+      lastName,
+      name: resolvedFullName || undefined,
       companyName: user.companyName || meta['company_name'] || meta['companyName'] || 'Vanguard Security Inc.',
       phone: user.phone || meta['phone'] || '',
       role: resolvedRole,
       avatarUrl: user.avatarUrl || meta['avatar_url'] || meta['picture'] || '',
       user_metadata: {
         ...meta,
+        first_name: firstName,
+        last_name: lastName,
+        name: resolvedFullName || undefined,
         role: resolvedRole,
       },
     };
