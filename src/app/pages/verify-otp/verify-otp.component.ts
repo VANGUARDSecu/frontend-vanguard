@@ -236,11 +236,23 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
 
   openAuthenticatorApp(): void {
     const id = this.challengeId();
-    if (!id) return;
-    const deepLink = `vanguard-auth://mfa/challenge?id=${encodeURIComponent(id)}`;
+    const deepLink = id ? `vanguard-auth://mfa/challenge?id=${encodeURIComponent(id)}` : 'vanguard-auth://mfa';
+    const webAuthUrl = 'http://localhost:8082';
+
+    this.showNotification('success', 'Opening Vanguard Authenticator...', 2500);
+
     if (typeof window !== 'undefined') {
-      // Attempt opening custom protocol scheme or web authenticator
-      window.location.href = deepLink;
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile) {
+        // Attempt opening custom protocol scheme on native mobile
+        window.location.href = deepLink;
+        setTimeout(() => {
+          window.open(webAuthUrl, '_blank');
+        }, 1200);
+      } else {
+        // On desktop/laptop web browsers, launch the mobile-vanguard authenticator instance
+        window.open(webAuthUrl, '_blank');
+      }
     }
   }
 
