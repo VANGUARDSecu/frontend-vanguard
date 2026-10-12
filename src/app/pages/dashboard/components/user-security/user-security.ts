@@ -168,4 +168,26 @@ export class UserSecurity {
       error: () => {}
     });
   }
+
+  // SCRUM-60: Security Email Alerts & Login Audit Preferences
+  readonly securityAlertPreferences = this.dashboardService.securityAlertPreferences;
+  readonly userSignInEvents = this.dashboardService.userSignInEvents;
+  readonly secondaryEmailSaved = signal<boolean>(false);
+  secondaryEmailInput = '';
+
+  saveSecondaryEmail(): void {
+    const email = this.secondaryEmailInput.trim();
+    this.dashboardService.updateSecurityAlertPreferences({ secondaryEmail: email });
+    this.secondaryEmailSaved.set(true);
+    setTimeout(() => this.secondaryEmailSaved.set(false), 3000);
+  }
+
+  setAlertThreshold(threshold: 'all' | 'new_device'): void {
+    this.dashboardService.updateSecurityAlertPreferences({ alertThreshold: threshold });
+  }
+
+  toggleEmailAlerts(): void {
+    const current = this.securityAlertPreferences().emailAlertsEnabled;
+    this.dashboardService.updateSecurityAlertPreferences({ emailAlertsEnabled: !current });
+  }
 }

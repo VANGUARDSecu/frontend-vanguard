@@ -8,6 +8,7 @@ import { UserConnectedApp } from '../pages/dashboard/models/dashboard.models';
 export interface UserProfile {
   id?: string;
   email: string;
+  name?: string;
   firstName?: string;
   lastName?: string;
   companyName?: string;
@@ -66,6 +67,86 @@ export interface ApproveSsoResponse {
   success: boolean;
   code: string;
   redirectUrl: string;
+}
+
+export interface InitiateSsoMfaPayload {
+  client_id: string;
+  redirect_uri: string;
+  email: string;
+  userId?: string;
+  response_type?: string;
+  scope?: string;
+  state?: string;
+  nonce?: string;
+  code_challenge?: string;
+  code_challenge_method?: string;
+  name?: string;
+  role?: string;
+  department?: string;
+}
+
+export interface InitiateSsoMfaResponse {
+  success: boolean;
+  challengeId: string;
+  email: string;
+  clientId: string;
+  clientName: string;
+  redirectUri: string;
+  expiresInSeconds: number;
+  resendCooldownSeconds: number;
+  message: string;
+}
+
+export interface VerifySsoMfaPayload {
+  challengeId: string;
+  code: string;
+  method?: 'email_otp' | 'totp' | 'push_approval';
+}
+
+export interface VerifySsoMfaResponse {
+  success: boolean;
+  message: string;
+  code: string;
+  redirectUrl: string;
+}
+
+export interface ResendSsoOtpPayload {
+  challengeId: string;
+}
+
+export interface ResendSsoOtpResponse {
+  success: boolean;
+  message: string;
+  expiresInSeconds: number;
+  resendCooldownSeconds: number;
+}
+
+export interface InitiatePushMfaPayload extends InitiateSsoMfaPayload {}
+
+export interface InitiatePushMfaResponse {
+  success: boolean;
+  challengeId: string;
+  email: string;
+  clientId: string;
+  clientName: string;
+  clientType: 'web' | 'mobile';
+  appIcon?: string;
+  numberMatching: {
+    enabled: boolean;
+    code: number;
+  };
+  expiresInSeconds: number;
+  message: string;
+}
+
+export interface PushStatusResponse {
+  success: boolean;
+  challengeId: string;
+  status: 'pending' | 'approved' | 'denied' | 'fraud_reported' | 'expired' | 'not_found';
+  verified?: boolean;
+  code?: string;
+  redirectUrl?: string;
+  resolutionReason?: string;
 }
 
 @Injectable({
@@ -270,7 +351,7 @@ export class AuthService {
   /* ==========================================
      Auth Actions
      ========================================== */
-  login(credentials: { email: string; password: string }): Observable<AuthResponse> {
+  login(credentials: { email: string; password: string; isSso?: boolean }): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.API_URL}/login`, credentials).pipe(
       tap((response) => {
         if (response.success) {
@@ -631,16 +712,42 @@ export class AuthService {
       else if (user.role === 'security_officer' || meta['role'] === 'security_officer') resolvedRole = 'security_officer';
     }
 
+    let firstName = user.firstName || meta['first_name'] || meta['firstName'] || meta['given_name'] || (meta['name'] ? meta['name'].split(' ')[0] : '') || '';
+    let lastName = user.lastName || meta['last_name'] || meta['lastName'] || meta['family_name'] || (meta['name'] ? meta['name'].split(' ').slice(1).join(' ') : '') || '';
+
+    if (!firstName && !lastName && this.isBrowser) {
+      try {
+        const storedDir = localStorage.getItem('vanguard_directory_users');
+        if (storedDir) {
+          const dirUsers: any[] = JSON.parse(storedDir);
+          const matched = dirUsers.find(
+            (d) => d.email?.trim().toLowerCase() === user.email?.trim().toLowerCase(),
+          );
+          if (matched?.name) {
+            const parts = matched.name.trim().split(' ');
+            firstName = parts[0] || '';
+            lastName = parts.slice(1).join(' ') || '';
+          }
+        }
+      } catch {}
+    }
+
+    const resolvedFullName = (user as any).name || (firstName || lastName ? `${firstName} ${lastName}`.trim() : meta['name'] || '');
+
     const normalizedUser: UserProfile = {
       ...user,
-      firstName: user.firstName || meta['first_name'] || meta['firstName'] || meta['given_name'] || meta['name']?.split(' ')[0] || '',
-      lastName: user.lastName || meta['last_name'] || meta['lastName'] || meta['family_name'] || meta['name']?.split(' ').slice(1).join(' ') || '',
+      firstName,
+      lastName,
+      name: resolvedFullName || undefined,
       companyName: user.companyName || meta['company_name'] || meta['companyName'] || 'Vanguard Security Inc.',
       phone: user.phone || meta['phone'] || '',
       role: resolvedRole,
       avatarUrl: user.avatarUrl || meta['avatar_url'] || meta['picture'] || '',
       user_metadata: {
         ...meta,
+        first_name: firstName,
+        last_name: lastName,
+        name: resolvedFullName || undefined,
         role: resolvedRole,
       },
     };
@@ -878,6 +985,91 @@ export class AuthService {
         }
         return throwError(() => new Error(errorMessage));
       })
+    );
+  }
+
+  initiateSsoMfa(payload: InitiateSsoMfaPayload): Observable<InitiateSsoMfaResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/challenge`;
+    return this.http.post<InitiateSsoMfaResponse>(url, payload).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'Failed to initiate SSO Multi-Factor Authentication.';
+        if (error.error && error.error.message) {
+          errorMessage = Array.isArray(error.error.message)
+            ? error.error.message.join(', ')
+            : error.error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  verifySsoMfa(payload: VerifySsoMfaPayload): Observable<VerifySsoMfaResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/verify`;
+    return this.http.post<VerifySsoMfaResponse>(url, payload).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'SSO verification failed.';
+        if (error.error && error.error.message) {
+          errorMessage = Array.isArray(error.error.message)
+            ? error.error.message.join(', ')
+            : error.error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  resendSsoOtp(payload: ResendSsoOtpPayload): Observable<ResendSsoOtpResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/resend`;
+    return this.http.post<ResendSsoOtpResponse>(url, payload).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'Failed to resend SSO verification code.';
+        if (error.error && error.error.message) {
+          errorMessage = Array.isArray(error.error.message)
+            ? error.error.message.join(', ')
+            : error.error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  initiatePushMfa(payload: InitiatePushMfaPayload): Observable<InitiatePushMfaResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/push/initiate`;
+    return this.http.post<InitiatePushMfaResponse>(url, payload).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'Failed to dispatch Push MFA challenge to mobile device.';
+        if (error.error && error.error.message) {
+          errorMessage = Array.isArray(error.error.message)
+            ? error.error.message.join(', ')
+            : error.error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  checkPushStatus(challengeId: string): Observable<PushStatusResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/push/status?challengeId=${encodeURIComponent(challengeId)}`;
+    return this.http.get<PushStatusResponse>(url).pipe(
+      catchError(() => of({
+        success: false,
+        challengeId,
+        status: 'not_found' as const,
+      }))
+    );
+  }
+
+  getPushMfaPreference(email: string): Observable<{ success: boolean; email: string; enabled: boolean }> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/push/preference?email=${encodeURIComponent(email)}`;
+    return this.http.get<{ success: boolean; email: string; enabled: boolean }>(url).pipe(
+      catchError(() => of({ success: true, email, enabled: true }))
+    );
+  }
+
+  setPushMfaPreference(email: string, enabled: boolean): Observable<{ success: boolean; enabled: boolean }> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/push/preference`;
+    return this.http.post<{ success: boolean; enabled: boolean }>(url, { email, enabled }).pipe(
+      catchError(() => of({ success: true, enabled }))
     );
   }
 

@@ -49,7 +49,7 @@ Designed for SecOps engineers and system administrators to configure enterprise 
 ### 2. Employee Personal Workspace (User View)
 Tailored for corporate employees to access organizational resources:
 - **My Apps Launchpad**: One-click single sign-on into authorized corporate SaaS applications.
-- **Security & Password Management**: Self-service permanent password updates and MFA enrollment.
+- **Security & Password Management (SCRUM-32 & SCRUM-60)**: Self-service permanent password updates, TOTP authenticator pairing, 10 single-use emergency recovery codes, automated sign-in email alert preferences (master toggle, secondary alert email, threshold filtering), and personal authentication event audit trail.
 - **Device Trust & Hardware**: Inspect enrolled laptops, phones, and MDM compliance state.
 - **Corporate Wi-Fi Profile**: Download pre-configured 802.1X / EAP-TLS profiles and certificates for immediate enterprise network access.
 - **SSH Key Manager**: Upload and manage public SSH keys (`ssh-ed25519`, `ssh-rsa`) for infrastructure access.
@@ -58,9 +58,17 @@ Tailored for corporate employees to access organizational resources:
 ### 3. Authentication & Identity Verification
 - **Login Portal (`/login`)**: Email/password entry with "Remember Me" caching and seamless employee directory session recognition.
 - **2-Step Verification (`/verify-otp`)**:
-  - 8-digit Email OTP codes with 60-second cooldown resend countdown.
+  - 8-digit Email OTP codes with 60-second cooldown resend countdown for direct portal logins.
   - 6-digit Authenticator TOTP codes with QR code enrollment.
   - Developer bypass codes (`123456` / `12345678`) for accelerated offline testing.
+- **SSO MFA Verification Challenge (SCRUM-61 & SCRUM-85)**:
+  - **Out-of-Band Mobile Push MFA (SCRUM-85)**: Dispatches instant push challenge to `mobile-vanguard` with 2-digit number matching, candidate options, and biometric gate.
+  - **Live Number Matching**: Prominently displays the 2-digit challenge number on screen for the user to select on their phone.
+  - **Real-Time Polling & Deep Linking**: Automatically detects mobile approval and redirects back to relying parties (`dummy-web`, `dummy-mobile`), with one-tap deep-link button (`vanguard-auth://mfa/challenge?id=...`).
+  - **Instant Fallback**: One-click fallback to 6-digit Email OTP or Authenticator TOTP if the phone is unavailable.
+  - Enforced secondary verification on all single sign-on (OIDC) authentication flows prior to code issuance.
+  - Rate limiting & brute-force mitigation (maximum 5 attempts before challenge invalidation) with 60-second cooldown timer.
+  - Seamless redirection back to relying party callback URL upon code issuance.
 - **Enforced Password Reset (`/reset-password`)**: Automatically prompts newly invited employees to replace their temporary password on first sign-in.
 
 ---
@@ -95,12 +103,12 @@ npm install
 
 ## Development Server
 
-Start the local Angular development server:
+Start the local Angular development server (strictly fixed to port `4200`):
 
 ```bash
 npm start
 # or
-npx ng serve
+npx ng serve --port 4200
 ```
 
 Once compilation completes, open your browser and navigate to:
@@ -140,8 +148,8 @@ npx ng test --watch=false
 ```
 
 ### Expected Test Results:
-- **13 Test Suites**: All passed (100%)
-- **66 Unit Tests**: All passed (100%)
+- **23 Test Suites**: All passed (100%)
+- **220 Unit Tests**: All passed (100%)
 
 ---
 
