@@ -100,7 +100,7 @@ export interface InitiateSsoMfaResponse {
 export interface VerifySsoMfaPayload {
   challengeId: string;
   code: string;
-  method?: 'email_otp' | 'totp';
+  method?: 'email_otp' | 'totp' | 'push_approval';
 }
 
 export interface VerifySsoMfaResponse {
@@ -119,6 +119,34 @@ export interface ResendSsoOtpResponse {
   message: string;
   expiresInSeconds: number;
   resendCooldownSeconds: number;
+}
+
+export interface InitiatePushMfaPayload extends InitiateSsoMfaPayload {}
+
+export interface InitiatePushMfaResponse {
+  success: boolean;
+  challengeId: string;
+  email: string;
+  clientId: string;
+  clientName: string;
+  clientType: 'web' | 'mobile';
+  appIcon?: string;
+  numberMatching: {
+    enabled: boolean;
+    code: number;
+  };
+  expiresInSeconds: number;
+  message: string;
+}
+
+export interface PushStatusResponse {
+  success: boolean;
+  challengeId: string;
+  status: 'pending' | 'approved' | 'denied' | 'fraud_reported' | 'expired' | 'not_found';
+  verified?: boolean;
+  code?: string;
+  redirectUrl?: string;
+  resolutionReason?: string;
 }
 
 @Injectable({
@@ -1002,6 +1030,46 @@ export class AuthService {
         }
         return throwError(() => new Error(errorMessage));
       })
+    );
+  }
+
+  initiatePushMfa(payload: InitiatePushMfaPayload): Observable<InitiatePushMfaResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/push/initiate`;
+    return this.http.post<InitiatePushMfaResponse>(url, payload).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'Failed to dispatch Push MFA challenge to mobile device.';
+        if (error.error && error.error.message) {
+          errorMessage = Array.isArray(error.error.message)
+            ? error.error.message.join(', ')
+            : error.error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  checkPushStatus(challengeId: string): Observable<PushStatusResponse> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/push/status?challengeId=${encodeURIComponent(challengeId)}`;
+    return this.http.get<PushStatusResponse>(url).pipe(
+      catchError(() => of({
+        success: false,
+        challengeId,
+        status: 'not_found' as const,
+      }))
+    );
+  }
+
+  getPushMfaPreference(email: string): Observable<{ success: boolean; email: string; enabled: boolean }> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/push/preference?email=${encodeURIComponent(email)}`;
+    return this.http.get<{ success: boolean; email: string; enabled: boolean }>(url).pipe(
+      catchError(() => of({ success: true, email, enabled: true }))
+    );
+  }
+
+  setPushMfaPreference(email: string, enabled: boolean): Observable<{ success: boolean; enabled: boolean }> {
+    const url = `${this.API_URL.replace(/\/auth\/?$/, '')}/oauth/mfa/push/preference`;
+    return this.http.post<{ success: boolean; enabled: boolean }>(url, { email, enabled }).pipe(
+      catchError(() => of({ success: true, enabled }))
     );
   }
 

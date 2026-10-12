@@ -61,10 +61,13 @@ Tailored for corporate employees to access organizational resources:
   - 8-digit Email OTP codes with 60-second cooldown resend countdown for direct portal logins.
   - 6-digit Authenticator TOTP codes with QR code enrollment.
   - Developer bypass codes (`123456` / `12345678`) for accelerated offline testing.
-- **SSO MFA Verification Challenge (SCRUM-61)**:
-  - Enforced secondary 6-digit numeric OTP / TOTP verification on all single sign-on (OIDC) authentication flows prior to code issuance.
-  - Displays target relying party application name banner (e.g., Vanguard Portal, Dummy Web).
-  - Rate limiting & brute-force mitigation (maximum 5 attempts before challenge invalidation) with 60-second resend cooldown timer.
+- **SSO MFA Verification Challenge (SCRUM-61 & SCRUM-85)**:
+  - **Out-of-Band Mobile Push MFA (SCRUM-85)**: Dispatches instant push challenge to `mobile-vanguard` with 2-digit number matching, candidate options, and biometric gate.
+  - **Live Number Matching**: Prominently displays the 2-digit challenge number on screen for the user to select on their phone.
+  - **Real-Time Polling & Deep Linking**: Automatically detects mobile approval and redirects back to relying parties (`dummy-web`, `dummy-mobile`), with one-tap deep-link button (`vanguard-auth://mfa/challenge?id=...`).
+  - **Instant Fallback**: One-click fallback to 6-digit Email OTP or Authenticator TOTP if the phone is unavailable.
+  - Enforced secondary verification on all single sign-on (OIDC) authentication flows prior to code issuance.
+  - Rate limiting & brute-force mitigation (maximum 5 attempts before challenge invalidation) with 60-second cooldown timer.
   - Seamless redirection back to relying party callback URL upon code issuance.
 - **Enforced Password Reset (`/reset-password`)**: Automatically prompts newly invited employees to replace their temporary password on first sign-in.
 
@@ -100,12 +103,12 @@ npm install
 
 ## Development Server
 
-Start the local Angular development server:
+Start the local Angular development server (strictly fixed to port `4200`):
 
 ```bash
 npm start
 # or
-npx ng serve
+npx ng serve --port 4200
 ```
 
 Once compilation completes, open your browser and navigate to:

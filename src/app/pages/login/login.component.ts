@@ -238,6 +238,65 @@ export class LoginComponent implements OnInit {
     const role = currentUser?.role || 'user';
     const dept = currentUser?.user_metadata?.['department'] || 'Corporate Security';
 
+    this.authService.getPushMfaPreference(email).subscribe({
+      next: (pref) => {
+        if (pref.enabled !== false) {
+          // Push MFA is enabled: initiate out-of-band push challenge
+          this.authService.initiatePushMfa({
+            client_id: sso['client_id'],
+            redirect_uri: sso['redirect_uri'],
+            email,
+            userId: currentUser?.id,
+            name: fullName,
+            role,
+            department: dept,
+            response_type: sso['response_type'] || 'code',
+            scope: sso['scope'] || 'openid profile email roles',
+            state: sso['state'] || '',
+            nonce: sso['nonce'] || '',
+            code_challenge: sso['code_challenge'] || '',
+            code_challenge_method: sso['code_challenge_method'] || 'S256',
+          }).subscribe({
+            next: (pushRes) => {
+              this.isLoading.set(false);
+              const queryParams: any = {
+                challengeId: pushRes.challengeId,
+                email: pushRes.email,
+                mode: 'signin',
+                method: 'push_approval',
+                numberCode: pushRes.numberMatching?.code?.toString() || '',
+                clientName: pushRes.clientName,
+                clientType: pushRes.clientType,
+                appIcon: pushRes.appIcon || '🛡️',
+                hasTotp: hasTotp ? 'true' : 'false',
+              };
+              Object.assign(queryParams, sso);
+              this.router.navigate(['/verify-otp'], { queryParams });
+            },
+            error: () => {
+              // Fallback to standard email OTP if push challenge initiation errors
+              this.fallbackToEmailOtp(sso, email, currentUser, fullName, role, dept, hasTotp);
+            },
+          });
+        } else {
+          this.fallbackToEmailOtp(sso, email, currentUser, fullName, role, dept, hasTotp);
+        }
+      },
+      error: () => {
+        this.fallbackToEmailOtp(sso, email, currentUser, fullName, role, dept, hasTotp);
+      },
+    });
+  }
+
+  private fallbackToEmailOtp(
+    sso: Record<string, string>,
+    email: string,
+    currentUser: UserProfile | null | undefined,
+    fullName: string,
+    role: string,
+    dept: string,
+    hasTotp: boolean,
+  ): void {
     this.authService.initiateSsoMfa({
       client_id: sso['client_id'],
       redirect_uri: sso['redirect_uri'],
@@ -259,6 +318,7 @@ export class LoginComponent implements OnInit {
           challengeId: res.challengeId,
           email: res.email,
           mode: 'signin',
+          method: 'email_otp',
           hasTotp: hasTotp ? 'true' : 'false',
         };
         Object.assign(queryParams, sso);

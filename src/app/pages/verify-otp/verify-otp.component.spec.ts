@@ -124,5 +124,52 @@ describe('VerifyOtpComponent', () => {
       expect(resendSpy).toHaveBeenCalledWith({ challengeId: 'sso_mfa_test_123' });
       expect(component.resendCountdown()).toBe(60);
     });
+
+    it('should render Push MFA state with 2-digit number challenge and poll for status (SCRUM-85)', () => {
+      const checkStatusSpy = vi.spyOn(authService, 'checkPushStatus').mockReturnValue(
+        of({
+          success: true,
+          challengeId: 'push_mfa_test_999',
+          status: 'pending',
+        })
+      );
+
+      component.method.set('push_approval');
+      component.numberCode.set('42');
+      component.challengeId.set('push_mfa_test_999');
+
+      expect(component.method()).toBe('push_approval');
+      expect(component.numberCode()).toBe('42');
+      expect(component.pushSecondsRemaining()).toBe(60);
+    });
+
+    it('should switch to email OTP on fallback request (SCRUM-85)', () => {
+      const initiateSpy = vi.spyOn(authService, 'initiateSsoMfa').mockReturnValue(
+        of({
+          success: true,
+          challengeId: 'sso_mfa_fallback_456',
+          email: 'user@vanguard.security',
+          clientId: 'vanguard-dummy-portal',
+          clientName: 'Acme Enterprise Portal',
+          redirectUri: 'http://localhost:4201/auth/callback',
+          expiresInSeconds: 300,
+          resendCooldownSeconds: 60,
+          message: 'Email OTP sent',
+        })
+      );
+
+      component.ssoParams.set({
+        client_id: 'vanguard-dummy-portal',
+        redirect_uri: 'http://localhost:4201/auth/callback',
+      });
+      component.email.set('user@vanguard.security');
+      component.method.set('push_approval');
+
+      component.switchToEmailOtp();
+
+      expect(initiateSpy).toHaveBeenCalled();
+      expect(component.method()).toBe('email_otp');
+      expect(component.challengeId()).toBe('sso_mfa_fallback_456');
+    });
   });
 });

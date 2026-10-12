@@ -40,7 +40,9 @@
       <!-- Card Title & Subtitle -->
       <div class="card-header">
         <h2 class="card-title">
-          @if (method() === 'totp') {
+          @if (method() === 'push_approval') {
+            Approve on Vanguard Authenticator
+          } @else if (method() === 'totp') {
             Authenticator 2-Step Verification
           } @else if (mode() === 'recovery') {
             Password Reset Verification
@@ -54,7 +56,9 @@
         </h2>
 
         <p class="card-subtitle">
-          @if (method() === 'totp') {
+          @if (method() === 'push_approval') {
+            We sent an authorization challenge to your mobile authenticator for <strong class="highlight-email">{{ clientDisplayName() }}</strong>.
+          } @else if (method() === 'totp') {
             Enter the 6-digit dynamic code from Google Authenticator, JumpCloud Protect, or Microsoft Authenticator.
           } @else if (mode() === 'recovery') {
             Enter the 8-digit recovery code sent to <strong class="highlight-email">{{ email() }}</strong> to verify and authorize password reset.
@@ -102,8 +106,82 @@
         </div>
       }
 
-      <!-- OTP Input Form -->
-      <form (submit)="$event.preventDefault(); onSubmit()" class="otp-form" novalidate>
+      <!-- PUSH APPROVAL FLOW (SCRUM-85) -->
+      @if (method() === 'push_approval') {
+        <div class="push-approval-container">
+          <!-- Client Target Banner -->
+          <div class="push-client-card">
+            <div class="push-client-icon-badge">{{ clientAppIcon() }}</div>
+            <div class="push-client-meta">
+              <span class="push-meta-label">REQUESTING APPLICATION</span>
+              <strong class="push-meta-name">{{ clientDisplayName() }}</strong>
+            </div>
+            <div class="push-status-pill">
+              <span class="pulse-indicator"></span>
+              <span>Waiting</span>
+            </div>
+          </div>
+
+          <!-- 2-Digit Number Matching Challenge Card -->
+          <div class="number-matching-card">
+            <span class="number-card-label">NUMBER TO MATCH ON PHONE</span>
+            <div class="number-display-box" [attr.aria-label]="'Verification number challenge ' + numberCode()">
+              <span class="number-display-val">{{ numberCode() || '--' }}</span>
+            </div>
+            <p class="number-card-desc">
+              Open the notification or <strong>Vanguard Authenticator</strong> app on your smartphone and select the number above to authorize access.
+            </p>
+          </div>
+
+          <!-- Live Expiration Countdown -->
+          <div class="push-progress-container">
+            <div class="push-progress-bar">
+              <div class="push-progress-fill" [style.width.%]="(pushSecondsRemaining() / 60) * 100"></div>
+            </div>
+            <div class="push-progress-labels">
+              <span class="push-status-label">{{ pushStatusText() }}</span>
+              <span class="push-countdown-label">Expires in <strong>{{ pushSecondsRemaining() }}s</strong></span>
+            </div>
+          </div>
+
+          <!-- Mobile App Switching Deep-Link Button -->
+          <div class="push-actions-row">
+            <button type="button" class="open-authenticator-btn" (click)="openAuthenticatorApp()">
+              <span class="btn-icon">🛡️</span>
+              <span>Open Vanguard Authenticator App</span>
+            </button>
+          </div>
+
+          <!-- Alternative Authentication Divider -->
+          <div class="divider-row">
+            <div class="divider-line"></div>
+            <span class="divider-text">phone not nearby?</span>
+            <div class="divider-line"></div>
+          </div>
+
+          <!-- Fallback to Email OTP -->
+          <div class="push-fallback-row">
+            <button type="button" class="fallback-email-btn" (click)="switchToEmailOtp()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="method-icon">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+              <span>Verify using Email OTP instead</span>
+            </button>
+          </div>
+
+          <!-- SSO Cancel Link -->
+          @if (ssoParams()) {
+            <div class="sso-cancel-row">
+              <button type="button" class="sso-cancel-link" (click)="onCancelSso()">
+                &larr; Cancel and return to {{ clientDisplayName() }}
+              </button>
+            </div>
+          }
+        </div>
+      } @else {
+        <!-- OTP Input Form -->
+        <form (submit)="$event.preventDefault(); onSubmit()" class="otp-form" novalidate>
         
         <div class="otp-inputs-row" (paste)="onPaste($event)">
           @for (digit of digits(); track $index) {
@@ -215,6 +293,7 @@
         </div>
 
       </form>
+      }
     </main>
 
   </div>

@@ -4,7 +4,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { AuthService, ApproveSsoPayload, UserProfile, VerifySsoMfaResponse } from '../../services/auth.service';
 
-export type VerificationMethod = 'email_otp' | 'totp';
+export type VerificationMethod = 'email_otp' | 'totp' | 'push_approval';
 
 @Component({
   selector: 'app-verify-otp',
@@ -26,6 +26,15 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
   readonly method = signal<VerificationMethod>('email_otp');
   readonly hasTotp = signal<boolean>(false);
 
+  // Push MFA state signals (SCRUM-85)
+  readonly numberCode = signal<string>('');
+  readonly clientAppIcon = signal<string>('🛡️');
+  readonly clientType = signal<'web' | 'mobile'>('web');
+  readonly pushSecondsRemaining = signal<number>(60);
+  readonly pushStatusText = signal<string>('Waiting for mobile approval...');
+  private pushPollInterval: any = null;
+  private pushCountdownInterval: any = null;
+
   // SSO state signals (SCRUM-61)
   readonly challengeId = signal<string | null>(null);
   readonly ssoParams = signal<Record<string, string> | null>(null);
@@ -34,6 +43,8 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
     const sso = this.ssoParams();
     if (!sso) return '';
     if (sso['client_id'] === 'vanguard-dummy-portal') return 'Acme Enterprise Portal';
+    if (sso['client_id'] === 'vg_client_b3121c514e83037d') return 'Acme Dummy Web';
+    if (sso['client_id'] === 'vanguard-dummy-mobile') return 'Dummy Mobile App';
     return sso['client_id'] || 'Client Application';
   });
   
@@ -65,6 +76,16 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
       this.mode.set(modeParam);
       this.hasTotp.set(hasTotpParam);
       this.method.set(methodParam);
+
+      if (params['numberCode']) {
+        this.numberCode.set(params['numberCode']);
+      }
+      if (params['appIcon']) {
+        this.clientAppIcon.set(params['appIcon']);
+      }
+      if (params['clientType']) {
+        this.clientType.set(params['clientType']);
+      }
 
       if (params['challengeId']) {
         this.challengeId.set(params['challengeId']);
@@ -106,8 +127,13 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
         }
       }
 
-      this.clearOtpInputs();
-      this.startResendTimer(this.isSsoVerification() ? 60 : 30);
+      // If method is push_approval, initiate polling loop
+      if (methodParam === 'push_approval' && this.challengeId()) {
+        this.startPushPolling(this.challengeId()!);
+      } else {
+        this.clearOtpInputs();
+        this.startResendTimer(this.isSsoVerification() ? 60 : 30);
+      }
     });
   }
 
@@ -118,6 +144,104 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
   private clearTimers(): void {
     if (this.notificationTimer) clearTimeout(this.notificationTimer);
     if (this.resendInterval) clearInterval(this.resendInterval);
+    if (this.pushPollInterval) clearInterval(this.pushPollInterval);
+    if (this.pushCountdownInterval) clearInterval(this.pushCountdownInterval);
+  }
+
+  startPushPolling(challengeId: string): void {
+    this.clearTimers();
+    this.pushSecondsRemaining.set(60);
+    this.pushStatusText.set('Waiting for mobile approval...');
+
+    // Countdown timer
+    this.pushCountdownInterval = setInterval(() => {
+      const current = this.pushSecondsRemaining();
+      if (current <= 1) {
+        clearInterval(this.pushCountdownInterval);
+        this.pushSecondsRemaining.set(0);
+        this.pushStatusText.set('Push verification challenge expired');
+        this.showNotification('error', 'Push verification expired. Please try again or switch to Email code.');
+      } else {
+        this.pushSecondsRemaining.set(current - 1);
+      }
+    }, 1000);
+
+    // Status polling loop (every 1.5 seconds)
+    this.pushPollInterval = setInterval(() => {
+      this.authService.checkPushStatus(challengeId).subscribe({
+        next: (res) => {
+          if (res.status === 'approved') {
+            clearInterval(this.pushPollInterval);
+            clearInterval(this.pushCountdownInterval);
+            this.pushStatusText.set('Identity Approved! Redirecting...');
+            this.handleSsoRedirect({ code: res.code, redirectUrl: res.redirectUrl });
+          } else if (res.status === 'denied') {
+            clearInterval(this.pushPollInterval);
+            clearInterval(this.pushCountdownInterval);
+            this.pushStatusText.set('Sign-in rejected on mobile device');
+            this.showNotification('error', 'Sign-in request was declined on your mobile device.');
+          } else if (res.status === 'fraud_reported') {
+            clearInterval(this.pushPollInterval);
+            clearInterval(this.pushCountdownInterval);
+            this.pushStatusText.set('Sign-in blocked (Fraud reported)');
+            this.showNotification('error', 'Security Alert: Sign-in was flagged as unauthorized. Session blocked.');
+          } else if (res.status === 'expired') {
+            clearInterval(this.pushPollInterval);
+            clearInterval(this.pushCountdownInterval);
+            this.pushStatusText.set('Push verification expired');
+            this.showNotification('error', 'Push verification challenge expired.');
+          }
+        },
+      });
+    }, 1500);
+  }
+
+  switchToEmailOtp(): void {
+    this.clearTimers();
+    const sso = this.ssoParams();
+    const email = this.email();
+
+    if (!sso || !email) {
+      this.method.set('email_otp');
+      this.clearOtpInputs();
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.authService.initiateSsoMfa({
+      client_id: sso['client_id'],
+      redirect_uri: sso['redirect_uri'],
+      email,
+      response_type: sso['response_type'] || 'code',
+      scope: sso['scope'] || 'openid profile email roles',
+      state: sso['state'] || '',
+      nonce: sso['nonce'] || '',
+      code_challenge: sso['code_challenge'] || '',
+      code_challenge_method: sso['code_challenge_method'] || 'S256',
+    }).subscribe({
+      next: (res) => {
+        this.isLoading.set(false);
+        this.challengeId.set(res.challengeId);
+        this.method.set('email_otp');
+        this.clearOtpInputs();
+        this.startResendTimer(res.resendCooldownSeconds || 60);
+        this.showNotification('success', 'Switched to Email OTP. Enter the 6-digit verification code sent to your email.', 4000);
+      },
+      error: (err: Error) => {
+        this.isLoading.set(false);
+        this.showNotification('error', err.message || 'Failed to dispatch Email OTP.');
+      },
+    });
+  }
+
+  openAuthenticatorApp(): void {
+    const id = this.challengeId();
+    if (!id) return;
+    const deepLink = `vanguard-auth://mfa/challenge?id=${encodeURIComponent(id)}`;
+    if (typeof window !== 'undefined') {
+      // Attempt opening custom protocol scheme or web authenticator
+      window.location.href = deepLink;
+    }
   }
 
   setMethod(newMethod: VerificationMethod): void {
