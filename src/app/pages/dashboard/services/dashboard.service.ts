@@ -40,6 +40,8 @@ import {
   AccessRequestStatus,
   UserConnectedApp,
   UserSecurityAlertPreferences,
+  UserOnboardingChecklistItem,
+  UserGuideWalkthroughSlide,
 } from '../models/dashboard.models';
 
 @Injectable({
@@ -6077,6 +6079,229 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   onLogout(): void {
     this.logAuditEvent('User signed out of portal', 'Authentication Gateway', 'Web Session', 'success', 'Low');
     this.authService.logout();
+  }
+
+  // ==========================================
+  // SCRUM-86: Standard First-Timer User Guide State & Methods
+  // ==========================================
+  readonly showFirstTimerGuide = signal<boolean>(false);
+  readonly firstTimerGuideActiveTab = signal<'checklist' | 'guide'>('checklist');
+  readonly firstTimerCompleted = signal<boolean>(
+    this.loadStored<boolean>('vanguard_first_timer_completed', false)
+  );
+
+  private initFirstTimerChecklist(): UserOnboardingChecklistItem[] {
+    const stored = this.loadStored<UserOnboardingChecklistItem[]>('vanguard_first_timer_checklist', []);
+    if (stored && stored.length > 0) {
+      return stored;
+    }
+
+    return [
+      {
+        id: 'task-password',
+        title: 'Update Temporary Password',
+        description: 'Replace your initial one-time invitation password with a secure permanent passphrase (min. 8 characters, uppercase, number, symbol).',
+        category: 'security',
+        targetTab: 'user-security',
+        actionLabel: 'Change Password',
+        badge: 'Critical',
+        completed: false,
+      },
+      {
+        id: 'task-mfa',
+        title: 'Enroll 2-Step Verification (TOTP)',
+        description: 'Pair an authenticator app (Google Authenticator, Microsoft Authenticator, or Authy) to safeguard your account against unauthorized logins.',
+        category: 'mfa',
+        targetTab: 'user-security',
+        actionLabel: 'Pair Authenticator',
+        badge: 'Zero-Trust',
+        completed: false,
+      },
+      {
+        id: 'task-recovery',
+        title: 'Secure Emergency Recovery Codes',
+        description: 'Generate and download your 10 single-use emergency backup recovery codes. Keep them in a safe location in case you lose your device.',
+        category: 'security',
+        targetTab: 'user-security',
+        actionLabel: 'Download Codes',
+        badge: 'Essential',
+        completed: false,
+      },
+      {
+        id: 'task-apps',
+        title: 'Launch Single Sign-On Applications',
+        description: 'Explore your authorized corporate SaaS launchpad (Slack, Google Workspace, AWS, GitHub) with 1-click passwordless federation.',
+        category: 'apps',
+        targetTab: 'my-apps',
+        actionLabel: 'View My Apps',
+        badge: 'Productivity',
+        completed: false,
+      },
+      {
+        id: 'task-network',
+        title: 'Configure Corporate Wi-Fi & SSH Keys',
+        description: 'Download your 802.1X / EAP-TLS enterprise network certificate profile and register your public SSH key for infrastructure access.',
+        category: 'network',
+        targetTab: 'user-network',
+        actionLabel: 'Setup Network & Keys',
+        badge: 'Connectivity',
+        completed: false,
+      },
+    ];
+  }
+
+  readonly firstTimerChecklist = signal<UserOnboardingChecklistItem[]>(
+    this.initFirstTimerChecklist()
+  );
+
+  readonly firstTimerCompletedCount = computed(() =>
+    this.firstTimerChecklist().filter((item) => item.completed).length
+  );
+
+  readonly firstTimerTotalCount = computed(() =>
+    this.firstTimerChecklist().length
+  );
+
+  readonly firstTimerProgressPercent = computed(() => {
+    const total = this.firstTimerTotalCount();
+    if (total === 0) return 0;
+    return Math.round((this.firstTimerCompletedCount() / total) * 100);
+  });
+
+  readonly userGuideWalkthroughSlides: UserGuideWalkthroughSlide[] = [
+    {
+      stepNumber: 1,
+      title: 'Welcome to Vanguard Zero-Trust Identity',
+      subtitle: 'Unified, Secure Identity for Every Enterprise Resource',
+      icon: '🛡️',
+      summary: 'Vanguard protects your organizational access using continuous verification, encryption, and biometric validation. As a team member, your single Vanguard account grants you authorized access to SaaS apps, enterprise Wi-Fi, and developer infrastructure without needing separate passwords for each.',
+      keyPoints: [
+        'Single Sign-On (SSO) unlocks all authorized tools in one click.',
+        'Zero-Trust policy requires multi-factor authentication for sensitive access.',
+        'All session activity is logged for your personal security inspection.',
+      ],
+      recommendedAction: {
+        label: 'Explore Onboarding Checklist',
+        targetTab: 'checklist',
+      },
+    },
+    {
+      stepNumber: 2,
+      title: 'Hardening Your Account Password',
+      subtitle: 'Replacing Your One-Time Invitation Credentials',
+      icon: '🔑',
+      summary: 'If you signed in using a temporary invitation password, you must replace it with a strong personal passphrase. Passwords must be at least 8 characters long and contain uppercase letters, numbers, and symbols.',
+      keyPoints: [
+        'Never share or reuse passwords across external personal accounts.',
+        'Passwords update instantly across the entire Vanguard directory.',
+        'You can update your password self-service anytime in the Security & MFA tab.',
+      ],
+      recommendedAction: {
+        label: 'Go to Password Settings',
+        targetTab: 'user-security',
+      },
+    },
+    {
+      stepNumber: 3,
+      title: 'Multi-Factor Authentication & Mobile Push',
+      subtitle: 'Two-Layer Protection with Biometrics and 2-Digit Matching',
+      icon: '📱',
+      summary: 'When accessing sensitive applications, Vanguard challenges you with 2-Step Verification. You can authenticate using time-based one-time passwords (TOTP) from your authenticator app, or approve instant mobile push challenges on your enrolled phone with 2-digit number matching.',
+      keyPoints: [
+        'TOTP codes rotate every 30 seconds for bulletproof security.',
+        'Out-of-band push verification confirms login location and device name.',
+        'Always keep your 10 single-use emergency recovery codes safely stored.',
+      ],
+      recommendedAction: {
+        label: 'Setup 2FA Authenticator',
+        targetTab: 'user-security',
+      },
+    },
+    {
+      stepNumber: 4,
+      title: 'My Applications Launchpad & Access Requests',
+      subtitle: 'One-Click Access to Your Corporate Tools',
+      icon: '⚡',
+      summary: 'Your My Applications tab contains all cloud services (AWS, Slack, GitHub, Jira, Figma, Google Workspace) assigned to your department. If you need an application that is not yet assigned, click "Request Application" to submit an instant access request with business justification.',
+      keyPoints: [
+        'One-click SSO automatically negotiates SAML 2.0 / OIDC credentials.',
+        'Pending access requests are reviewed by your security team.',
+        'Filter apps by categories: Cloud, Developer, or Collaboration.',
+      ],
+      recommendedAction: {
+        label: 'Open My Applications',
+        targetTab: 'my-apps',
+      },
+    },
+    {
+      stepNumber: 5,
+      title: 'Enterprise Wi-Fi & Infrastructure Keys',
+      subtitle: 'Seamless 802.1X Wireless & SSH Public Keys',
+      icon: '📡',
+      summary: 'Connect your laptop and mobile device to the corporate Wi-Fi network using encrypted 802.1X / EAP-TLS profiles without typing a shared password. Developers can also upload public SSH keys (Ed25519/RSA) to access internal servers and Git repositories.',
+      keyPoints: [
+        'Download pre-configured network profiles for macOS, Windows, and Linux.',
+        'SSH public keys are authenticated securely against your directory account.',
+        'Review enrolled devices in the Mobile & Devices tab anytime.',
+      ],
+      recommendedAction: {
+        label: 'View Network Profile',
+        targetTab: 'user-network',
+      },
+    },
+  ];
+
+  openFirstTimerGuide(initialTab: 'checklist' | 'guide' = 'checklist'): void {
+    this.firstTimerGuideActiveTab.set(initialTab);
+    this.showFirstTimerGuide.set(true);
+  }
+
+  closeFirstTimerGuide(markAsCompleted: boolean = false): void {
+    this.showFirstTimerGuide.set(false);
+    if (markAsCompleted) {
+      this.setFirstTimerDismissed(true);
+    }
+  }
+
+  toggleUserChecklistItem(itemId: string): void {
+    this.firstTimerChecklist.update((items) =>
+      items.map((item) => {
+        if (item.id === itemId) {
+          return { ...item, completed: !item.completed };
+        }
+        return item;
+      })
+    );
+    this.saveStored('vanguard_first_timer_checklist', this.firstTimerChecklist());
+
+    if (this.firstTimerCompletedCount() === this.firstTimerTotalCount()) {
+      this.setFirstTimerDismissed(true);
+    }
+  }
+
+  resetUserChecklist(): void {
+    this.firstTimerChecklist.update((items) =>
+      items.map((item) => ({ ...item, completed: false }))
+    );
+    this.saveStored('vanguard_first_timer_checklist', this.firstTimerChecklist());
+    this.setFirstTimerDismissed(false);
+  }
+
+  setFirstTimerDismissed(dismissed: boolean): void {
+    this.firstTimerCompleted.set(dismissed);
+    this.saveStored('vanguard_first_timer_completed', dismissed);
+  }
+
+  navigateFromUserGuide(targetTab: string): void {
+    this.showFirstTimerGuide.set(false);
+    if (targetTab === 'checklist') {
+      this.firstTimerGuideActiveTab.set('checklist');
+      this.showFirstTimerGuide.set(true);
+      return;
+    }
+    // Ensure we are in user mode (User Portal)
+    this.viewMode.set('user');
+    this.setActiveTab(targetTab);
   }
 
 }

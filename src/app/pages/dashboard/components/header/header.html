@@ -158,6 +158,18 @@
         </button>
       </div>
 
+      <!-- SCRUM-86: First Timer User Guide Button -->
+      <button
+        type="button"
+        class="guide-btn-header"
+        (click)="openFirstTimerGuide()"
+        title="Open First-Timer User Guide"
+      >
+        <span class="guide-btn-icon">📖</span>
+        <span class="guide-btn-text">Guide</span>
+        <span class="guide-pulse-dot" *ngIf="!firstTimerCompleted()"></span>
+      </button>
+
       <!-- User Profile Pill -->
       <div class="user-profile-pill">
         <div class="avatar-circle">

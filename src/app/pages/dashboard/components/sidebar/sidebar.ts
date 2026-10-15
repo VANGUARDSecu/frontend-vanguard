@@ -43,8 +43,11 @@ export class DashboardSidebar {
   readonly pendingAccessRequests = this.dashboardService.pendingAccessRequests;
   readonly samlSubTab = this.dashboardService.samlSubTab;
 
+  readonly firstTimerCompleted = this.dashboardService.firstTimerCompleted;
+
   setActiveTab(tab: string) { this.dashboardService.setActiveTab(tab); }
   openAccessRequestsQueue() { this.dashboardService.openAccessRequestsQueue(); }
+  openFirstTimerGuide() { this.dashboardService.openFirstTimerGuide(); }
 
 }
 

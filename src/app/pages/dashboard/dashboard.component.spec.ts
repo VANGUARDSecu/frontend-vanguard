@@ -1632,6 +1632,25 @@ describe('DashboardComponent (Phase 1 & Phase 2)', () => {
       expect(auditLog).toBeDefined();
       expect(auditLog?.status).toBe('blocked');
     });
+
+    it('should manage first-timer user guide modal opening, closing, and checklist state (SCRUM-86)', () => {
+      expect(component.showFirstTimerGuide()).toBe(false);
+
+      component.openFirstTimerGuide();
+      expect(component.showFirstTimerGuide()).toBe(true);
+
+      const initialCount = component.dashboardService.firstTimerChecklist().length;
+      expect(initialCount).toBe(5);
+
+      const firstItem = component.dashboardService.firstTimerChecklist()[0];
+      expect(firstItem.completed).toBe(false);
+
+      component.dashboardService.toggleUserChecklistItem(firstItem.id);
+      expect(component.dashboardService.firstTimerChecklist()[0].completed).toBe(true);
+
+      component.closeFirstTimerGuide();
+      expect(component.showFirstTimerGuide()).toBe(false);
+    });
   });
 });
 

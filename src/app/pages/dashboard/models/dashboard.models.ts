@@ -441,3 +441,27 @@ export interface TotpAccount {
   remainingSeconds?: number;
 }
 
+export interface UserOnboardingChecklistItem {
+  id: string;
+  title: string;
+  description: string;
+  category: 'security' | 'mfa' | 'apps' | 'network';
+  targetTab: string;
+  actionLabel: string;
+  badge: string;
+  completed: boolean;
+}
+
+export interface UserGuideWalkthroughSlide {
+  stepNumber: number;
+  title: string;
+  subtitle: string;
+  icon: string;
+  summary: string;
+  keyPoints: string[];
+  recommendedAction?: {
+    label: string;
+    targetTab: string;
+  };
+}
+

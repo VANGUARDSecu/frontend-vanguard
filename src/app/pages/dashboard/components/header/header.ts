@@ -91,6 +91,12 @@ export class DashboardHeader {
     this.dashboardService.toggleViewMode(target);
   }
 
+  readonly firstTimerCompleted = this.dashboardService.firstTimerCompleted;
+
+  openFirstTimerGuide(): void {
+    this.dashboardService.openFirstTimerGuide();
+  }
+
   onLogout() { this.dashboardService.onLogout(); }
 
 }

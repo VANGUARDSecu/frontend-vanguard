@@ -53,6 +53,7 @@ Tailored for corporate employees to access organizational resources:
 - **Device Trust & Hardware**: Inspect enrolled laptops, phones, and MDM compliance state.
 - **Corporate Wi-Fi Profile**: Download pre-configured 802.1X / EAP-TLS profiles and certificates for immediate enterprise network access.
 - **SSH Key Manager**: Upload and manage public SSH keys (`ssh-ed25519`, `ssh-rsa`) for infrastructure access.
+- **First-Timer User Guide & Onboarding (SCRUM-86)**: Interactive in-app onboarding dialog, 5-point setup checklist with progress tracking, step-by-step walkthrough carousel, top header and sidebar quick-access buttons, auto-prompt for first-time sign-ins, and full offline documentation in [`docs/FIRST_TIMER_USER_GUIDE.md`](./docs/FIRST_TIMER_USER_GUIDE.md).
 - **Personal Activity History**: Review personal sign-in history, device locations, and security challenges.
 
 ### 3. Authentication & Identity Verification

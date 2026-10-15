@@ -1,0 +1,200 @@
+<div class="modal-backdrop" (click)="closeGuide()">
+  <div class="modal-box cyber-modal guide-modal" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-branding">
+        <div class="header-icon-badge">
+          <span>📖</span>
+        </div>
+        <div class="header-title-group">
+          <h2 class="modal-heading">First-Timer User Guide</h2>
+          <span class="modal-sub">Essential Onboarding & Security Checklist</span>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" (click)="closeGuide()" title="Close Guide">✕</button>
+    </div>
+
+    <!-- Progress & Overview Bar -->
+    <div class="guide-progress-card">
+      <div class="progress-meta">
+        <span class="progress-label">Setup Completion</span>
+        <span class="progress-count">{{ completedCount() }} of {{ totalCount() }} completed ({{ progressPercent() }}%)</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" [style.width.%]="progressPercent()"></div>
+      </div>
+    </div>
+
+    <!-- Tab Switcher -->
+    <div class="guide-tab-nav">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'checklist'"
+        (click)="setActiveTab('checklist')"
+      >
+        <span class="tab-icon">☑️</span>
+        <span>Interactive Checklist</span>
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'guide'"
+        (click)="setActiveTab('guide')"
+      >
+        <span class="tab-icon">🗺️</span>
+        <span>Step-by-Step Walkthrough</span>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="modal-body">
+      <!-- TAB 1: INTERACTIVE CHECKLIST -->
+      <div class="checklist-container" *ngIf="activeTab() === 'checklist'">
+        <div
+          *ngFor="let item of checklist()"
+          class="checklist-card"
+          [class.item-done]="item.completed"
+        >
+          <div class="card-left">
+            <label class="cyber-checkbox-label">
+              <input
+                type="checkbox"
+                [checked]="item.completed"
+                (change)="toggleItem(item.id)"
+                class="cyber-checkbox-input"
+              />
+              <span class="cyber-checkbox-custom"></span>
+            </label>
+          </div>
+
+          <div class="card-center">
+            <div class="card-title-row">
+              <span class="card-title" [class.struck]="item.completed">{{ item.title }}</span>
+              <span class="card-badge" [ngClass]="'badge-' + item.category">{{ item.badge }}</span>
+            </div>
+            <p class="card-desc">{{ item.description }}</p>
+          </div>
+
+          <div class="card-right">
+            <button
+              type="button"
+              class="btn-task-action"
+              (click)="navigateAndClose(item.targetTab)"
+              [title]="'Go to ' + item.actionLabel"
+            >
+              <span>{{ item.actionLabel }}</span>
+              <span class="arrow-glyph">➔</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="checklist-tip-box">
+          <span class="tip-icon">💡</span>
+          <div class="tip-content">
+            <strong>Security Pro-Tip:</strong> Complete all 5 checklist items to ensure your account satisfies Vanguard's strict Zero-Trust tenant baseline. Your emergency recovery codes must be stored in an encrypted offline location.
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: STEP-BY-STEP WALKTHROUGH -->
+      <div class="walkthrough-container" *ngIf="activeTab() === 'guide'">
+        <div class="walkthrough-card">
+          <div class="slide-header">
+            <div class="slide-badge-row">
+              <span class="slide-step-pill">Step {{ currentSlide().stepNumber }} of {{ slides.length }}</span>
+              <span class="slide-icon">{{ currentSlide().icon }}</span>
+            </div>
+            <h3 class="slide-title">{{ currentSlide().title }}</h3>
+            <span class="slide-subtitle">{{ currentSlide().subtitle }}</span>
+          </div>
+
+          <p class="slide-summary">{{ currentSlide().summary }}</p>
+
+          <div class="slide-keypoints">
+            <div class="keypoint-item" *ngFor="let point of currentSlide().keyPoints">
+              <span class="keypoint-check">✓</span>
+              <span class="keypoint-text">{{ point }}</span>
+            </div>
+          </div>
+
+          <div class="slide-action-box" *ngIf="currentSlide().recommendedAction">
+            <button
+              type="button"
+              class="btn-cyber-primary slide-action-btn"
+              (click)="navigateAndClose(currentSlide().recommendedAction!.targetTab)"
+            >
+              <span>{{ currentSlide().recommendedAction!.label }}</span>
+              <span class="arrow-glyph">➔</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Carousel Navigation Controls -->
+        <div class="walkthrough-controls">
+          <button
+            type="button"
+            class="control-nav-btn"
+            [disabled]="currentSlideIndex() === 0"
+            (click)="previousSlide()"
+          >
+            ← Previous
+          </button>
+
+          <div class="carousel-dots">
+            <button
+              *ngFor="let s of slides; let idx = index"
+              type="button"
+              class="dot-btn"
+              [class.active]="currentSlideIndex() === idx"
+              (click)="goToSlide(idx)"
+              [title]="'Jump to Step ' + (idx + 1)"
+            ></button>
+          </div>
+
+          <button
+            type="button"
+            class="control-nav-btn"
+            [disabled]="currentSlideIndex() === slides.length - 1"
+            (click)="nextSlide()"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer">
+      <div class="footer-left">
+        <label class="dismiss-toggle-label">
+          <input
+            type="checkbox"
+            [checked]="isDismissed()"
+            (change)="onDismissChange($event)"
+            class="dismiss-checkbox"
+          />
+          <span>Don't show automatically on login</span>
+        </label>
+      </div>
+
+      <div class="footer-right">
+        <button
+          type="button"
+          class="btn-reset-checklist"
+          (click)="resetChecklist()"
+          title="Reset checklist progress"
+        >
+          Reset Checklist
+        </button>
+        <button
+          type="button"
+          class="btn-cyber-secondary"
+          (click)="closeGuide()"
+        >
+          Got it, Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

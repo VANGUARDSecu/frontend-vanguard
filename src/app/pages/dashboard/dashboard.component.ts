@@ -21,6 +21,7 @@ import { UserActivity } from './components/user-activity/user-activity';
 import { UserDevices } from './components/user-devices/user-devices';
 import { UserPersonalVault } from './components/user-personal-vault/user-personal-vault';
 import { UserAuthenticator } from './components/user-authenticator/user-authenticator';
+import { FirstTimerGuide } from './components/first-timer-guide/first-timer-guide';
 import {
   ProtocolStatus,
   SaaSApp,
@@ -88,6 +89,7 @@ export type {
     UserDevices,
     UserPersonalVault,
     UserAuthenticator,
+    FirstTimerGuide,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
@@ -97,6 +99,9 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.dashboardService.initDashboardForCurrentUser();
+    if (!this.dashboardService.firstTimerCompleted() && this.dashboardService.viewMode() === 'user') {
+      this.dashboardService.openFirstTimerGuide();
+    }
   }
 
   // Authentication & Session
@@ -110,6 +115,16 @@ export class DashboardComponent implements OnInit {
   readonly copiedUserId = this.dashboardService.copiedUserId;
   readonly sessionRevoked = this.dashboardService.sessionRevoked;
   readonly adminActionNotice = this.dashboardService.adminActionNotice;
+
+  // SCRUM-86: First Timer Guide
+  readonly showFirstTimerGuide = this.dashboardService.showFirstTimerGuide;
+  readonly firstTimerCompleted = this.dashboardService.firstTimerCompleted;
+  openFirstTimerGuide(initialTab?: 'checklist' | 'guide') {
+    this.dashboardService.openFirstTimerGuide(initialTab);
+  }
+  closeFirstTimerGuide() {
+    this.dashboardService.closeFirstTimerGuide();
+  }
 
   get searchQuery() { return this.dashboardService.searchQuery; }
   set searchQuery(v: string) { this.dashboardService.searchQuery = v; }

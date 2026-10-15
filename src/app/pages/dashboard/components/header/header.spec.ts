@@ -130,4 +130,27 @@ describe('DashboardHeader Component (SCRUM-28 Header Org Switcher)', () => {
     const upgradeBtn = fixture.nativeElement.querySelector('.individual-upgrade-wrapper');
     expect(upgradeBtn).toBeNull();
   });
+
+  it('should render the First-Timer Guide button and trigger openFirstTimerGuide on click (SCRUM-86)', () => {
+    const guideBtn = fixture.nativeElement.querySelector('.guide-btn-header');
+    expect(guideBtn).not.toBeNull();
+
+    const openSpy = vi.spyOn(dashboardService, 'openFirstTimerGuide');
+    guideBtn.click();
+    expect(openSpy).toHaveBeenCalled();
+  });
+
+  it('should display pulse indicator when first-timer guide is not completed (SCRUM-86)', () => {
+    dashboardService.firstTimerCompleted.set(false);
+    fixture.detectChanges();
+
+    const dot = fixture.nativeElement.querySelector('.guide-pulse-dot');
+    expect(dot).not.toBeNull();
+
+    dashboardService.firstTimerCompleted.set(true);
+    fixture.detectChanges();
+
+    const hiddenDot = fixture.nativeElement.querySelector('.guide-pulse-dot');
+    expect(hiddenDot).toBeNull();
+  });
 });
