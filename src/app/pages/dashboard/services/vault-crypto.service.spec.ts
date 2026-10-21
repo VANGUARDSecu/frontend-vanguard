@@ -98,4 +98,35 @@ describe('VaultCryptoService (SCRUM-98 zero-knowledge web vault)', () => {
     service.lock();
     await expect(service.unlockWithLoginPassword('WrongLogin')).rejects.toThrow(/VAULT_DECRYPT_FAILED/);
   });
+
+  it('SCRUM-109: re-encrypts the vault on password change (old password stops working, new works)', async () => {
+    // Create a vault under the OLD login password.
+    await service.unlockWithLoginPassword('OldPass#1');
+    await service.persist([
+      { id: 'c1', title: 'Roblox', category: 'Login', username: 'player@x.com', password: 'R0blox!', updatedAt: 'now' },
+    ]);
+    service.lock();
+
+    // Change password → re-encrypt.
+    await service.reencryptForPasswordChange('OldPass#1', 'NewPass#2');
+    service.lock();
+
+    // New password unlocks and preserves the data.
+    const items = await service.unlockWithLoginPassword('NewPass#2');
+    expect(items).toHaveLength(1);
+    expect(items[0].title).toBe('Roblox');
+
+    // Old password no longer works.
+    service.lock();
+    await expect(service.unlockWithLoginPassword('OldPass#1')).rejects.toThrow(/VAULT_DECRYPT_FAILED/);
+  });
+
+  it('SCRUM-109: re-encrypt throws when the old password is wrong (no silent data loss)', async () => {
+    await service.unlockWithLoginPassword('OldPass#1');
+    await service.persist([
+      { id: 'c1', title: 'X', category: 'Login', username: 'u', password: 'p', updatedAt: 'now' },
+    ]);
+    service.lock();
+    await expect(service.reencryptForPasswordChange('WrongOld', 'NewPass#2')).rejects.toThrow(/VAULT_DECRYPT_FAILED/);
+  });
 });

@@ -120,6 +120,47 @@ export class VaultCryptoService {
   }
 
   /**
+   * SCRUM-109: Re-encrypt the vault when the Vanguard login password changes.
+   *
+   * Under Option C the vault key is derived from the login password, so a
+   * password change makes the existing envelope undecryptable unless we re-key
+   * it: decrypt with the OLD password, then re-encrypt (fresh salt) with the
+   * NEW password and persist/sync. Call this as part of the change-password
+   * flow BEFORE the old password stops working.
+   *
+   * Throws if the old password cannot decrypt the current vault (so the caller
+   * can prompt the user instead of silently losing data).
+   */
+  async reencryptForPasswordChange(
+    oldPassword: string,
+    newPassword: string,
+    userId?: string,
+  ): Promise<void> {
+    const envelope = this.readEnvelope();
+    // No vault yet → nothing to re-encrypt; just establish a new-password session.
+    if (!envelope) {
+      this.sessionSalt = generateSalt();
+      this.sessionIterations = 600_000;
+      this.sessionKey = await deriveKey(newPassword, this.sessionSalt, this.sessionIterations);
+      this.isUnlocked.set(true);
+      await this.persist([], userId);
+      return;
+    }
+
+    // 1. Decrypt with the OLD password (throws VAULT_DECRYPT_FAILED if wrong).
+    const items = await decryptVault<PersonalVaultItem[]>(envelope, oldPassword);
+
+    // 2. Re-key under the NEW password with a fresh salt.
+    this.sessionSalt = generateSalt();
+    this.sessionIterations = 600_000;
+    this.sessionKey = await deriveKey(newPassword, this.sessionSalt, this.sessionIterations);
+    this.isUnlocked.set(true);
+
+    // 3. Persist the re-encrypted envelope (local + backend).
+    await this.persist(items, userId);
+  }
+
+  /**
    * Encrypt and persist the given items using the current session key.
    * Writes the envelope to localStorage and best-effort syncs to the backend.
    * No-op (throws) if the vault is locked.
