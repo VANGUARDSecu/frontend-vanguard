@@ -80,4 +80,22 @@ describe('VaultCryptoService (SCRUM-98 zero-knowledge web vault)', () => {
     service.lock();
     await expect(service.persist([])).rejects.toThrow(/locked/i);
   });
+
+  it('SCRUM-108 Option C: unlockWithLoginPassword encrypts/decrypts with the login password (shared format)', async () => {
+    // Create a vault using the login password as the only secret.
+    await service.unlockWithLoginPassword('LoginPass#1');
+    await service.persist([
+      { id: 'c1', title: 'Roblox', category: 'Login', username: 'player@x.com', password: 'R0blox!', updatedAt: 'now' },
+    ]);
+    service.lock();
+
+    // Re-unlock with the same login password returns the item.
+    const items = await service.unlockWithLoginPassword('LoginPass#1');
+    expect(items).toHaveLength(1);
+    expect(items[0].title).toBe('Roblox');
+
+    // Wrong login password fails (zero-knowledge: server-independent).
+    service.lock();
+    await expect(service.unlockWithLoginPassword('WrongLogin')).rejects.toThrow(/VAULT_DECRYPT_FAILED/);
+  });
 });

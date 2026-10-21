@@ -98,6 +98,19 @@ export class VaultCryptoService {
     return items;
   }
 
+  /**
+   * SCRUM-108 (Option C): unlock the vault using the user's Vanguard LOGIN
+   * PASSWORD as the key-derivation secret. There is no separate master
+   * password — the login password typed at sign-in is the same secret that
+   * derives the AES-GCM key here. Because the key is derived client-side and
+   * never transmitted, zero-knowledge is preserved. This produces an identical
+   * envelope format to the browser extension (shared vault-crypto module), so
+   * the same vault decrypts in both the web app and the extension.
+   */
+  async unlockWithLoginPassword(loginPassword: string): Promise<PersonalVaultItem[]> {
+    return this.unlock(loginPassword);
+  }
+
   /** Lock the vault: drop all in-memory key material. */
   lock(): void {
     this.sessionKey = null;
