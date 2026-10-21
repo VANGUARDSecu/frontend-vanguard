@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { Observable, tap, catchError, throwError, of } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import { SupabaseService } from '../../../services/supabase.service';
+import { VaultCryptoService } from './vault-crypto.service';
 import {
   ProtocolStatus,
   SaaSApp,
@@ -52,6 +53,7 @@ export class DashboardService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   readonly supabaseService = inject(SupabaseService);
+  readonly vaultCrypto = inject(VaultCryptoService);
 
   // Helper methods for dynamic localStorage persistence
   private loadStored<T>(key: string, defaultVal: T): T {
@@ -4955,10 +4957,38 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   // SCRUM-50: Personal Credential Vault (Zero Hardcoded Initial State)
   // ==========================================
   private initPersonalVaultItems(): PersonalVaultItem[] {
-    return this.loadStored<PersonalVaultItem[]>('vanguard_personal_vault_items', []);
+    // SCRUM-98: never read plaintext vault from storage. Items are loaded only
+    // after the user unlocks the vault (master password), decrypting the
+    // zero-knowledge envelope via VaultCryptoService.
+    return [];
   }
 
   readonly vaultItems = signal<PersonalVaultItem[]>(this.initPersonalVaultItems());
+
+  /**
+   * SCRUM-98: persist the current vault as an encrypted envelope (never
+   * plaintext). If the vault is locked, items remain in memory only — nothing
+   * is written to storage. Best-effort backend sync when a userId is present.
+   */
+  private persistVaultItems(): void {
+    if (!this.vaultCrypto.isUnlocked()) {
+      return;
+    }
+    const userId = this.authService.currentUser()?.id;
+    void this.vaultCrypto.persist(this.vaultItems(), userId);
+  }
+
+  /** SCRUM-98: unlock the vault and load decrypted items into the signal. */
+  async unlockVault(masterPassword: string): Promise<void> {
+    const items = await this.vaultCrypto.unlock(masterPassword);
+    this.vaultItems.set(items);
+  }
+
+  /** SCRUM-98: lock the vault and clear decrypted items from memory. */
+  lockVault(): void {
+    this.vaultCrypto.lock();
+    this.vaultItems.set([]);
+  }
   readonly vaultCategoryFilter = signal<string>('all');
   readonly vaultSearchQuery = signal<string>('');
 
@@ -4996,7 +5026,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
       updatedAt: 'Just now'
     };
     this.vaultItems.update((items) => [newItem, ...items]);
-    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.persistVaultItems();
     this.logAuditEvent(`Added vault credential: ${newItem.title}`, 'Personal Vault', newItem.category, 'success', 'Low');
   }
 
@@ -5004,14 +5034,14 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     this.vaultItems.update((items) =>
       items.map((item) => (item.id === id ? { ...item, ...updates, updatedAt: 'Just now' } : item))
     );
-    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.persistVaultItems();
     this.logAuditEvent(`Updated vault credential: ${id}`, 'Personal Vault', 'Update', 'success', 'Low');
   }
 
   deleteVaultItem(id: string): void {
     const item = this.vaultItems().find((i) => i.id === id);
     this.vaultItems.update((items) => items.filter((i) => i.id !== id));
-    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.persistVaultItems();
     if (item) {
       this.logAuditEvent(`Deleted vault credential: ${item.title}`, 'Personal Vault', item.category, 'success', 'Low');
     }
@@ -5021,7 +5051,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     this.vaultItems.update((items) =>
       items.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item))
     );
-    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.persistVaultItems();
   }
 
   generateStrongPassword(options?: {
