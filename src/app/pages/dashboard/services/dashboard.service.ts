@@ -1,5 +1,6 @@
 import { Injectable, inject, signal, computed, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap, catchError, throwError, of } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
@@ -52,6 +53,10 @@ export class DashboardService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   readonly supabaseService = inject(SupabaseService);
+  private readonly http = inject(HttpClient);
+
+  // Backend API base (tenant-scoped apps endpoints live under /apps). SCRUM-94.
+  private readonly apiBase = 'http://localhost:3000';
 
   // Helper methods for dynamic localStorage persistence
   private loadStored<T>(key: string, defaultVal: T): T {
@@ -1303,6 +1308,72 @@ AQUAA4IBDwAwggEKAoIBAQC7V9x6zk10N4+F+qS2V/x8+qY5p9z8N+12908k
   readonly apps = signal<SaaSApp[]>(
     this.loadStored<SaaSApp[]>('vanguard_user_apps', [])
   );
+
+  /**
+   * SCRUM-94: Load the signed-in employee's company apps from the backend
+   * (GET /apps/my), replacing the legacy localStorage source as the authoritative
+   * company catalog. Individuals (no tenant) resolve to an empty company list.
+   * Falls back silently to any cached apps on network failure so the UI degrades
+   * gracefully offline.
+   */
+  loadCompanyApps(): void {
+    if (!this.isBrowser) return;
+    const u = this.authService.currentUser();
+    const userId = u?.id || (u?.user_metadata as any)?.['sub'];
+    if (this.accountType() === 'individual' || !userId) {
+      this.apps.set([]);
+      return;
+    }
+    this.http
+      .get<any[]>(`${this.apiBase}/apps/my`, { params: { userId } })
+      .subscribe({
+        next: (rows) => {
+          const mapped: SaaSApp[] = (rows || []).map((r) => ({
+            id: r.app_id || r.id,
+            name: r.name,
+            category: (r.category as SaaSApp['category']) || 'cloud',
+            description: r.description || '',
+            icon: r.icon || '🌐',
+            protocol: (r.protocol as SaaSApp['protocol']) || 'SAML 2.0',
+            launchUrl: r.launch_url || r.launchUrl || '',
+            assigned: r.assigned !== false,
+            inheritedViaGroup: r.inherited_via_group || undefined,
+          }));
+          this.apps.set(mapped);
+          this.saveStored('vanguard_user_apps', mapped);
+        },
+        error: () => {
+          // Keep whatever is cached; do not clear company apps on transient errors.
+        },
+      });
+  }
+
+  /**
+   * SCRUM-94: Admin hook to assign a company app to a specific employee or to
+   * all members, via POST /apps/assign. Only meaningful for company admins; the
+   * backend enforces the admin/manager role and tenant isolation.
+   */
+  assignCompanyApp(
+    app: Partial<SaaSApp> & { appId: string; name: string },
+    target: { userId?: string; all?: boolean },
+  ): Observable<{ assigned: number }> {
+    const u = this.authService.currentUser();
+    const userId = u?.id || (u?.user_metadata as any)?.['sub'];
+    return this.http.post<{ assigned: number }>(
+      `${this.apiBase}/apps/assign`,
+      {
+        appId: app.appId,
+        name: app.name,
+        protocol: app.protocol,
+        launchUrl: app.launchUrl,
+        category: app.category,
+        icon: app.icon,
+        target: target.all ? 'all' : 'user',
+        userId: target.all ? undefined : target.userId,
+      },
+      { params: { userId: userId || '' } },
+    );
+  }
 
   // Active apps source: personal apps when in personal workspace, company apps when in organization
   // SCRUM-58: Strict deduplication ensuring no application ever appears twice
