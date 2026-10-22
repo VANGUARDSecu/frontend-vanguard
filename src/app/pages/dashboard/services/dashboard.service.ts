@@ -4978,11 +4978,20 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     void this.vaultCrypto.persist(this.vaultItems(), userId);
   }
 
-  /** SCRUM-98: unlock the vault and load decrypted items into the signal. */
+  /** SCRUM-98/114: unlock the vault (pull latest from backend first) and load decrypted items. */
   async unlockVault(masterPassword: string): Promise<void> {
+    // SCRUM-114: sync the latest encrypted envelope from the backend so items
+    // added elsewhere (e.g. the browser extension) are reflected here.
+    const userId = this.authService.currentUser()?.id;
+    if (userId) {
+      await this.vaultCrypto.syncFromBackend(userId);
+    }
     const items = await this.vaultCrypto.unlock(masterPassword);
     this.vaultItems.set(items);
   }
+
+  /** SCRUM-114: true when the vault key is loaded in memory. */
+  readonly isVaultUnlocked = this.vaultCrypto.isUnlocked;
 
   /** SCRUM-98: lock the vault and clear decrypted items from memory. */
   lockVault(): void {
