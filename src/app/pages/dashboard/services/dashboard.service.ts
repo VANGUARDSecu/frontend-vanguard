@@ -5,6 +5,7 @@ import { Observable, tap, catchError, throwError, of } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import { SupabaseService } from '../../../services/supabase.service';
 import { VaultCryptoService } from './vault-crypto.service';
+import { generateTotp } from '../../../shared/crypto/totp';
 import {
   ProtocolStatus,
   SaaSApp,
@@ -5127,24 +5128,40 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   readonly totpTick = signal<number>(0);
   private totpIntervalId: any = null;
 
-  computeTotpCode(secret: string, offsetWindow: number = 0): string {
-    const epoch = Math.floor(Date.now() / 1000 / 30) + offsetWindow;
-    let hash = 0;
-    const str = `${secret.trim().toUpperCase()}:${epoch}`;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
+  // SCRUM-116: real RFC 6238 codes, computed asynchronously (HMAC-SHA1 is async
+  // via Web Crypto) and cached per account id for synchronous template reads.
+  readonly totpCodes = signal<Record<string, string>>({});
+
+  /** Recompute all account codes with the real RFC 6238 engine. */
+  async refreshTotpCodes(): Promise<void> {
+    const accounts = this.totpAccounts();
+    const next: Record<string, string> = {};
+    for (const acc of accounts) {
+      try {
+        next[acc.id] = await generateTotp(acc.secret, { digits: 6, period: 30 });
+      } catch {
+        next[acc.id] = '------';
+      }
     }
-    return Math.abs(hash % 1000000).toString().padStart(6, '0');
+    this.totpCodes.set(next);
+  }
+
+  /**
+   * SCRUM-116: real RFC 6238 TOTP (async). Retained for callers that need a
+   * one-off code (e.g. extension TOTP autofill parity). Prefer totpCodes for
+   * live display.
+   */
+  async computeTotpCode(secret: string): Promise<string> {
+    return generateTotp(secret, { digits: 6, period: 30 });
   }
 
   readonly activeTotpAccounts = computed<TotpAccount[]>(() => {
     this.totpTick();
     const remaining = this.totpSecondsRemaining();
+    const codes = this.totpCodes();
     return this.totpAccounts().map((acc) => ({
       ...acc,
-      currentCode: this.computeTotpCode(acc.secret),
+      currentCode: codes[acc.id] || '------',
       remainingSeconds: remaining
     }));
   });
@@ -5152,6 +5169,8 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   private startTotpTimer(): void {
     if (!this.isBrowser) return;
     if (this.totpIntervalId) clearInterval(this.totpIntervalId);
+    // SCRUM-116: compute real codes once now, then refresh each new 30s window.
+    void this.refreshTotpCodes();
 
     const updateTimer = () => {
       const currentSeconds = Math.floor(Date.now() / 1000) % 30;
@@ -5159,6 +5178,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
       this.totpSecondsRemaining.set(remaining);
       if (remaining === 30 || remaining === 1) {
         this.totpTick.update((t) => t + 1);
+        void this.refreshTotpCodes();
       }
     };
 
@@ -5173,6 +5193,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     };
     this.totpAccounts.update((accounts) => [newAcc, ...accounts]);
     this.saveStored('vanguard_user_totp_accounts', this.totpAccounts());
+    void this.refreshTotpCodes();
     this.logAuditEvent(`Added 2FA Authenticator token: ${newAcc.issuer}`, 'TOTP Authenticator', 'Enroll', 'success', 'Low');
   }
 
