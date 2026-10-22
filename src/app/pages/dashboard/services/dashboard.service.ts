@@ -4988,7 +4988,16 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
       await this.vaultCrypto.syncFromBackend(userId);
     }
     const items = await this.vaultCrypto.unlock(masterPassword);
-    this.vaultItems.set(items);
+    // SCRUM-114: normalize items that may have been saved by another client
+    // (e.g. the extension) without all web-app display fields, so they render
+    // and categorize correctly instead of showing as blank cards.
+    const normalized = items.map((it: any) => ({
+      ...it,
+      category: it.category || 'Login',
+      username: it.username || '',
+      updatedAt: it.updatedAt || 'Synced',
+    }));
+    this.vaultItems.set(normalized);
   }
 
   /** SCRUM-114: true when the vault key is loaded in memory. */
