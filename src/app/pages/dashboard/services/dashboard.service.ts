@@ -4,6 +4,8 @@ import { Router } from '@angular/router';
 import { Observable, tap, catchError, throwError, of } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import { SupabaseService } from '../../../services/supabase.service';
+import { VaultCryptoService } from './vault-crypto.service';
+import { generateTotp } from '../../../shared/crypto/totp';
 import {
   ProtocolStatus,
   SaaSApp,
@@ -52,6 +54,7 @@ export class DashboardService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   readonly supabaseService = inject(SupabaseService);
+  readonly vaultCrypto = inject(VaultCryptoService);
 
   // Helper methods for dynamic localStorage persistence
   private loadStored<T>(key: string, defaultVal: T): T {
@@ -4955,10 +4958,56 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   // SCRUM-50: Personal Credential Vault (Zero Hardcoded Initial State)
   // ==========================================
   private initPersonalVaultItems(): PersonalVaultItem[] {
-    return this.loadStored<PersonalVaultItem[]>('vanguard_personal_vault_items', []);
+    // SCRUM-98: never read plaintext vault from storage. Items are loaded only
+    // after the user unlocks the vault (master password), decrypting the
+    // zero-knowledge envelope via VaultCryptoService.
+    return [];
   }
 
   readonly vaultItems = signal<PersonalVaultItem[]>(this.initPersonalVaultItems());
+
+  /**
+   * SCRUM-98: persist the current vault as an encrypted envelope (never
+   * plaintext). If the vault is locked, items remain in memory only — nothing
+   * is written to storage. Best-effort backend sync when a userId is present.
+   */
+  private persistVaultItems(): void {
+    if (!this.vaultCrypto.isUnlocked()) {
+      return;
+    }
+    const userId = this.authService.currentUser()?.id;
+    void this.vaultCrypto.persist(this.vaultItems(), userId);
+  }
+
+  /** SCRUM-98/114: unlock the vault (pull latest from backend first) and load decrypted items. */
+  async unlockVault(masterPassword: string): Promise<void> {
+    // SCRUM-114: sync the latest encrypted envelope from the backend so items
+    // added elsewhere (e.g. the browser extension) are reflected here.
+    const userId = this.authService.currentUser()?.id;
+    if (userId) {
+      await this.vaultCrypto.syncFromBackend(userId);
+    }
+    const items = await this.vaultCrypto.unlock(masterPassword);
+    // SCRUM-114: normalize items that may have been saved by another client
+    // (e.g. the extension) without all web-app display fields, so they render
+    // and categorize correctly instead of showing as blank cards.
+    const normalized = items.map((it: any) => ({
+      ...it,
+      category: it.category || 'Login',
+      username: it.username || '',
+      updatedAt: it.updatedAt || 'Synced',
+    }));
+    this.vaultItems.set(normalized);
+  }
+
+  /** SCRUM-114: true when the vault key is loaded in memory. */
+  readonly isVaultUnlocked = this.vaultCrypto.isUnlocked;
+
+  /** SCRUM-98: lock the vault and clear decrypted items from memory. */
+  lockVault(): void {
+    this.vaultCrypto.lock();
+    this.vaultItems.set([]);
+  }
   readonly vaultCategoryFilter = signal<string>('all');
   readonly vaultSearchQuery = signal<string>('');
 
@@ -4996,7 +5045,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
       updatedAt: 'Just now'
     };
     this.vaultItems.update((items) => [newItem, ...items]);
-    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.persistVaultItems();
     this.logAuditEvent(`Added vault credential: ${newItem.title}`, 'Personal Vault', newItem.category, 'success', 'Low');
   }
 
@@ -5004,14 +5053,14 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     this.vaultItems.update((items) =>
       items.map((item) => (item.id === id ? { ...item, ...updates, updatedAt: 'Just now' } : item))
     );
-    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.persistVaultItems();
     this.logAuditEvent(`Updated vault credential: ${id}`, 'Personal Vault', 'Update', 'success', 'Low');
   }
 
   deleteVaultItem(id: string): void {
     const item = this.vaultItems().find((i) => i.id === id);
     this.vaultItems.update((items) => items.filter((i) => i.id !== id));
-    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.persistVaultItems();
     if (item) {
       this.logAuditEvent(`Deleted vault credential: ${item.title}`, 'Personal Vault', item.category, 'success', 'Low');
     }
@@ -5021,7 +5070,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     this.vaultItems.update((items) =>
       items.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item))
     );
-    this.saveStored('vanguard_personal_vault_items', this.vaultItems());
+    this.persistVaultItems();
   }
 
   generateStrongPassword(options?: {
@@ -5088,24 +5137,40 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   readonly totpTick = signal<number>(0);
   private totpIntervalId: any = null;
 
-  computeTotpCode(secret: string, offsetWindow: number = 0): string {
-    const epoch = Math.floor(Date.now() / 1000 / 30) + offsetWindow;
-    let hash = 0;
-    const str = `${secret.trim().toUpperCase()}:${epoch}`;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
+  // SCRUM-116: real RFC 6238 codes, computed asynchronously (HMAC-SHA1 is async
+  // via Web Crypto) and cached per account id for synchronous template reads.
+  readonly totpCodes = signal<Record<string, string>>({});
+
+  /** Recompute all account codes with the real RFC 6238 engine. */
+  async refreshTotpCodes(): Promise<void> {
+    const accounts = this.totpAccounts();
+    const next: Record<string, string> = {};
+    for (const acc of accounts) {
+      try {
+        next[acc.id] = await generateTotp(acc.secret, { digits: 6, period: 30 });
+      } catch {
+        next[acc.id] = '------';
+      }
     }
-    return Math.abs(hash % 1000000).toString().padStart(6, '0');
+    this.totpCodes.set(next);
+  }
+
+  /**
+   * SCRUM-116: real RFC 6238 TOTP (async). Retained for callers that need a
+   * one-off code (e.g. extension TOTP autofill parity). Prefer totpCodes for
+   * live display.
+   */
+  async computeTotpCode(secret: string): Promise<string> {
+    return generateTotp(secret, { digits: 6, period: 30 });
   }
 
   readonly activeTotpAccounts = computed<TotpAccount[]>(() => {
     this.totpTick();
     const remaining = this.totpSecondsRemaining();
+    const codes = this.totpCodes();
     return this.totpAccounts().map((acc) => ({
       ...acc,
-      currentCode: this.computeTotpCode(acc.secret),
+      currentCode: codes[acc.id] || '------',
       remainingSeconds: remaining
     }));
   });
@@ -5113,6 +5178,8 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
   private startTotpTimer(): void {
     if (!this.isBrowser) return;
     if (this.totpIntervalId) clearInterval(this.totpIntervalId);
+    // SCRUM-116: compute real codes once now, then refresh each new 30s window.
+    void this.refreshTotpCodes();
 
     const updateTimer = () => {
       const currentSeconds = Math.floor(Date.now() / 1000) % 30;
@@ -5120,6 +5187,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
       this.totpSecondsRemaining.set(remaining);
       if (remaining === 30 || remaining === 1) {
         this.totpTick.update((t) => t + 1);
+        void this.refreshTotpCodes();
       }
     };
 
@@ -5134,6 +5202,7 @@ AQEBBQADggEPADCCAQoCggEBAL5f4k6gV7aZ98d4Zk...
     };
     this.totpAccounts.update((accounts) => [newAcc, ...accounts]);
     this.saveStored('vanguard_user_totp_accounts', this.totpAccounts());
+    void this.refreshTotpCodes();
     this.logAuditEvent(`Added 2FA Authenticator token: ${newAcc.issuer}`, 'TOTP Authenticator', 'Enroll', 'success', 'Low');
   }
 
